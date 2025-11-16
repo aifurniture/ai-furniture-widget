@@ -139,21 +139,6 @@ export function handleWidgetClick() {
 
     debugLog('Widget clicked');
 
-    // Check if there are existing generated images
-    const storedImages = sessionStorage.getItem('ai_furniture_generated_images');
-    if (storedImages) {
-        try {
-            const images = JSON.parse(storedImages);
-            if (images && images.length > 0) {
-                // Display existing images
-                displayGeneratedImages(images);
-                return; // Don't open modal if images exist
-            }
-        } catch (e) {
-            console.warn('Failed to parse stored images:', e);
-        }
-    }
-
     // Store original product URL for return tracking
     sessionStorage.setItem('ai_furniture_original_url', window.location.href);
 

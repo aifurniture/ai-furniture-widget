@@ -196,11 +196,117 @@ export function openFurnitureModal(url, sessionId, config) {
       </p>
     `;
 
+    // Check for existing generated images
+    const storedImages = sessionStorage.getItem('ai_furniture_generated_images');
+    let existingImages = [];
+    if (storedImages) {
+        try {
+            existingImages = JSON.parse(storedImages);
+        } catch (e) {
+            console.warn('Failed to parse stored images:', e);
+        }
+    }
+
+    // Results section (for displaying generated images)
+    const resultsSection = document.createElement('div');
+    resultsSection.id = 'ai-furniture-results-section';
+    resultsSection.style.cssText = `
+      display: ${existingImages.length > 0 ? 'flex' : 'none'};
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 4px;
+      max-height: 400px;
+      overflow-y: auto;
+    `;
+
+    // Results header
+    const resultsHeader = document.createElement('div');
+    resultsHeader.style.cssText = `
+      font-size: 13px;
+      font-weight: 600;
+      color: #166534;
+      margin-bottom: 4px;
+    `;
+    resultsHeader.textContent = 'Generated Preview';
+    resultsSection.appendChild(resultsHeader);
+
+    // Results images container
+    const resultsImagesContainer = document.createElement('div');
+    resultsImagesContainer.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    `;
+    resultsSection.appendChild(resultsImagesContainer);
+
+    // Function to display images in results section
+    function displayImagesInModal(images) {
+        if (!images || images.length === 0) {
+            resultsSection.style.display = 'none';
+            return;
+        }
+
+        resultsSection.style.display = 'flex';
+        resultsImagesContainer.innerHTML = '';
+
+        images.forEach((img) => {
+            const imageWrapper = document.createElement('div');
+            imageWrapper.style.cssText = `
+              border-radius: 10px;
+              overflow: hidden;
+              border: 1px solid rgba(226, 232, 240, 0.9);
+              background: #f8fafc;
+            `;
+
+            const imgElement = document.createElement('img');
+            imgElement.src = img.url;
+            imgElement.alt = img.description || 'Generated preview';
+            imgElement.style.cssText = `
+              width: 100%;
+              height: auto;
+              display: block;
+              cursor: pointer;
+              transition: transform 0.2s;
+            `;
+
+            imgElement.addEventListener('click', () => {
+                const newWindow = window.open();
+                if (newWindow) {
+                    newWindow.document.write(`
+                        <html>
+                            <head><title>Generated Preview</title></head>
+                            <body style="margin:0; padding:20px; background:#0f172a; display:flex; align-items:center; justify-content:center; min-height:100vh;">
+                            <img src="${img.url}" style="max-width:100%; max-height:100vh; border-radius:8px; box-shadow:0 20px 60px rgba(0,0,0,0.5);" />
+                        </body>
+                    </html>
+                `);
+                }
+            });
+
+            imgElement.addEventListener('mouseenter', () => {
+                imgElement.style.transform = 'scale(1.02)';
+            });
+
+            imgElement.addEventListener('mouseleave', () => {
+                imgElement.style.transform = 'scale(1)';
+            });
+
+            imageWrapper.appendChild(imgElement);
+            resultsImagesContainer.appendChild(imageWrapper);
+        });
+    }
+
+    // Display existing images if any
+    if (existingImages.length > 0) {
+        displayImagesInModal(existingImages);
+    }
+
     // Upload section
     const uploadSection = document.createElement('div');
+    uploadSection.id = 'ai-furniture-upload-section';
     uploadSection.style.cssText = `
       flex: 1;
-      display: flex;
+      display: ${existingImages.length > 0 ? 'none' : 'flex'};
       flex-direction: column;
       gap: 12px;
       margin-top: 4px;
@@ -342,8 +448,8 @@ export function openFurnitureModal(url, sessionId, config) {
     `;
 
     const primaryButton = document.createElement('button');
-    primaryButton.textContent = 'Continue with this photo';
-    primaryButton.disabled = true;
+    primaryButton.textContent = existingImages.length > 0 ? 'Generate New Preview' : 'Continue with this photo';
+    primaryButton.disabled = existingImages.length === 0;
     primaryButton.style.cssText = `
       width: 100%;
       border: none;
@@ -389,7 +495,8 @@ export function openFurnitureModal(url, sessionId, config) {
             '0 10px 24px rgba(22, 101, 52, 0.45)';
     });
 
-    primaryButton.addEventListener('click', async () => {
+    // Store original handler
+    const originalGenerateHandler = async () => {
         if (!selectedFile) return;
 
         // Disable button during upload
@@ -457,11 +564,41 @@ export function openFurnitureModal(url, sessionId, config) {
             sessionStorage.setItem('ai_furniture_generated_images', JSON.stringify(result.generatedImages || []));
             sessionStorage.setItem('ai_furniture_user', 'true');
 
-            // Display generated images underneath the widget
-            displayGeneratedImages(result.generatedImages || []);
+            // Hide upload section and show results
+            uploadSection.style.display = 'none';
+            
+            // Display generated images in the modal
+            displayImagesInModal(result.generatedImages || []);
 
-            // Close modal and show success
-            closeFurnitureModal();
+            // Re-enable button and change text
+            setPrimaryEnabled(true);
+            primaryButton.textContent = 'Generate New Preview';
+            primaryButton.style.opacity = '1';
+            primaryButton.style.cursor = 'pointer';
+
+            // Remove old click handler and add new one for generating new preview
+            const oldHandler = primaryButton._originalHandler;
+            if (oldHandler) {
+                primaryButton.removeEventListener('click', oldHandler);
+            }
+
+            const newPreviewHandler = () => {
+                uploadSection.style.display = 'flex';
+                resultsSection.style.display = 'none';
+                fileInput.value = '';
+                selectedFile = null;
+                previewWrapper.style.display = 'none';
+                setPrimaryEnabled(false);
+                primaryButton.textContent = 'Continue with this photo';
+                
+                // Remove this handler and restore original
+                primaryButton.removeEventListener('click', newPreviewHandler);
+                if (oldHandler) {
+                    primaryButton.addEventListener('click', oldHandler);
+                }
+            };
+            
+            primaryButton.addEventListener('click', newPreviewHandler);
             
             // Show success message
             showSuccessMessage('Images generated successfully!');
@@ -486,7 +623,29 @@ export function openFurnitureModal(url, sessionId, config) {
             // Show error message
             showErrorMessage(error.message || 'Failed to generate images. Please try again.');
         }
-    });
+    };
+    
+    // If existing images, set up button to allow generating new preview
+    if (existingImages.length > 0) {
+        setPrimaryEnabled(true);
+        const newPreviewHandler = () => {
+            uploadSection.style.display = 'flex';
+            resultsSection.style.display = 'none';
+            fileInput.value = '';
+            selectedFile = null;
+            previewWrapper.style.display = 'none';
+            setPrimaryEnabled(false);
+            primaryButton.textContent = 'Continue with this photo';
+            
+            // Remove this handler and restore original
+            primaryButton.removeEventListener('click', newPreviewHandler);
+            primaryButton.addEventListener('click', originalGenerateHandler);
+        };
+        primaryButton.addEventListener('click', newPreviewHandler);
+    } else {
+        // No existing images, use original handler
+        primaryButton.addEventListener('click', originalGenerateHandler);
+    }
 
     const footerNote = document.createElement('p');
     footerNote.textContent =
@@ -525,6 +684,7 @@ export function openFurnitureModal(url, sessionId, config) {
 
     // Assemble content
     content.appendChild(header);
+    content.appendChild(resultsSection);
     content.appendChild(uploadSection);
     content.appendChild(footer);
 
