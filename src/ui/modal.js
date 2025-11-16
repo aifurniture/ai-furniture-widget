@@ -239,6 +239,227 @@ export function openFurnitureModal(url, sessionId, config) {
     `;
     resultsSection.appendChild(resultsImagesContainer);
 
+    // Function to create before/after slider
+    function createBeforeAfterSlider(beforeImageUrl, afterImageUrl) {
+        const sliderWrapper = document.createElement('div');
+        sliderWrapper.style.cssText = `
+            position: relative;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            background: #f8fafc;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            margin-bottom: 12px;
+        `;
+
+        const sliderContainer = document.createElement('div');
+        sliderContainer.style.cssText = `
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            overflow: hidden;
+            cursor: grab;
+            user-select: none;
+        `;
+
+        // Before image (background)
+        const beforeImg = document.createElement('img');
+        beforeImg.src = beforeImageUrl;
+        beforeImg.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        `;
+
+        // After image container (clipped)
+        const afterContainer = document.createElement('div');
+        afterContainer.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 50%;
+            height: 100%;
+            overflow: hidden;
+            transition: width 0.1s ease-out;
+        `;
+
+        const afterImg = document.createElement('img');
+        afterImg.src = afterImageUrl;
+        afterImg.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        `;
+
+        // Slider handle
+        const sliderHandle = document.createElement('div');
+        sliderHandle.style.cssText = `
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(135deg, #166534, #15803d);
+            cursor: grab;
+            transform: translateX(-50%);
+            z-index: 10;
+            box-shadow: 0 0 8px rgba(22, 101, 52, 0.4);
+        `;
+
+        // Handle circle
+        const handleCircle = document.createElement('div');
+        handleCircle.style.cssText = `
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #ffffff, #f8fafc);
+            border: 3px solid #166534;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(22, 101, 52, 0.3);
+            cursor: grab;
+        `;
+
+        // Arrow icons
+        handleCircle.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="position: absolute; left: 6px;">
+                <path d="M15 18l-6-6 6-6" stroke="#166534" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="position: absolute; right: 6px;">
+                <path d="M9 18l6-6-6-6" stroke="#166534" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        `;
+
+        sliderHandle.appendChild(handleCircle);
+
+        // Labels
+        const beforeLabel = document.createElement('div');
+        beforeLabel.textContent = 'Before';
+        beforeLabel.style.cssText = `
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(15, 23, 42, 0.75);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            z-index: 20;
+            backdrop-filter: blur(8px);
+        `;
+
+        const afterLabel = document.createElement('div');
+        afterLabel.textContent = 'After';
+        afterLabel.style.cssText = `
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(22, 101, 52, 0.85);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            z-index: 20;
+            backdrop-filter: blur(8px);
+        `;
+
+        afterContainer.appendChild(afterImg);
+        sliderContainer.appendChild(beforeImg);
+        sliderContainer.appendChild(afterContainer);
+        sliderContainer.appendChild(sliderHandle);
+        sliderContainer.appendChild(beforeLabel);
+        sliderContainer.appendChild(afterLabel);
+
+        // Slider functionality
+        let isDragging = false;
+        let currentPosition = 50;
+
+        function updateSlider(position) {
+            const clampedPosition = Math.max(0, Math.min(100, position));
+            currentPosition = clampedPosition;
+            afterContainer.style.width = `${clampedPosition}%`;
+            sliderHandle.style.left = `${clampedPosition}%`;
+        }
+
+        function handleMove(clientX) {
+            if (!isDragging) return;
+            const rect = sliderContainer.getBoundingClientRect();
+            const x = clientX - rect.left;
+            const percentage = (x / rect.width) * 100;
+            updateSlider(percentage);
+        }
+
+        // Mouse events
+        sliderContainer.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            sliderContainer.style.cursor = 'grabbing';
+            handleCircle.style.cursor = 'grabbing';
+            handleMove(e.clientX);
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                handleMove(e.clientX);
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                sliderContainer.style.cursor = 'grab';
+                handleCircle.style.cursor = 'grab';
+            }
+        });
+
+        // Touch events
+        sliderContainer.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            handleMove(e.touches[0].clientX);
+            e.preventDefault();
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            if (isDragging) {
+                handleMove(e.touches[0].clientX);
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+
+        // Click to move
+        sliderContainer.addEventListener('click', (e) => {
+            if (!isDragging) {
+                const rect = sliderContainer.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const percentage = (x / rect.width) * 100;
+                updateSlider(percentage);
+            }
+        });
+
+        sliderWrapper.appendChild(sliderContainer);
+        return sliderWrapper;
+    }
+
     // Function to display images in results section
     function displayImagesInModal(images) {
         if (!images || images.length === 0) {
@@ -249,7 +470,21 @@ export function openFurnitureModal(url, sessionId, config) {
         resultsSection.style.display = 'flex';
         resultsImagesContainer.innerHTML = '';
 
-        images.forEach((img) => {
+        // Get original image for before/after slider
+        const originalImageUrl = sessionStorage.getItem('ai_furniture_original_image');
+        const firstGeneratedImage = images[0];
+
+        // Add before/after slider if we have both images
+        if (originalImageUrl && firstGeneratedImage) {
+            const slider = createBeforeAfterSlider(originalImageUrl, firstGeneratedImage.url);
+            resultsImagesContainer.appendChild(slider);
+        }
+
+        // Add remaining generated images
+        images.forEach((img, index) => {
+            // Skip first image if we already showed it in the slider
+            if (index === 0 && originalImageUrl) return;
+
             const imageWrapper = document.createElement('div');
             imageWrapper.style.cssText = `
               border-radius: 10px;
@@ -675,9 +910,12 @@ export function openFurnitureModal(url, sessionId, config) {
 
         const reader = new FileReader();
         reader.onload = ev => {
-            previewImage.src = ev.target.result;
+            const imageDataUrl = ev.target.result;
+            previewImage.src = imageDataUrl;
             previewWrapper.style.display = 'flex';
             setPrimaryEnabled(true);
+            // Store original image for before/after slider
+            sessionStorage.setItem('ai_furniture_original_image', imageDataUrl);
         };
         reader.readAsDataURL(file);
     });
