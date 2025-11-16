@@ -251,7 +251,7 @@ export function openFurnitureModal(url, sessionId, config) {
     `;
     resultsSection.appendChild(resultsImagesContainer);
 
-    // Function to create before/after slider
+    // Function to create before/after slider (based on React BeforeAfterSlider approach)
     function createBeforeAfterSlider(beforeImageUrl, afterImageUrl) {
         const sliderWrapper = document.createElement('div');
         sliderWrapper.style.cssText = `
@@ -273,11 +273,13 @@ export function openFurnitureModal(url, sessionId, config) {
             overflow: hidden;
             cursor: grab;
             user-select: none;
+            touch-action: none;
         `;
 
-        // Before image (background)
+        // Before image (background - original room photo)
         const beforeImg = document.createElement('img');
         beforeImg.src = beforeImageUrl;
+        beforeImg.alt = 'Before - Your Room';
         beforeImg.style.cssText = `
             position: absolute;
             top: 0;
@@ -286,9 +288,13 @@ export function openFurnitureModal(url, sessionId, config) {
             height: 100%;
             object-fit: cover;
             display: block;
+            pointer-events: none;
         `;
+        beforeImg.onerror = () => {
+            console.error('❌ Failed to load before image:', beforeImageUrl.substring(0, 50));
+        };
 
-        // After image container (clipped)
+        // After image container (clipped - generated AI image)
         const afterContainer = document.createElement('div');
         afterContainer.style.cssText = `
             position: absolute;
@@ -297,20 +303,25 @@ export function openFurnitureModal(url, sessionId, config) {
             width: 50%;
             height: 100%;
             overflow: hidden;
-            transition: none;
+            clip-path: inset(0 0 0 0);
         `;
 
         const afterImg = document.createElement('img');
         afterImg.src = afterImageUrl;
+        afterImg.alt = 'After - With AI Furniture';
         afterImg.style.cssText = `
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
+            width: 200%;
             height: 100%;
             object-fit: cover;
             display: block;
+            pointer-events: none;
         `;
+        afterImg.onerror = () => {
+            console.error('❌ Failed to load after image:', afterImageUrl.substring(0, 50));
+        };
 
         // Slider handle
         const sliderHandle = document.createElement('div');
@@ -325,6 +336,7 @@ export function openFurnitureModal(url, sessionId, config) {
             transform: translateX(-50%);
             z-index: 10;
             box-shadow: 0 0 8px rgba(22, 101, 52, 0.4);
+            pointer-events: auto;
         `;
 
         // Handle circle
@@ -344,6 +356,7 @@ export function openFurnitureModal(url, sessionId, config) {
             justify-content: center;
             box-shadow: 0 4px 12px rgba(22, 101, 52, 0.3);
             cursor: grab;
+            pointer-events: auto;
         `;
 
         // Arrow icons
@@ -373,6 +386,7 @@ export function openFurnitureModal(url, sessionId, config) {
             font-weight: 600;
             z-index: 20;
             backdrop-filter: blur(8px);
+            pointer-events: none;
         `;
 
         const afterLabel = document.createElement('div');
@@ -389,6 +403,7 @@ export function openFurnitureModal(url, sessionId, config) {
             font-weight: 600;
             z-index: 20;
             backdrop-filter: blur(8px);
+            pointer-events: none;
         `;
 
         afterContainer.appendChild(afterImg);
@@ -398,103 +413,125 @@ export function openFurnitureModal(url, sessionId, config) {
         sliderContainer.appendChild(beforeLabel);
         sliderContainer.appendChild(afterLabel);
 
-        // Slider functionality
+        // Slider functionality - improved drag handling
         let isDragging = false;
         let currentPosition = 50;
+        let clickTimeout = null;
 
-        function updateSlider(position) {
+        function updateSlider(position, smooth = false) {
             const clampedPosition = Math.max(0, Math.min(100, position));
             currentPosition = clampedPosition;
-            // Remove transition during dragging for smooth movement
-            afterContainer.style.transition = 'none';
+            
+            if (smooth) {
+                afterContainer.style.transition = 'width 0.2s ease-out';
+                sliderHandle.style.transition = 'left 0.2s ease-out';
+            } else {
+                afterContainer.style.transition = 'none';
+                sliderHandle.style.transition = 'none';
+            }
+            
             afterContainer.style.width = `${clampedPosition}%`;
             sliderHandle.style.left = `${clampedPosition}%`;
-            // Re-enable transition after a short delay
-            setTimeout(() => {
-                afterContainer.style.transition = 'width 0.1s ease-out';
-            }, 50);
+        }
+
+        function getPositionFromEvent(clientX) {
+            const rect = sliderContainer.getBoundingClientRect();
+            const x = clientX - rect.left;
+            const percentage = (x / rect.width) * 100;
+            return Math.max(0, Math.min(100, percentage));
+        }
+
+        function handleStart(clientX) {
+            isDragging = true;
+            sliderContainer.style.cursor = 'grabbing';
+            handleCircle.style.cursor = 'grabbing';
+            updateSlider(getPositionFromEvent(clientX));
         }
 
         function handleMove(clientX) {
             if (!isDragging) return;
-            const rect = sliderContainer.getBoundingClientRect();
-            const x = clientX - rect.left;
-            const percentage = (x / rect.width) * 100;
-            updateSlider(percentage);
+            updateSlider(getPositionFromEvent(clientX));
         }
 
-        // Mouse events
-        sliderContainer.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            sliderContainer.style.cursor = 'grabbing';
-            handleCircle.style.cursor = 'grabbing';
-            handleMove(e.clientX);
-            e.preventDefault();
-            e.stopPropagation();
-        });
-        
-        // Also allow dragging from handle
-        sliderHandle.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            sliderContainer.style.cursor = 'grabbing';
-            handleCircle.style.cursor = 'grabbing';
-            handleMove(e.clientX);
-            e.preventDefault();
-            e.stopPropagation();
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-                handleMove(e.clientX);
-            }
-        });
-
-        document.addEventListener('mouseup', () => {
+        function handleEnd() {
             if (isDragging) {
                 isDragging = false;
                 sliderContainer.style.cursor = 'grab';
                 handleCircle.style.cursor = 'grab';
+                
+                // Re-enable smooth transitions
+                setTimeout(() => {
+                    afterContainer.style.transition = 'width 0.1s ease-out';
+                    sliderHandle.style.transition = 'left 0.1s ease-out';
+                }, 50);
             }
-        });
+        }
+
+        // Mouse events
+        const handleMouseDown = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleStart(e.clientX);
+        };
+
+        sliderContainer.addEventListener('mousedown', handleMouseDown);
+        sliderHandle.addEventListener('mousedown', handleMouseDown);
+
+        const handleMouseMove = (e) => {
+            if (isDragging) {
+                handleMove(e.clientX);
+            }
+        };
+
+        const handleMouseUp = () => {
+            handleEnd();
+        };
+
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        document.addEventListener('mouseleave', handleMouseUp);
 
         // Touch events
-        sliderContainer.addEventListener('touchstart', (e) => {
-            isDragging = true;
-            handleMove(e.touches[0].clientX);
+        const handleTouchStart = (e) => {
             e.preventDefault();
             e.stopPropagation();
-        });
-        
-        sliderHandle.addEventListener('touchstart', (e) => {
-            isDragging = true;
-            handleMove(e.touches[0].clientX);
-            e.preventDefault();
-            e.stopPropagation();
-        });
-
-        document.addEventListener('touchmove', (e) => {
-            if (isDragging) {
-                handleMove(e.touches[0].clientX);
-                e.preventDefault();
+            if (e.touches.length === 1) {
+                handleStart(e.touches[0].clientX);
             }
-        });
+        };
 
-        document.addEventListener('touchend', () => {
-            isDragging = false;
-        });
+        sliderContainer.addEventListener('touchstart', handleTouchStart);
+        sliderHandle.addEventListener('touchstart', handleTouchStart);
+
+        const handleTouchMove = (e) => {
+            if (isDragging && e.touches.length === 1) {
+                e.preventDefault();
+                handleMove(e.touches[0].clientX);
+            }
+        };
+
+        const handleTouchEnd = () => {
+            handleEnd();
+        };
+
+        document.addEventListener('touchmove', handleTouchMove, { passive: false });
+        document.addEventListener('touchend', handleTouchEnd);
+        document.addEventListener('touchcancel', handleTouchEnd);
 
         // Click to move (only if not dragging)
         sliderContainer.addEventListener('click', (e) => {
-            // Small delay to distinguish click from drag end
-            setTimeout(() => {
+            if (clickTimeout) {
+                clearTimeout(clickTimeout);
+            }
+            clickTimeout = setTimeout(() => {
                 if (!isDragging) {
-                    const rect = sliderContainer.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const percentage = (x / rect.width) * 100;
-                    updateSlider(percentage);
+                    updateSlider(getPositionFromEvent(e.clientX), true);
                 }
-            }, 10);
+            }, 100);
         });
+
+        // Initialize position
+        updateSlider(50, true);
 
         sliderWrapper.appendChild(sliderContainer);
         return sliderWrapper;
@@ -503,9 +540,18 @@ export function openFurnitureModal(url, sessionId, config) {
     // Function to display images in results section
     function displayImagesInModal(images) {
         if (!images || images.length === 0) {
+            console.warn('⚠️ No images to display');
             resultsSection.style.display = 'none';
             return;
         }
+
+        console.log('🖼️ Displaying images in modal:', {
+            imageCount: images.length,
+            images: images.map(img => ({
+                hasUrl: !!img.url,
+                urlPreview: img.url?.substring(0, 50)
+            }))
+        });
 
         resultsSection.style.display = 'flex';
         resultsImagesContainer.innerHTML = '';
@@ -514,31 +560,60 @@ export function openFurnitureModal(url, sessionId, config) {
         const originalImageUrl = sessionStorage.getItem('ai_furniture_original_image');
         const firstGeneratedImage = images[0];
 
-        console.log('🖼️ Displaying images:', {
+        console.log('🖼️ Image display check:', {
             hasOriginal: !!originalImageUrl,
             hasGenerated: !!firstGeneratedImage,
             originalLength: originalImageUrl?.length,
-            generatedUrl: firstGeneratedImage?.url?.substring(0, 50)
+            generatedUrl: firstGeneratedImage?.url?.substring(0, 50),
+            generatedUrlType: typeof firstGeneratedImage?.url
         });
 
         // Add before/after slider if we have both images
-        // BEFORE = original uploaded image (user's room)
-        // AFTER = generated image (with furniture)
+        // BEFORE = original uploaded image (user's room photo)
+        // AFTER = generated image (with furniture placed by AI)
         if (originalImageUrl && firstGeneratedImage && firstGeneratedImage.url) {
-            console.log('✅ Creating before/after slider');
-            const slider = createBeforeAfterSlider(originalImageUrl, firstGeneratedImage.url);
-            resultsImagesContainer.appendChild(slider);
+            console.log('✅ Creating before/after slider with:', {
+                before: originalImageUrl.substring(0, 50) + '...',
+                after: firstGeneratedImage.url.substring(0, 50) + '...'
+            });
+            
+            try {
+                const slider = createBeforeAfterSlider(originalImageUrl, firstGeneratedImage.url);
+                resultsImagesContainer.appendChild(slider);
+                console.log('✅ Slider created and added to DOM');
+            } catch (error) {
+                console.error('❌ Error creating slider:', error);
+                // Fallback: show images separately
+                const beforeWrapper = document.createElement('div');
+                beforeWrapper.style.cssText = 'margin-bottom: 12px; border-radius: 10px; overflow: hidden;';
+                const beforeImg = document.createElement('img');
+                beforeImg.src = originalImageUrl;
+                beforeImg.style.cssText = 'width: 100%; height: auto; display: block;';
+                beforeWrapper.appendChild(beforeImg);
+                resultsImagesContainer.appendChild(beforeWrapper);
+            }
         } else {
             console.warn('⚠️ Missing images for slider:', {
                 original: !!originalImageUrl,
-                generated: !!(firstGeneratedImage && firstGeneratedImage.url)
+                generated: !!(firstGeneratedImage && firstGeneratedImage.url),
+                firstImage: firstGeneratedImage
             });
         }
 
-        // Add remaining generated images
+        // Add remaining generated images (skip first if shown in slider)
         images.forEach((img, index) => {
             // Skip first image if we already showed it in the slider
-            if (index === 0 && originalImageUrl) return;
+            if (index === 0 && originalImageUrl && firstGeneratedImage && firstGeneratedImage.url) {
+                console.log('⏭️ Skipping first image (already in slider)');
+                return;
+            }
+
+            if (!img || !img.url) {
+                console.warn('⚠️ Skipping invalid image at index:', index);
+                return;
+            }
+
+            console.log(`📸 Adding image ${index + 1}:`, img.url.substring(0, 50));
 
             const imageWrapper = document.createElement('div');
             imageWrapper.style.cssText = `
@@ -546,6 +621,7 @@ export function openFurnitureModal(url, sessionId, config) {
               overflow: hidden;
               border: 1px solid rgba(226, 232, 240, 0.9);
               background: #f8fafc;
+              margin-bottom: 12px;
             `;
 
             const imgElement = document.createElement('img');
@@ -558,6 +634,15 @@ export function openFurnitureModal(url, sessionId, config) {
               cursor: pointer;
               transition: transform 0.2s;
             `;
+
+            imgElement.onerror = () => {
+                console.error('❌ Failed to load generated image:', img.url?.substring(0, 50));
+                imageWrapper.style.display = 'none';
+            };
+
+            imgElement.onload = () => {
+                console.log('✅ Generated image loaded:', img.url?.substring(0, 50));
+            };
 
             imgElement.addEventListener('click', () => {
                 const newWindow = window.open();
@@ -584,6 +669,8 @@ export function openFurnitureModal(url, sessionId, config) {
             imageWrapper.appendChild(imgElement);
             resultsImagesContainer.appendChild(imageWrapper);
         });
+
+        console.log('✅ Finished displaying images. Container now has', resultsImagesContainer.children.length, 'children');
     }
 
     // Display existing images if any
