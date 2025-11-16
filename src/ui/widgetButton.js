@@ -2,7 +2,7 @@
 import { debugLog } from '../debug.js';
 import { isFurnitureProductPage } from '../detection.js';
 import { getConfig, getSessionId } from '../state.js';
-import { openFurnitureModal, displayGeneratedImages } from './modal.js';
+import { openFurnitureModal } from './modal.js';
 
 export function createWidgetButton() {
     // Avoid duplicates
