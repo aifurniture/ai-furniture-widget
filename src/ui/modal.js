@@ -3,7 +3,7 @@ import { debugLog } from '../debug.js';
 import { trackEvent, trackOrderCompletion } from '../tracking.js';
 
 export function openFurnitureModal(url, sessionId, config) {
-    debugLog('Opening furniture modal with URL:', url);
+    debugLog('Opening furniture modal (upload flow)', { sessionId, config });
 
     // If a modal already exists, remove it first
     if (document.querySelector('#ai-furniture-modal')) {
@@ -13,7 +13,7 @@ export function openFurnitureModal(url, sessionId, config) {
 
     const isMobile = window.innerWidth <= 768;
 
-    // Overlay: full-screen, but we’ll only dock the panel on the right
+    // Overlay: full-screen, panel will dock on the right
     const modalOverlay = document.createElement('div');
     modalOverlay.id = 'ai-furniture-modal';
     modalOverlay.style.cssText = `
@@ -31,7 +31,6 @@ export function openFurnitureModal(url, sessionId, config) {
     const modalContainer = document.createElement('div');
 
     if (isMobile) {
-        // keep mobile as a full-screen sheet
         modalContainer.style.cssText = `
           position: fixed;
           inset: 0;
@@ -49,7 +48,6 @@ export function openFurnitureModal(url, sessionId, config) {
           border: none;
         `;
     } else {
-        // DESKTOP: right-hand drawer ~1/3 of the viewport
         modalContainer.style.cssText = `
           position: fixed;
           top: 0;
@@ -87,7 +85,7 @@ export function openFurnitureModal(url, sessionId, config) {
           font-size: 24px;
           font-weight: 300;
           cursor: pointer;
-          z-index: 10;
+          z-index: 999999;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -109,7 +107,7 @@ export function openFurnitureModal(url, sessionId, config) {
           font-size: 20px;
           font-weight: 300;
           cursor: pointer;
-          z-index: 10;
+          z-index: 999999;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -121,10 +119,10 @@ export function openFurnitureModal(url, sessionId, config) {
 
     closeButton.addEventListener('mouseenter', function () {
         this.style.background =
-            'linear-gradient(135deg, rgba(239, 68, 68, 0.96), rgba(220, 38, 38, 0.96))';
+            'linear-gradient(135deg, rgba(22, 101, 52, 0.98), rgba(21, 128, 61, 0.98))';
         this.style.color = '#ffffff';
         this.style.transform = 'scale(1.08)';
-        this.style.boxShadow = '0 8px 20px rgba(239, 68, 68, 0.35)';
+        this.style.boxShadow = '0 8px 20px rgba(22, 101, 52, 0.35)';
     });
 
     closeButton.addEventListener('mouseleave', function () {
@@ -145,67 +143,310 @@ export function openFurnitureModal(url, sessionId, config) {
         closeFurnitureModal();
     });
 
-    // Iframe
-    const iframe = document.createElement('iframe');
-    iframe.src = url;
-    iframe.style.cssText = `
+    // === MAIN CONTENT (upload flow) ===
+    const content = document.createElement('div');
+    content.style.cssText = `
+      position: relative;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 24px 20px 20px;
+      gap: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #0f172a;
+    `;
+
+    // Header / title
+    const header = document.createElement('div');
+    header.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-right: 36px;
+    `;
+    header.innerHTML = `
+      <div style="
+        display:inline-flex;
+        align-items:center;
+        gap:6px;
+        padding:3px 9px;
+        border-radius:999px;
+        background:rgba(22, 101, 52, 0.08);
+        color:#166534;
+        font-size:10px;
+        font-weight:600;
+        text-transform:uppercase;
+        letter-spacing:0.04em;
+        width:max-content;
+      ">
+        <span style="
+          width:6px;
+          height:6px;
+          border-radius:999px;
+          background:#22c55e;
+        "></span>
+        Room visualiser
+      </div>
+      <h2 style="font-size:18px; font-weight:600; letter-spacing:-0.01em; margin:4px 0 2px;">
+        See this sofa in your own room
+      </h2>
+      <p style="font-size:12px; color:#64748b; max-width:320px;">
+        Upload a quick photo of your living room. We’ll swap your current sofa for this one, matching
+        the angle, lighting and flooring.
+      </p>
+    `;
+
+    // Upload section
+    const uploadSection = document.createElement('div');
+    uploadSection.style.cssText = `
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 4px;
+    `;
+
+    // Hidden file input
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+    fileInput.style.display = 'none';
+    fileInput.id = 'ai-furniture-upload-input';
+
+    let selectedFile = null;
+
+    // Dropzone / click area
+    const dropZone = document.createElement('label');
+    dropZone.setAttribute('for', 'ai-furniture-upload-input');
+    dropZone.style.cssText = `
+      border: 1px dashed rgba(148, 163, 184, 0.9);
+      border-radius: 12px;
+      padding: 16px 14px;
+      background: rgba(248, 250, 252, 0.96);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      text-align: center;
+      font-size: 12px;
+      color: #64748b;
+    `;
+    dropZone.innerHTML = `
+      <div style="
+        width: 40px;
+        height: 40px;
+        border-radius: 999px;
+        background: radial-gradient(circle at 30% 30%, #bbf7d0, #166534);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        box-shadow: 0 8px 18px rgba(22, 101, 52, 0.35);
+      ">
+        <span style="font-size:16px; color:#ecfdf3;">⬆</span>
+      </div>
+      <div>
+        <span style="font-weight:600; color:#166534;">Upload a room photo</span>
+        <span style="margin:0 4px;">or</span>
+        <span style="text-decoration:underline; text-underline-offset:2px;">drag & drop</span>
+      </div>
+      <p style="font-size:11px; color:#94a3b8; max-width:260px; margin-top:2px;">
+        Use a photo taken straight-on from where you’d normally view the sofa. JPG or PNG, up to 10&nbsp;MB.
+      </p>
+    `;
+
+    // Preview area
+    const previewWrapper = document.createElement('div');
+    previewWrapper.style.cssText = `
+      margin-top: 4px;
+      border-radius: 10px;
+      background: #0f172a0a;
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      padding: 8px;
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+    `;
+
+    const previewLabel = document.createElement('div');
+    previewLabel.textContent = 'Selected photo';
+    previewLabel.style.cssText = `
+      font-size: 11px;
+      font-weight: 500;
+      color: #475569;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    `;
+
+    const changeHint = document.createElement('span');
+    changeHint.textContent = 'Tap to change photo';
+    changeHint.style.cssText = `
+      font-size: 10px;
+      color: #64748b;
+    `;
+    previewLabel.appendChild(changeHint);
+
+    const previewImageContainer = document.createElement('div');
+    previewImageContainer.style.cssText = `
+      width: 100%;
+      max-height: 220px;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #e5e7eb;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    `;
+
+    const previewImage = document.createElement('img');
+    previewImage.alt = 'Room preview';
+    previewImage.style.cssText = `
       width: 100%;
       height: 100%;
-      border: none;
-      background: white;
+      object-fit: cover;
+      display:block;
     `;
+    previewImageContainer.appendChild(previewImage);
 
-    // Loading indicator
-    const loadingDiv = document.createElement('div');
-    loadingDiv.style.cssText = `
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
+    previewWrapper.appendChild(previewLabel);
+    previewWrapper.appendChild(previewImageContainer);
+
+    uploadSection.appendChild(fileInput);
+    uploadSection.appendChild(dropZone);
+    uploadSection.appendChild(previewWrapper);
+
+    // Tips
+    const tips = document.createElement('div');
+    tips.style.cssText = `
+      font-size: 11px;
       color: #64748b;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 16px;
-      font-weight: 500;
-      z-index: 5;
-      text-align: center;
-      pointer-events: none;
+      margin-top: 2px;
     `;
-    loadingDiv.innerHTML = `
-      <div style="text-align: center;">
-        <div style="
-          width: 48px; 
-          height: 48px; 
-          border: 3px solid rgba(245, 158, 11, 0.2); 
-          border-top: 3px solid #f59e0b; 
-          border-radius: 50%; 
-          animation: spin 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite; 
-          margin: 0 auto 16px;
-          box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
-        "></div>
-        <div style="
-          background: linear-gradient(135deg, #f59e0b, #ea580c);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          font-weight: 600;
-          font-size: 18px;
-          margin-bottom: 8px;
-        ">Loading AI Magic...</div>
-        <div style="color: #94a3b8; font-size: 14px;">Preparing your furniture experience</div>
-      </div>
-      <style>
-        @keyframes spin {
-          0% { transform: rotate(0deg) scale(1); }
-          50% { transform: rotate(180deg) scale(1.05); }
-          100% { transform: rotate(360deg) scale(1); }
-        }
-      </style>
+    tips.innerHTML = `
+      <span style="font-weight:500; color:#166534;">Pro tip:</span>
+      Use natural daylight and stand back so we can see the floor, walls and existing sofa.
+    `;
+    uploadSection.appendChild(tips);
+
+    // Footer actions
+    const footer = document.createElement('div');
+    footer.style.cssText = `
+      margin-top: auto;
+      padding-top: 10px;
+      border-top: 1px solid rgba(226, 232, 240, 1);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     `;
 
-    // Assemble
+    const primaryButton = document.createElement('button');
+    primaryButton.textContent = 'Continue with this photo';
+    primaryButton.disabled = true;
+    primaryButton.style.cssText = `
+      width: 100%;
+      border: none;
+      border-radius: 999px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: not-allowed;
+      background: #e5e7eb;
+      color: #9ca3af;
+      transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+    `;
+
+    function setPrimaryEnabled(enabled) {
+        if (enabled) {
+            primaryButton.disabled = false;
+            primaryButton.style.cursor = 'pointer';
+            primaryButton.style.background =
+                'linear-gradient(135deg, #166534, #15803d)';
+            primaryButton.style.color = '#f9fafb';
+            primaryButton.style.boxShadow =
+                '0 10px 24px rgba(22, 101, 52, 0.45)';
+        } else {
+            primaryButton.disabled = true;
+            primaryButton.style.cursor = 'not-allowed';
+            primaryButton.style.background = '#e5e7eb';
+            primaryButton.style.color = '#9ca3af';
+            primaryButton.style.boxShadow = 'none';
+        }
+    }
+
+    primaryButton.addEventListener('mouseenter', () => {
+        if (primaryButton.disabled) return;
+        primaryButton.style.transform = 'translateY(-1px)';
+        primaryButton.style.boxShadow =
+            '0 12px 28px rgba(22, 101, 52, 0.5)';
+    });
+
+    primaryButton.addEventListener('mouseleave', () => {
+        if (primaryButton.disabled) return;
+        primaryButton.style.transform = 'translateY(0)';
+        primaryButton.style.boxShadow =
+            '0 10px 24px rgba(22, 101, 52, 0.45)';
+    });
+
+    primaryButton.addEventListener('click', () => {
+        if (!selectedFile) return;
+
+        // In your real implementation, you’d upload the file here.
+        trackEvent('ai_furniture_upload_confirmed', {
+            sessionId,
+            productUrl: window.location.href,
+            sourceDomain: config?.domain || window.location.hostname,
+            fileName: selectedFile.name,
+            fileSize: selectedFile.size
+        });
+
+        // For now, just close the modal after "confirm"
+        closeFurnitureModal();
+    });
+
+    const footerNote = document.createElement('p');
+    footerNote.textContent =
+        'We only use this photo to generate your preview – it isn’t shown to other shoppers.';
+    footerNote.style.cssText = `
+      font-size: 10px;
+      color: #94a3b8;
+      line-height: 1.4;
+    `;
+
+    footer.appendChild(primaryButton);
+    footer.appendChild(footerNote);
+
+    // Wire up input change → preview + enable button
+    fileInput.addEventListener('change', e => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        selectedFile = file;
+        trackEvent('ai_furniture_image_selected', {
+            sessionId,
+            productUrl: window.location.href,
+            sourceDomain: config?.domain || window.location.hostname,
+            fileName: file.name,
+            fileSize: file.size
+        });
+
+        const reader = new FileReader();
+        reader.onload = ev => {
+            previewImage.src = ev.target.result;
+            previewWrapper.style.display = 'flex';
+            setPrimaryEnabled(true);
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // Assemble content
+    content.appendChild(header);
+    content.appendChild(uploadSection);
+    content.appendChild(footer);
+
     modalContainer.appendChild(closeButton);
-    modalContainer.appendChild(loadingDiv);
-    modalContainer.appendChild(iframe);
+    modalContainer.appendChild(content);
     modalOverlay.appendChild(modalContainer);
     document.body.appendChild(modalOverlay);
 
@@ -221,58 +462,6 @@ export function openFurnitureModal(url, sessionId, config) {
             modalContainer.style.transform = 'translateX(0)';
         }
     }, 10);
-
-    // Remove loading indicator when iframe loads
-    iframe.addEventListener('load', () => {
-        setTimeout(() => {
-            if (loadingDiv.parentNode) {
-                loadingDiv.remove();
-            }
-        }, 500);
-    });
-
-    // Handle postMessage from iframe (AI Furniture app)
-    const handleMessage = event => {
-        // Only messages from our AI furniture domain(s)
-        if (
-            event.origin !== 'https://aifurniture.app' &&
-            event.origin !== 'http://localhost:3000'
-        ) {
-            return;
-        }
-
-        debugLog('Received message from iframe:', event.data);
-
-        if (event.data && event.data.type === 'ai_furniture_completed') {
-            debugLog('AI Furniture process completed, closing modal and handling return');
-
-            sessionStorage.setItem('ai_furniture_user', 'true');
-
-            // Close modal
-            closeFurnitureModal();
-
-            if (event.data.orderData) {
-                // Full order data provided by iframe → track completion
-                trackOrderCompletion(event.data.orderData);
-            } else {
-                // Just a return event
-                const returnData = {
-                    sessionId,
-                    returnTimestamp: new Date().toISOString(),
-                    productUrl: window.location.href,
-                    sourceDomain: config?.domain || window.location.hostname
-                };
-
-                trackEvent('ai_furniture_return', returnData);
-            }
-        } else if (event.data && event.data.type === 'ai_furniture_close') {
-            debugLog('AI Furniture modal close requested');
-            closeFurnitureModal();
-        }
-    };
-
-    window.addEventListener('message', handleMessage);
-    modalOverlay._messageHandler = handleMessage;
 
     // ESC key handler
     const handleEscape = e => {
@@ -290,7 +479,14 @@ export function openFurnitureModal(url, sessionId, config) {
         }
     });
 
-    debugLog('Furniture side-panel modal opened successfully');
+    // Track open
+    trackEvent('ai_furniture_modal_open', {
+        sessionId,
+        productUrl: window.location.href,
+        sourceDomain: config?.domain || window.location.hostname
+    });
+
+    debugLog('Furniture side-panel modal (upload) opened successfully');
 }
 
 export function closeFurnitureModal() {
@@ -302,11 +498,6 @@ export function closeFurnitureModal() {
     // Remove ESC handler
     if (modal._escapeHandler) {
         document.removeEventListener('keydown', modal._escapeHandler);
-    }
-
-    // Remove message handler
-    if (modal._messageHandler) {
-        window.removeEventListener('message', modal._messageHandler);
     }
 
     // Restore scroll

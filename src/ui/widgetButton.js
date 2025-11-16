@@ -27,7 +27,7 @@ export function createWidgetButton() {
         position: 'fixed',
         bottom: BASE_BOTTOM + 'px',
         right: BASE_RIGHT + 'px',
-        zIndex: '2147483647', // stay above in stacking order
+        zIndex: '999998', // stay above in stacking order
         border: 'none',
         background: 'transparent',
         padding: '0',
@@ -44,22 +44,22 @@ export function createWidgetButton() {
         display: flex;
         align-items: center;
         gap: 8px;
-        background: linear-gradient(135deg, #f59e0b, #ea580c);
-        color: white;
-        border-radius: 12px;
+        background: linear-gradient(135deg, #166534, #15803d); /* forest green gradient */
+        color: #f9fafb;
+        border-radius: 999px;
         padding: 12px 20px;
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 600;
         cursor: pointer;
-        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+        box-shadow: 0 8px 22px rgba(22, 101, 52, 0.45);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         white-space: nowrap;
       ">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M4 7a3 3 0 0 1 3-3h2l1-1h4l1 1h2a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7zm8 2.5A4.5 4.5 0 1 0 16.5 14 4.5 4.5 0 0 0 12 9.5zm0 2A2.5 2.5 0 1 1 9.5 14 2.5 2.5 0 0 1 12 11.5z" />
         </svg>
-        See in Your Room
+        <span>See this sofa in your room</span>
       </div>
     `;
 
@@ -68,12 +68,12 @@ export function createWidgetButton() {
     // Hover effects on the bubble
     button.addEventListener('mouseenter', () => {
         bubble.style.transform = 'translateY(-2px)';
-        bubble.style.boxShadow = '0 6px 16px rgba(245, 158, 11, 0.4)';
+        bubble.style.boxShadow = '0 12px 28px rgba(22, 101, 52, 0.55)';
     });
 
     button.addEventListener('mouseleave', () => {
         bubble.style.transform = 'translateY(0)';
-        bubble.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.3)';
+        bubble.style.boxShadow = '0 8px 22px rgba(22, 101, 52, 0.45)';
     });
 
     // Click → open modal
