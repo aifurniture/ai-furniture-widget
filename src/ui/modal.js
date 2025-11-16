@@ -457,11 +457,14 @@ export function openFurnitureModal(url, sessionId, config) {
             sessionStorage.setItem('ai_furniture_generated_images', JSON.stringify(result.generatedImages || []));
             sessionStorage.setItem('ai_furniture_user', 'true');
 
+            // Display generated images underneath the widget
+            displayGeneratedImages(result.generatedImages || []);
+
             // Close modal and show success
             closeFurnitureModal();
             
             // Show success message
-            showSuccessMessage('Images generated successfully! Check your widget.');
+            showSuccessMessage('Images generated successfully!');
 
         } catch (error) {
             console.error('❌ Image upload error:', error);
@@ -682,4 +685,151 @@ export function closeFurnitureModal() {
     }, 320);
 
     debugLog('Furniture modal closed successfully');
+}
+
+// Display generated images underneath the widget
+export function displayGeneratedImages(images) {
+    if (!images || images.length === 0) {
+        console.warn('No images to display');
+        return;
+    }
+
+    // Remove existing display if any
+    const existingDisplay = document.querySelector('#ai-furniture-generated-display');
+    if (existingDisplay) {
+        existingDisplay.remove();
+    }
+
+    const widgetButton = document.querySelector('#ai-furniture-widget');
+    if (!widgetButton) {
+        console.warn('Widget button not found, cannot display images');
+        return;
+    }
+
+    // Create display container
+    const displayContainer = document.createElement('div');
+    displayContainer.id = 'ai-furniture-generated-display';
+    displayContainer.style.cssText = `
+        position: fixed;
+        bottom: 100px;
+        right: 24px;
+        width: clamp(280px, 30vw, 400px);
+        max-height: 60vh;
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(148, 163, 184, 0.25);
+        padding: 16px;
+        z-index: 999997;
+        overflow-y: auto;
+        transform: translateY(20px);
+        opacity: 0;
+        transition: transform 0.3s ease, opacity 0.3s ease;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+    `;
+    header.innerHTML = `
+        <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: #0f172a;">
+            Generated Preview
+        </h3>
+        <button id="ai-furniture-close-display" style="
+            background: transparent;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            font-size: 20px;
+            line-height: 1;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: background 0.2s;
+        ">×</button>
+    `;
+
+    // Close button handler
+    header.querySelector('#ai-furniture-close-display').addEventListener('click', () => {
+        displayContainer.style.transform = 'translateY(20px)';
+        displayContainer.style.opacity = '0';
+        setTimeout(() => displayContainer.remove(), 300);
+    });
+
+    // Images container
+    const imagesContainer = document.createElement('div');
+    imagesContainer.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    `;
+
+    images.forEach((img, index) => {
+        const imageWrapper = document.createElement('div');
+        imageWrapper.style.cssText = `
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            background: #f8fafc;
+        `;
+
+        const imgElement = document.createElement('img');
+        imgElement.src = img.url;
+        imgElement.alt = img.description || 'Generated preview';
+        imgElement.style.cssText = `
+            width: 100%;
+            height: auto;
+            display: block;
+            cursor: pointer;
+            transition: transform 0.2s;
+        `;
+
+        imgElement.addEventListener('click', () => {
+            // Open full size in new window
+            const newWindow = window.open();
+            if (newWindow) {
+                newWindow.document.write(`
+                    <html>
+                        <head><title>Generated Preview</title></head>
+                        <body style="margin:0; padding:20px; background:#0f172a; display:flex; align-items:center; justify-content:center; min-height:100vh;">
+                            <img src="${img.url}" style="max-width:100%; max-height:100vh; border-radius:8px; box-shadow:0 20px 60px rgba(0,0,0,0.5);" />
+                        </body>
+                    </html>
+                `);
+            }
+        });
+
+        imgElement.addEventListener('mouseenter', () => {
+            imgElement.style.transform = 'scale(1.02)';
+        });
+
+        imgElement.addEventListener('mouseleave', () => {
+            imgElement.style.transform = 'scale(1)';
+        });
+
+        imageWrapper.appendChild(imgElement);
+        imagesContainer.appendChild(imageWrapper);
+    });
+
+    displayContainer.appendChild(header);
+    displayContainer.appendChild(imagesContainer);
+    document.body.appendChild(displayContainer);
+
+    // Animate in
+    setTimeout(() => {
+        displayContainer.style.transform = 'translateY(0)';
+        displayContainer.style.opacity = '1';
+    }, 10);
+
+    debugLog('Generated images displayed underneath widget');
 }
