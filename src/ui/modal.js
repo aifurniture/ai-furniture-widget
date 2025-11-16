@@ -207,6 +207,18 @@ export function openFurnitureModal(url, sessionId, config) {
         }
     }
 
+    // Check if we have original image stored, if not try to get it from preview
+    let storedOriginalImage = sessionStorage.getItem('ai_furniture_original_image');
+    if (!storedOriginalImage && existingImages.length > 0) {
+        // Try to get from preview image if available
+        const previewImg = document.querySelector('#ai-furniture-upload-input')?.closest('div')?.querySelector('img');
+        if (previewImg && previewImg.src && previewImg.src.startsWith('data:')) {
+            storedOriginalImage = previewImg.src;
+            sessionStorage.setItem('ai_furniture_original_image', storedOriginalImage);
+            console.log('📸 Retrieved original image from preview');
+        }
+    }
+
     // Results section (for displaying generated images)
     const resultsSection = document.createElement('div');
     resultsSection.id = 'ai-furniture-results-section';
@@ -285,7 +297,7 @@ export function openFurnitureModal(url, sessionId, config) {
             width: 50%;
             height: 100%;
             overflow: hidden;
-            transition: width 0.1s ease-out;
+            transition: none;
         `;
 
         const afterImg = document.createElement('img');
@@ -294,7 +306,7 @@ export function openFurnitureModal(url, sessionId, config) {
             position: absolute;
             top: 0;
             left: 0;
-            width: 200%;
+            width: 100%;
             height: 100%;
             object-fit: cover;
             display: block;
@@ -393,8 +405,14 @@ export function openFurnitureModal(url, sessionId, config) {
         function updateSlider(position) {
             const clampedPosition = Math.max(0, Math.min(100, position));
             currentPosition = clampedPosition;
+            // Remove transition during dragging for smooth movement
+            afterContainer.style.transition = 'none';
             afterContainer.style.width = `${clampedPosition}%`;
             sliderHandle.style.left = `${clampedPosition}%`;
+            // Re-enable transition after a short delay
+            setTimeout(() => {
+                afterContainer.style.transition = 'width 0.1s ease-out';
+            }, 50);
         }
 
         function handleMove(clientX) {
@@ -412,6 +430,17 @@ export function openFurnitureModal(url, sessionId, config) {
             handleCircle.style.cursor = 'grabbing';
             handleMove(e.clientX);
             e.preventDefault();
+            e.stopPropagation();
+        });
+        
+        // Also allow dragging from handle
+        sliderHandle.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            sliderContainer.style.cursor = 'grabbing';
+            handleCircle.style.cursor = 'grabbing';
+            handleMove(e.clientX);
+            e.preventDefault();
+            e.stopPropagation();
         });
 
         document.addEventListener('mousemove', (e) => {
@@ -433,6 +462,14 @@ export function openFurnitureModal(url, sessionId, config) {
             isDragging = true;
             handleMove(e.touches[0].clientX);
             e.preventDefault();
+            e.stopPropagation();
+        });
+        
+        sliderHandle.addEventListener('touchstart', (e) => {
+            isDragging = true;
+            handleMove(e.touches[0].clientX);
+            e.preventDefault();
+            e.stopPropagation();
         });
 
         document.addEventListener('touchmove', (e) => {
@@ -446,14 +483,17 @@ export function openFurnitureModal(url, sessionId, config) {
             isDragging = false;
         });
 
-        // Click to move
+        // Click to move (only if not dragging)
         sliderContainer.addEventListener('click', (e) => {
-            if (!isDragging) {
-                const rect = sliderContainer.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const percentage = (x / rect.width) * 100;
-                updateSlider(percentage);
-            }
+            // Small delay to distinguish click from drag end
+            setTimeout(() => {
+                if (!isDragging) {
+                    const rect = sliderContainer.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const percentage = (x / rect.width) * 100;
+                    updateSlider(percentage);
+                }
+            }, 10);
         });
 
         sliderWrapper.appendChild(sliderContainer);
@@ -474,10 +514,25 @@ export function openFurnitureModal(url, sessionId, config) {
         const originalImageUrl = sessionStorage.getItem('ai_furniture_original_image');
         const firstGeneratedImage = images[0];
 
+        console.log('🖼️ Displaying images:', {
+            hasOriginal: !!originalImageUrl,
+            hasGenerated: !!firstGeneratedImage,
+            originalLength: originalImageUrl?.length,
+            generatedUrl: firstGeneratedImage?.url?.substring(0, 50)
+        });
+
         // Add before/after slider if we have both images
-        if (originalImageUrl && firstGeneratedImage) {
+        // BEFORE = original uploaded image (user's room)
+        // AFTER = generated image (with furniture)
+        if (originalImageUrl && firstGeneratedImage && firstGeneratedImage.url) {
+            console.log('✅ Creating before/after slider');
             const slider = createBeforeAfterSlider(originalImageUrl, firstGeneratedImage.url);
             resultsImagesContainer.appendChild(slider);
+        } else {
+            console.warn('⚠️ Missing images for slider:', {
+                original: !!originalImageUrl,
+                generated: !!(firstGeneratedImage && firstGeneratedImage.url)
+            });
         }
 
         // Add remaining generated images
@@ -798,6 +853,16 @@ export function openFurnitureModal(url, sessionId, config) {
             // Store result in sessionStorage for widget to use
             sessionStorage.setItem('ai_furniture_generated_images', JSON.stringify(result.generatedImages || []));
             sessionStorage.setItem('ai_furniture_user', 'true');
+            
+            // Ensure original image is stored (in case it wasn't stored during file selection)
+            if (!sessionStorage.getItem('ai_furniture_original_image') && selectedFile) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    sessionStorage.setItem('ai_furniture_original_image', ev.target.result);
+                    console.log('📸 Stored original image after generation');
+                };
+                reader.readAsDataURL(selectedFile);
+            }
 
             // Hide upload section and show results
             uploadSection.style.display = 'none';
