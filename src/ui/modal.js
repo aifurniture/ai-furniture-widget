@@ -342,7 +342,7 @@ export function openFurnitureModal(url, sessionId, config) {
     `;
 
     const primaryButton = document.createElement('button');
-    primaryButton.textContent = 'Continue with this photo';
+    primaryButton.textContent = 'Generate Preview';
     primaryButton.disabled = true;
     primaryButton.style.cssText = `
       width: 100%;
@@ -457,11 +457,14 @@ export function openFurnitureModal(url, sessionId, config) {
             sessionStorage.setItem('ai_furniture_generated_images', JSON.stringify(result.generatedImages || []));
             sessionStorage.setItem('ai_furniture_user', 'true');
 
-            // Close modal and show success
-            closeFurnitureModal();
+            // Display generated images in the modal
+            displayGeneratedImages(result.generatedImages || [], uploadSection, footer);
             
-            // Show success message
-            showSuccessMessage('Images generated successfully! Check your widget.');
+            // Hide upload section and show results
+            dropZone.style.display = 'none';
+            previewWrapper.style.display = 'none';
+            primaryButton.style.display = 'none';
+            footerNote.style.display = 'none';
 
         } catch (error) {
             console.error('❌ Image upload error:', error);
@@ -567,6 +570,172 @@ export function openFurnitureModal(url, sessionId, config) {
     });
 
     debugLog('Furniture side-panel modal (upload) opened successfully');
+}
+
+// Helper function to display generated images in the modal
+function displayGeneratedImages(generatedImages, uploadSection, footer) {
+    // Remove any existing results section
+    const existingResults = uploadSection.querySelector('#ai-furniture-results');
+    if (existingResults) {
+        existingResults.remove();
+    }
+
+    if (!generatedImages || generatedImages.length === 0) {
+        console.warn('No generated images to display');
+        return;
+    }
+
+    // Create results container
+    const resultsContainer = document.createElement('div');
+    resultsContainer.id = 'ai-furniture-results';
+    resultsContainer.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-top: 8px;
+        animation: fadeIn 0.4s ease-out;
+    `;
+
+    // Results header
+    const resultsHeader = document.createElement('div');
+    resultsHeader.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    `;
+    resultsHeader.innerHTML = `
+        <h3 style="
+            font-size: 16px;
+            font-weight: 600;
+            color: #0f172a;
+            margin: 0;
+        ">✨ Your room preview</h3>
+        <p style="
+            font-size: 12px;
+            color: #64748b;
+            margin: 0;
+        ">Here's how this furniture looks in your room</p>
+    `;
+
+    // Images grid
+    const imagesGrid = document.createElement('div');
+    imagesGrid.style.cssText = `
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        margin-top: 4px;
+    `;
+
+    // Display each generated image
+    generatedImages.forEach((imageData, index) => {
+        const imageUrl = imageData.url || imageData;
+        if (!imageUrl) return;
+
+        const imageCard = document.createElement('div');
+        imageCard.style.cssText = `
+            position: relative;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #f8fafc;
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        `;
+
+        const image = document.createElement('img');
+        image.src = imageUrl;
+        image.alt = `Generated preview ${index + 1}`;
+        image.style.cssText = `
+            width: 100%;
+            height: auto;
+            display: block;
+            object-fit: contain;
+        `;
+
+        // Add loading state
+        image.onload = () => {
+            image.style.opacity = '1';
+        };
+        image.style.opacity = '0';
+        image.style.transition = 'opacity 0.3s ease';
+
+        imageCard.appendChild(image);
+        imagesGrid.appendChild(imageCard);
+    });
+
+    // Add download/view actions
+    const actionsContainer = document.createElement('div');
+    actionsContainer.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 8px;
+    `;
+
+    // Close button to dismiss results
+    const closeResultsButton = document.createElement('button');
+    closeResultsButton.textContent = 'Close';
+    closeResultsButton.style.cssText = `
+        width: 100%;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 999px;
+        padding: 9px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        background: #ffffff;
+        color: #475569;
+        transition: all 0.2s ease;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+
+    closeResultsButton.addEventListener('mouseenter', () => {
+        closeResultsButton.style.background = '#f8fafc';
+        closeResultsButton.style.borderColor = 'rgba(148, 163, 184, 0.5)';
+    });
+
+    closeResultsButton.addEventListener('mouseleave', () => {
+        closeResultsButton.style.background = '#ffffff';
+        closeResultsButton.style.borderColor = 'rgba(148, 163, 184, 0.3)';
+    });
+
+    closeResultsButton.addEventListener('click', () => {
+        closeFurnitureModal();
+    });
+
+    actionsContainer.appendChild(closeResultsButton);
+
+    // Assemble results
+    resultsContainer.appendChild(resultsHeader);
+    resultsContainer.appendChild(imagesGrid);
+    resultsContainer.appendChild(actionsContainer);
+
+    // Add to upload section (which now acts as container)
+    uploadSection.appendChild(resultsContainer);
+
+    // Add fade-in animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    `;
+    if (!document.querySelector('#ai-furniture-results-style')) {
+        style.id = 'ai-furniture-results-style';
+        document.head.appendChild(style);
+    }
+
+    // Scroll to results
+    setTimeout(() => {
+        resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
 }
 
 // Helper function to show success message
