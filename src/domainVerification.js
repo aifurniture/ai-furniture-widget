@@ -38,22 +38,13 @@ export async function verifyDomainWithServer() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-        // const response = await fetch(
-        //     `https://aifurniture.app/api/tracking/script?domain=${encodeURIComponent(window.location.hostname)}&debug=${config.debug}`,
-        //     {
-        //         method: 'GET',
-        //         headers: { Accept: 'application/javascript' },
-        //         signal: controller.signal
-        //     }
-        // );
-        const response = await fetch(
-            `http://localhost:4000/api/health`,
-            {
-                method: 'GET',
-                headers: { Accept: 'application/javascript' },
-                signal: controller.signal
-            }
-        );
+        // Use config API endpoint (auto-detects localhost)
+        const healthUrl = `${config.apiEndpoint}/health?domain=${encodeURIComponent(window.location.hostname)}`;
+        const response = await fetch(healthUrl, {
+            method: 'GET',
+            headers: { Accept: 'application/json' },
+            signal: controller.signal
+        });
         console.log(response)
         clearTimeout(timeoutId);
 

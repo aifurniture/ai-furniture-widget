@@ -407,8 +407,8 @@ export function openFurnitureModal(url, sessionId, config) {
             formData.append('style', 'realistic');
             formData.append('angle', 'front');
 
-            // Get API endpoint from config
-            const apiEndpoint = config?.apiEndpoint || 'https://aifurniture.app/api';
+            // Get API endpoint from config (defaults to localhost in development)
+            const apiEndpoint = config?.apiEndpoint || (window.location.hostname === 'localhost' ? 'http://localhost:4000/api' : 'https://aifurniture.app/api');
             const generateUrl = `${apiEndpoint}/generate`;
 
             console.log('📤 Uploading image to backend...', {
