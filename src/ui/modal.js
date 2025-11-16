@@ -389,20 +389,100 @@ export function openFurnitureModal(url, sessionId, config) {
             '0 10px 24px rgba(22, 101, 52, 0.45)';
     });
 
-    primaryButton.addEventListener('click', () => {
+    primaryButton.addEventListener('click', async () => {
         if (!selectedFile) return;
 
-        // In your real implementation, you’d upload the file here.
-        trackEvent('ai_furniture_upload_confirmed', {
-            sessionId,
-            productUrl: window.location.href,
-            sourceDomain: config?.domain || window.location.hostname,
-            fileName: selectedFile.name,
-            fileSize: selectedFile.size
-        });
+        // Disable button during upload
+        setPrimaryEnabled(false);
+        primaryButton.textContent = 'Generating...';
+        primaryButton.style.opacity = '0.6';
+        primaryButton.style.cursor = 'not-allowed';
 
-        // For now, just close the modal after "confirm"
-        closeFurnitureModal();
+        try {
+            // Create FormData for file upload
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+            formData.append('productUrl', window.location.href);
+            formData.append('sessionId', sessionId);
+            formData.append('style', 'realistic');
+            formData.append('angle', 'front');
+
+            // Get API endpoint from config
+            const apiEndpoint = config?.apiEndpoint || 'https://aifurniture.app/api';
+            const generateUrl = `${apiEndpoint}/generate`;
+
+            console.log('📤 Uploading image to backend...', {
+                url: generateUrl,
+                fileName: selectedFile.name,
+                fileSize: selectedFile.size,
+                productUrl: window.location.href
+            });
+
+            // Track upload start
+            trackEvent('ai_furniture_upload_started', {
+                sessionId,
+                productUrl: window.location.href,
+                sourceDomain: config?.domain || window.location.hostname,
+                fileName: selectedFile.name,
+                fileSize: selectedFile.size
+            });
+
+            // Upload to backend
+            const response = await fetch(generateUrl, {
+                method: 'POST',
+                body: formData,
+                // Don't set Content-Type header - browser will set it with boundary
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                throw new Error(errorData.error || `HTTP ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            console.log('✅ Image generation successful:', result);
+
+            // Track successful upload
+            trackEvent('ai_furniture_upload_confirmed', {
+                sessionId,
+                productUrl: window.location.href,
+                sourceDomain: config?.domain || window.location.hostname,
+                fileName: selectedFile.name,
+                fileSize: selectedFile.size,
+                generatedImageCount: result.generatedImages?.length || 0
+            });
+
+            // Store result in sessionStorage for widget to use
+            sessionStorage.setItem('ai_furniture_generated_images', JSON.stringify(result.generatedImages || []));
+            sessionStorage.setItem('ai_furniture_user', 'true');
+
+            // Close modal and show success
+            closeFurnitureModal();
+            
+            // Show success message
+            showSuccessMessage('Images generated successfully! Check your widget.');
+
+        } catch (error) {
+            console.error('❌ Image upload error:', error);
+            
+            // Track error
+            trackEvent('ai_furniture_upload_error', {
+                sessionId,
+                productUrl: window.location.href,
+                sourceDomain: config?.domain || window.location.hostname,
+                error: error.message
+            });
+
+            // Re-enable button
+            setPrimaryEnabled(true);
+            primaryButton.textContent = 'Generate Preview';
+            primaryButton.style.opacity = '1';
+            primaryButton.style.cursor = 'pointer';
+
+            // Show error message
+            showErrorMessage(error.message || 'Failed to generate images. Please try again.');
+        }
     });
 
     const footerNote = document.createElement('p');
@@ -487,6 +567,84 @@ export function openFurnitureModal(url, sessionId, config) {
     });
 
     debugLog('Furniture side-panel modal (upload) opened successfully');
+}
+
+// Helper function to show success message
+function showSuccessMessage(message) {
+    const messageEl = document.createElement('div');
+    messageEl.innerHTML = `
+      <div style="
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        padding: 16px 24px;
+        border-radius: 12px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        z-index: 10001;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        animation: slideIn 0.3s ease-out;
+        max-width: 320px;
+      ">
+        ✅ ${message}
+      </div>
+      <style>
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      </style>
+    `;
+
+    document.body.appendChild(messageEl);
+
+    setTimeout(() => {
+        if (messageEl.parentNode) {
+            messageEl.parentNode.removeChild(messageEl);
+        }
+    }, 4000);
+}
+
+// Helper function to show error message
+function showErrorMessage(message) {
+    const messageEl = document.createElement('div');
+    messageEl.innerHTML = `
+      <div style="
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        padding: 16px 24px;
+        border-radius: 12px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        font-weight: 600;
+        z-index: 10001;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        animation: slideIn 0.3s ease-out;
+        max-width: 320px;
+      ">
+        ❌ ${message}
+      </div>
+      <style>
+        @keyframes slideIn {
+          from { transform: translateX(100%); opacity: 0; }
+          to { transform: translateX(0); opacity: 1; }
+        }
+      </style>
+    `;
+
+    document.body.appendChild(messageEl);
+
+    setTimeout(() => {
+        if (messageEl.parentNode) {
+            messageEl.parentNode.removeChild(messageEl);
+        }
+    }, 5000);
 }
 
 export function closeFurnitureModal() {

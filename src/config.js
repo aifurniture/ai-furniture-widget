@@ -1,7 +1,8 @@
 // src/config.js
 
 const DEFAULT_CONFIG = {
-    apiEndpoint: 'https://aifurniture.app/api/tracking/pixel',
+    apiEndpoint: 'https://aifurniture.app/api',
+    trackingEndpoint: 'https://aifurniture.app/api/tracking/pixel',
     widgetEndpoint: 'https://aifurniture.app/furniture',
     debug: false
 };
