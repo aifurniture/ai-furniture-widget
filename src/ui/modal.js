@@ -457,8 +457,11 @@ export function openFurnitureModal(url, sessionId, config) {
             sessionStorage.setItem('ai_furniture_generated_images', JSON.stringify(result.generatedImages || []));
             sessionStorage.setItem('ai_furniture_user', 'true');
 
-            // Display generated images in the modal
-            displayGeneratedImages(result.generatedImages || [], uploadSection, footer);
+            // Get the original image (before) from preview
+            const originalImageUrl = previewImage.src;
+            
+            // Display generated images in the modal with before/after comparison
+            displayGeneratedImages(result.generatedImages || [], originalImageUrl, uploadSection, footer);
             
             // Hide upload section and show results
             dropZone.style.display = 'none';
@@ -572,8 +575,8 @@ export function openFurnitureModal(url, sessionId, config) {
     debugLog('Furniture side-panel modal (upload) opened successfully');
 }
 
-// Helper function to display generated images in the modal
-function displayGeneratedImages(generatedImages, uploadSection, footer) {
+// Helper function to display generated images in the modal with before/after comparison
+function displayGeneratedImages(generatedImages, originalImageUrl, uploadSection, footer) {
     // Remove any existing results section
     const existingResults = uploadSection.querySelector('#ai-furniture-results');
     if (existingResults) {
@@ -614,27 +617,29 @@ function displayGeneratedImages(generatedImages, uploadSection, footer) {
             font-size: 12px;
             color: #64748b;
             margin: 0;
-        ">Here's how this furniture looks in your room</p>
+        ">Before and after comparison</p>
     `;
 
-    // Images grid
+    // Images grid - show before/after for each generated image
     const imagesGrid = document.createElement('div');
     imagesGrid.style.cssText = `
         display: grid;
         grid-template-columns: 1fr;
-        gap: 12px;
+        gap: 16px;
         margin-top: 4px;
     `;
 
-    // Display each generated image
+    // Display each generated image with before/after comparison
     generatedImages.forEach((imageData, index) => {
-        const imageUrl = imageData.url || imageData;
-        if (!imageUrl) return;
+        const generatedImageUrl = imageData.url || imageData;
+        if (!generatedImageUrl) return;
 
-        const imageCard = document.createElement('div');
-        imageCard.style.cssText = `
-            position: relative;
-            width: 100%;
+        // Create before/after container
+        const comparisonCard = document.createElement('div');
+        comparisonCard.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
             border-radius: 12px;
             overflow: hidden;
             background: #f8fafc;
@@ -642,25 +647,111 @@ function displayGeneratedImages(generatedImages, uploadSection, footer) {
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         `;
 
-        const image = document.createElement('img');
-        image.src = imageUrl;
-        image.alt = `Generated preview ${index + 1}`;
-        image.style.cssText = `
+        // Before section
+        const beforeSection = document.createElement('div');
+        beforeSection.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        `;
+        
+        const beforeLabel = document.createElement('div');
+        beforeLabel.textContent = 'Before';
+        beforeLabel.style.cssText = `
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 0 12px;
+            margin-top: 8px;
+        `;
+        
+        const beforeImageContainer = document.createElement('div');
+        beforeImageContainer.style.cssText = `
+            width: 100%;
+            max-height: 200px;
+            overflow: hidden;
+            background: #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+        
+        const beforeImage = document.createElement('img');
+        beforeImage.src = originalImageUrl;
+        beforeImage.alt = 'Original room';
+        beforeImage.style.cssText = `
             width: 100%;
             height: auto;
             display: block;
             object-fit: contain;
         `;
-
-        // Add loading state
-        image.onload = () => {
-            image.style.opacity = '1';
+        
+        beforeImage.onload = () => {
+            beforeImage.style.opacity = '1';
         };
-        image.style.opacity = '0';
-        image.style.transition = 'opacity 0.3s ease';
+        beforeImage.style.opacity = '0';
+        beforeImage.style.transition = 'opacity 0.3s ease';
+        
+        beforeImageContainer.appendChild(beforeImage);
+        beforeSection.appendChild(beforeLabel);
+        beforeSection.appendChild(beforeImageContainer);
 
-        imageCard.appendChild(image);
-        imagesGrid.appendChild(imageCard);
+        // After section
+        const afterSection = document.createElement('div');
+        afterSection.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        `;
+        
+        const afterLabel = document.createElement('div');
+        afterLabel.textContent = 'After';
+        afterLabel.style.cssText = `
+            font-size: 11px;
+            font-weight: 600;
+            color: #166534;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 0 12px;
+        `;
+        
+        const afterImageContainer = document.createElement('div');
+        afterImageContainer.style.cssText = `
+            width: 100%;
+            max-height: 200px;
+            overflow: hidden;
+            background: #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+        
+        const afterImage = document.createElement('img');
+        afterImage.src = generatedImageUrl;
+        afterImage.alt = `Generated preview ${index + 1}`;
+        afterImage.style.cssText = `
+            width: 100%;
+            height: auto;
+            display: block;
+            object-fit: contain;
+        `;
+        
+        afterImage.onload = () => {
+            afterImage.style.opacity = '1';
+        };
+        afterImage.style.opacity = '0';
+        afterImage.style.transition = 'opacity 0.3s ease';
+        
+        afterImageContainer.appendChild(afterImage);
+        afterSection.appendChild(afterLabel);
+        afterSection.appendChild(afterImageContainer);
+
+        // Assemble comparison card
+        comparisonCard.appendChild(beforeSection);
+        comparisonCard.appendChild(afterSection);
+        imagesGrid.appendChild(comparisonCard);
     });
 
     // Add download/view actions
