@@ -16,12 +16,12 @@ export async function initializeWidget(isInitialLoad = false) {
 
     if (!verifyDomain()) return;
 
-    const serverVerification = await verifyDomainWithServer();
-    if (!serverVerification) {
-        console.error('🚫 AI Furniture Widget: Server verification failed. Widget will not initialize.');
-        return;
-    }
-
+    // const serverVerification = await verifyDomainWithServer();
+    // if (!serverVerification) {
+    //     console.error('🚫 AI Furniture Widget: Server verification failed. Widget will not initialize.');
+    //     return;
+    // }
+    console.log('init widget')
     initSession();
 
     const trackingDisconnected = sessionStorage.getItem('tracking_disconnected') === 'true';

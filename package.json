@@ -1,0 +1,9 @@
+{
+  "name": "@aifurniture/widget",
+  "version": "0.1.0",
+  "description": "AI Furniture widget for ecommerce sites",
+  "type": "module",
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "license": "MIT"
+}

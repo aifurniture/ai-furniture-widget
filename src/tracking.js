@@ -84,13 +84,13 @@ export function trackEvent(eventType, data = {}) {
 
     img.onload = function () {
         debugLog('Pixel loaded successfully', { eventType });
-        console.log('✅ Pixel tracking successful:', eventType);
+        console.log('Pixel tracking successful:', eventType);
         // (keep your special order-confirmation logic here if you want – you can paste it from your original img.onload)
     };
 
     img.onerror = function () {
         debugLog('Pixel failed to load', { eventType });
-        console.error('❌ Pixel tracking failed:', eventType);
+        console.error('Pixel tracking failed:', eventType);
     };
 
     img.src = pixelUrl;
