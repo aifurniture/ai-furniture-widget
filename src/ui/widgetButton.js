@@ -19,10 +19,25 @@ export function createWidgetButton() {
 
     const button = document.createElement('button');
     button.id = 'ai-furniture-widget';
-    button.style.border = 'none';
-    button.style.background = 'transparent';
-    button.style.padding = '0';
-    button.style.cursor = 'pointer';
+
+    const BASE_BOTTOM = 24; // px
+    const BASE_RIGHT  = 24; // px
+
+    Object.assign(button.style, {
+        position: 'fixed',
+        bottom: BASE_BOTTOM + 'px',
+        right: BASE_RIGHT + 'px',
+        zIndex: '2147483647', // stay above in stacking order
+        border: 'none',
+        background: 'transparent',
+        padding: '0',
+        cursor: 'pointer',
+        margin: '0',
+        lineHeight: '0'
+    });
+
+    button.setAttribute('type', 'button');
+    button.setAttribute('aria-label', 'Open AI furniture assistant');
 
     button.innerHTML = `
       <div style="
@@ -31,54 +46,91 @@ export function createWidgetButton() {
         gap: 8px;
         background: linear-gradient(135deg, #f59e0b, #ea580c);
         color: white;
-        border: none;
         border-radius: 12px;
         padding: 12px 20px;
         font-size: 16px;
         font-weight: 600;
         cursor: pointer;
         box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
-        transition: all 0.3s ease;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        white-space: nowrap;
       ">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
         </svg>
         See in Your Room
       </div>
     `;
 
-    // Hover effects
-    button.addEventListener('mouseenter', function () {
-        this.style.transform = 'translateY(-2px)';
-        this.style.boxShadow = '0 6px 16px rgba(245, 158, 11, 0.4)';
+    const bubble = button.firstElementChild;
+
+    // Hover effects on the bubble
+    button.addEventListener('mouseenter', () => {
+        bubble.style.transform = 'translateY(-2px)';
+        bubble.style.boxShadow = '0 6px 16px rgba(245, 158, 11, 0.4)';
     });
 
-    button.addEventListener('mouseleave', function () {
-        this.style.transform = 'translateY(0)';
-        this.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.3)';
+    button.addEventListener('mouseleave', () => {
+        bubble.style.transform = 'translateY(0)';
+        bubble.style.boxShadow = '0 4px 12px rgba(245, 158, 11, 0.3)';
     });
 
     // Click → open modal
     button.addEventListener('click', () => handleWidgetClick());
 
-    // Try to find a sensible product container, fall back to body
-    const productContainer =
-        document.querySelector('.product-details') ||
-        document.querySelector('.product-info') ||
-        document.querySelector('.product-description') ||
-        document.querySelector('[class*="product"]') ||
-        document.querySelector('main') ||
-        document.querySelector('#main') ||
-        document.body;
+    document.body.appendChild(button);
+    debugLog('Widget button added to body (floating bottom-right)');
 
-    if (productContainer) {
-        productContainer.appendChild(button);
-        debugLog('Widget button added to page');
-    } else {
-        debugLog('No suitable product container found; appended widget to body');
-        document.body.appendChild(button);
+    // --- Avoid overlapping other corner widgets (x/y stacking) ---
+    function repositionAboveOtherWidgets() {
+        const GAP = 12; // gap above the highest widget
+        let extraBottom = 0;
+
+        // Heuristic: look for other fixed widgets living bottom-right-ish
+        const candidates = document.querySelectorAll(
+            'iframe, [class*="chat"], [id*="chat"], [class*="widget"], [id*="widget"], [data-widget], [data-chat]'
+        );
+
+        const viewportW = window.innerWidth;
+        const viewportH = window.innerHeight;
+
+        candidates.forEach(el => {
+            if (el === button) return;
+
+            const style = window.getComputedStyle(el);
+            if (style.position !== 'fixed') return;
+
+            const rect = el.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+
+            const bottomDistance = viewportH - rect.bottom;
+            const rightDistance  = viewportW - rect.right;
+
+            // Consider things that are reasonably bottom-right
+            const isBottomRightish =
+                bottomDistance >= 0 && bottomDistance < 200 &&
+                rightDistance  >= 0 && rightDistance  < 260;
+
+            if (!isBottomRightish) return;
+
+            const requiredExtra = rect.height + GAP;
+            if (requiredExtra > extraBottom) {
+                extraBottom = requiredExtra;
+            }
+        });
+
+        const newBottom = BASE_BOTTOM + extraBottom;
+        button.style.bottom = newBottom + 'px';
+        debugLog(`Widget repositioned to bottom: ${newBottom}px to sit above other widgets`);
     }
+
+    // Run once after a short delay to let other widgets mount
+    setTimeout(repositionAboveOtherWidgets, 500);
+    // Re-run on resize in case layout/viewport changes
+    window.addEventListener('resize', () => {
+        repositionAboveOtherWidgets();
+    });
 }
 
 export function handleWidgetClick() {

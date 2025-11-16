@@ -11,31 +11,30 @@ export function openFurnitureModal(url, sessionId, config) {
         closeFurnitureModal();
     }
 
-    // Create overlay
+    const isMobile = window.innerWidth <= 768;
+
+    // Overlay: full-screen, but we’ll only dock the panel on the right
     const modalOverlay = document.createElement('div');
     modalOverlay.id = 'ai-furniture-modal';
     modalOverlay.style.cssText = `
       position: fixed;
-      top: 0;
-      left: 0;
+      inset: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.8);
+      background: rgba(15, 23, 42, 0.45);
       z-index: 999999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       opacity: 0;
       transition: opacity 0.3s ease;
     `;
 
-    // Create container
+    // Container: FULL-SCREEN on mobile, RIGHT-SIDE PANEL on desktop
     const modalContainer = document.createElement('div');
-    const isMobile = window.innerWidth <= 768;
 
     if (isMobile) {
+        // keep mobile as a full-screen sheet
         modalContainer.style.cssText = `
-          position: relative;
+          position: fixed;
+          inset: 0;
           width: 100%;
           height: 100%;
           max-width: none;
@@ -44,26 +43,29 @@ export function openFurnitureModal(url, sessionId, config) {
           border-radius: 0;
           box-shadow: none;
           overflow: hidden;
-          transform: scale(0.9);
-          transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+          transform: translateY(16px);
+          transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
           backdrop-filter: blur(20px);
           border: none;
         `;
     } else {
+        // DESKTOP: right-hand drawer ~1/3 of the viewport
         modalContainer.style.cssText = `
-          position: relative;
-          width: 90%;
-          max-width: 900px;
-          height: 80%;
-          max-height: 600px;
+          position: fixed;
+          top: 0;
+          right: 0;
+          height: 100%;
+          width: clamp(360px, 34vw, 520px);
           background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-          border-radius: 20px;
-          box-shadow: 0 25px 80px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1);
+          border-radius: 16px 0 0 16px;
+          box-shadow:
+            0 20px 60px rgba(15, 23, 42, 0.35),
+            0 0 0 1px rgba(148, 163, 184, 0.25);
           overflow: hidden;
-          transform: scale(0.9);
-          transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-          backdrop-filter: blur(20px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          transform: translateX(32px);
+          transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+          backdrop-filter: blur(18px);
+          border-left: 1px solid rgba(148, 163, 184, 0.35);
         `;
     }
 
@@ -96,14 +98,14 @@ export function openFurnitureModal(url, sessionId, config) {
     } else {
         closeButton.style.cssText = `
           position: absolute;
-          top: 20px;
-          right: 20px;
-          width: 36px;
-          height: 36px;
+          top: 16px;
+          right: 16px;
+          width: 32px;
+          height: 32px;
           background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.9));
           color: #64748b;
           border: 1px solid rgba(148, 163, 184, 0.2);
-          border-radius: 50%;
+          border-radius: 999px;
           font-size: 20px;
           font-weight: 300;
           cursor: pointer;
@@ -111,18 +113,18 @@ export function openFurnitureModal(url, sessionId, config) {
           display: flex;
           align-items: center;
           justify-content: center;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
           backdrop-filter: blur(10px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
         `;
     }
 
     closeButton.addEventListener('mouseenter', function () {
         this.style.background =
-            'linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(220, 38, 38, 0.9))';
-        this.style.color = 'white';
-        this.style.transform = 'scale(1.1)';
-        this.style.boxShadow = '0 8px 20px rgba(239, 68, 68, 0.3)';
+            'linear-gradient(135deg, rgba(239, 68, 68, 0.96), rgba(220, 38, 38, 0.96))';
+        this.style.color = '#ffffff';
+        this.style.transform = 'scale(1.08)';
+        this.style.boxShadow = '0 8px 20px rgba(239, 68, 68, 0.35)';
     });
 
     closeButton.addEventListener('mouseleave', function () {
@@ -133,7 +135,7 @@ export function openFurnitureModal(url, sessionId, config) {
         } else {
             this.style.background =
                 'linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.9))';
-            this.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+            this.style.boxShadow = '0 4px 12px rgba(15, 23, 42, 0.15)';
         }
         this.style.color = '#64748b';
         this.style.transform = 'scale(1)';
@@ -150,7 +152,6 @@ export function openFurnitureModal(url, sessionId, config) {
       width: 100%;
       height: 100%;
       border: none;
-      border-radius: 16px;
       background: white;
     `;
 
@@ -167,6 +168,7 @@ export function openFurnitureModal(url, sessionId, config) {
       font-weight: 500;
       z-index: 5;
       text-align: center;
+      pointer-events: none;
     `;
     loadingDiv.innerHTML = `
       <div style="text-align: center;">
@@ -213,7 +215,11 @@ export function openFurnitureModal(url, sessionId, config) {
     // Animate in
     setTimeout(() => {
         modalOverlay.style.opacity = '1';
-        modalContainer.style.transform = 'scale(1)';
+        if (isMobile) {
+            modalContainer.style.transform = 'translateY(0)';
+        } else {
+            modalContainer.style.transform = 'translateX(0)';
+        }
     }, 10);
 
     // Remove loading indicator when iframe loads
@@ -277,14 +283,14 @@ export function openFurnitureModal(url, sessionId, config) {
     document.addEventListener('keydown', handleEscape);
     modalOverlay._escapeHandler = handleEscape;
 
-    // Click outside to close
+    // Click outside panel to close (click on the dimmed area)
     modalOverlay.addEventListener('click', e => {
         if (e.target === modalOverlay) {
             closeFurnitureModal();
         }
     });
 
-    debugLog('Furniture modal opened successfully');
+    debugLog('Furniture side-panel modal opened successfully');
 }
 
 export function closeFurnitureModal() {
@@ -306,11 +312,17 @@ export function closeFurnitureModal() {
     // Restore scroll
     document.body.style.overflow = '';
 
+    const isMobile = window.innerWidth <= 768;
+    const modalContainer = modal.querySelector('div');
+
     // Animate out
     modal.style.opacity = '0';
-    const modalContainer = modal.querySelector('div');
     if (modalContainer) {
-        modalContainer.style.transform = 'scale(0.9)';
+        if (isMobile) {
+            modalContainer.style.transform = 'translateY(16px)';
+        } else {
+            modalContainer.style.transform = 'translateX(32px)';
+        }
     }
 
     // Remove after animation
@@ -318,7 +330,7 @@ export function closeFurnitureModal() {
         if (modal.parentNode) {
             modal.parentNode.removeChild(modal);
         }
-    }, 300);
+    }, 320);
 
     debugLog('Furniture modal closed successfully');
 }
