@@ -59,7 +59,7 @@ export function createWidgetButton() {
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M4 7a3 3 0 0 1 3-3h2l1-1h4l1 1h2a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7zm8 2.5A4.5 4.5 0 1 0 16.5 14 4.5 4.5 0 0 0 12 9.5zm0 2A2.5 2.5 0 1 1 9.5 14 2.5 2.5 0 0 1 12 11.5z" />
         </svg>
-        <span>See this sofa in your room</span>
+        <span>See this in your room</span>
       </div>
     `;
 

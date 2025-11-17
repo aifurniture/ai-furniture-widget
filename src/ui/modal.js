@@ -188,11 +188,10 @@ export function openFurnitureModal(url, sessionId, config) {
         Room visualiser
       </div>
       <h2 style="font-size:18px; font-weight:600; letter-spacing:-0.01em; margin:4px 0 2px;">
-        See this sofa in your own room
+        See this in your own room
       </h2>
       <p style="font-size:12px; color:#64748b; max-width:320px;">
-        Upload a quick photo of your living room. We’ll swap your current sofa for this one, matching
-        the angle, lighting and flooring.
+        Upload a quick photo of your room. We’ll swap your current sofa for this one, matching the angle, lighting and flooring.
       </p>
     `;
 
@@ -575,6 +574,104 @@ export function openFurnitureModal(url, sessionId, config) {
     debugLog('Furniture side-panel modal (upload) opened successfully');
 }
 
+// Helper: create before/after slider card
+// Helper: create before/after slider card – matches the Tailwind example
+function createBeforeAfterSlider(originalImageUrl, generatedImageUrl, index) {
+    // This div is the equivalent of:
+    // <div class="relative w-full rounded-lg overflow-hidden border border-dashed border-slate-300 bg-slate-50 aspect-[4/3]">
+    const container = document.createElement('div');
+    container.style.cssText = `
+        position: relative;
+        width: 100%;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px dashed rgba(148, 163, 184, 0.9); /* slate-300 */
+        background: #f8fafc; /* slate-50-ish */
+        aspect-ratio: 4 / 3;
+    `;
+
+    // BEFORE (bottom image)
+    const beforeImage = document.createElement('img');
+    beforeImage.src = originalImageUrl;
+    beforeImage.alt = 'Customer room - before';
+    beforeImage.style.cssText = `
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    `;
+
+    // AFTER (top image, clipped)
+    const afterImage = document.createElement('img');
+    afterImage.src = generatedImageUrl;
+    afterImage.alt = `Customer room with sofa swapped by AI`;
+    afterImage.setAttribute('data-after', '');
+    afterImage.style.cssText = `
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        pointer-events: none;
+        clip-path: inset(0 50% 0 0); /* start at 50% */
+        transition: clip-path 0.08s ease-out;
+    `;
+
+    // Divider line
+    const divider = document.createElement('div');
+    divider.setAttribute('data-divider', '');
+    divider.style.cssText = `
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        border-left: 1px solid rgba(255, 255, 255, 0.7);
+        box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.25);
+        pointer-events: none;
+        transition: left 0.08s ease-out;
+    `;
+
+    // Slider (range input) – same behaviour as your inline oninput
+    const rangeInput = document.createElement('input');
+    rangeInput.type = 'range';
+    rangeInput.min = '0';
+    rangeInput.max = '100';
+    rangeInput.value = '50';
+    rangeInput.setAttribute('aria-label', 'Before/after slider');
+
+    // Equivalent of: class="absolute bottom-3 left-1/2 -translate-x-1/2 w-2/3 accent-slate-500"
+    rangeInput.style.cssText = `
+        position: absolute;
+        bottom: 12px;           /* bottom-3 */
+        left: 50%;
+        transform: translateX(-50%);
+        width: 66%;
+        accent-color: #64748b;  /* slate-500 */
+    `;
+
+    // Let the browser keep its native track/thumb style – looks closer to your Tailwind example
+    rangeInput.addEventListener('input', function () {
+        const v = Number(this.value || 50);
+        // Same logic as your inline JS:
+        // after.style.clipPath = `inset(0 ${100 - v}% 0 0)`;
+        // divider.style.left = v + '%';
+        afterImage.style.clipPath = `inset(0 ${100 - v}% 0 0)`;
+        divider.style.left = `${v}%`;
+    });
+
+    // Assemble
+    container.appendChild(beforeImage);
+    container.appendChild(afterImage);
+    container.appendChild(divider);
+    container.appendChild(rangeInput);
+
+    return container;
+}
+
+
 // Helper function to display generated images in the modal with before/after comparison
 function displayGeneratedImages(generatedImages, originalImageUrl, uploadSection, footer) {
     // Remove any existing results section
@@ -617,10 +714,10 @@ function displayGeneratedImages(generatedImages, originalImageUrl, uploadSection
             font-size: 12px;
             color: #64748b;
             margin: 0;
-        ">Before and after comparison</p>
+        ">Drag the slider to compare your original photo with the AI-generated version.</p>
     `;
 
-    // Images grid - show before/after for each generated image
+    // Images grid (one slider per generated image)
     const imagesGrid = document.createElement('div');
     imagesGrid.style.cssText = `
         display: grid;
@@ -629,132 +726,15 @@ function displayGeneratedImages(generatedImages, originalImageUrl, uploadSection
         margin-top: 4px;
     `;
 
-    // Display each generated image with before/after comparison
     generatedImages.forEach((imageData, index) => {
         const generatedImageUrl = imageData.url || imageData;
         if (!generatedImageUrl) return;
 
-        // Create before/after container
-        const comparisonCard = document.createElement('div');
-        comparisonCard.style.cssText = `
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            border-radius: 12px;
-            overflow: hidden;
-            background: #f8fafc;
-            border: 1px solid rgba(226, 232, 240, 0.9);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        `;
-
-        // Before section
-        const beforeSection = document.createElement('div');
-        beforeSection.style.cssText = `
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        `;
-        
-        const beforeLabel = document.createElement('div');
-        beforeLabel.textContent = 'Before';
-        beforeLabel.style.cssText = `
-            font-size: 11px;
-            font-weight: 600;
-            color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            padding: 0 12px;
-            margin-top: 8px;
-        `;
-        
-        const beforeImageContainer = document.createElement('div');
-        beforeImageContainer.style.cssText = `
-            width: 100%;
-            max-height: 200px;
-            overflow: hidden;
-            background: #e5e7eb;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        `;
-        
-        const beforeImage = document.createElement('img');
-        beforeImage.src = originalImageUrl;
-        beforeImage.alt = 'Original room';
-        beforeImage.style.cssText = `
-            width: 100%;
-            height: auto;
-            display: block;
-            object-fit: contain;
-        `;
-        
-        beforeImage.onload = () => {
-            beforeImage.style.opacity = '1';
-        };
-        beforeImage.style.opacity = '0';
-        beforeImage.style.transition = 'opacity 0.3s ease';
-        
-        beforeImageContainer.appendChild(beforeImage);
-        beforeSection.appendChild(beforeLabel);
-        beforeSection.appendChild(beforeImageContainer);
-
-        // After section
-        const afterSection = document.createElement('div');
-        afterSection.style.cssText = `
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        `;
-        
-        const afterLabel = document.createElement('div');
-        afterLabel.textContent = 'After';
-        afterLabel.style.cssText = `
-            font-size: 11px;
-            font-weight: 600;
-            color: #166534;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            padding: 0 12px;
-        `;
-        
-        const afterImageContainer = document.createElement('div');
-        afterImageContainer.style.cssText = `
-            width: 100%;
-            max-height: 200px;
-            overflow: hidden;
-            background: #e5e7eb;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        `;
-        
-        const afterImage = document.createElement('img');
-        afterImage.src = generatedImageUrl;
-        afterImage.alt = `Generated preview ${index + 1}`;
-        afterImage.style.cssText = `
-            width: 100%;
-            height: auto;
-            display: block;
-            object-fit: contain;
-        `;
-        
-        afterImage.onload = () => {
-            afterImage.style.opacity = '1';
-        };
-        afterImage.style.opacity = '0';
-        afterImage.style.transition = 'opacity 0.3s ease';
-        
-        afterImageContainer.appendChild(afterImage);
-        afterSection.appendChild(afterLabel);
-        afterSection.appendChild(afterImageContainer);
-
-        // Assemble comparison card
-        comparisonCard.appendChild(beforeSection);
-        comparisonCard.appendChild(afterSection);
+        const comparisonCard = createBeforeAfterSlider(originalImageUrl, generatedImageUrl, index);
         imagesGrid.appendChild(comparisonCard);
     });
 
-    // Add download/view actions
+    // Actions (for now just close)
     const actionsContainer = document.createElement('div');
     actionsContainer.style.cssText = `
         display: flex;
@@ -763,7 +743,6 @@ function displayGeneratedImages(generatedImages, originalImageUrl, uploadSection
         margin-top: 8px;
     `;
 
-    // Close button to dismiss results
     const closeResultsButton = document.createElement('button');
     closeResultsButton.textContent = 'Close';
     closeResultsButton.style.cssText = `
@@ -801,10 +780,9 @@ function displayGeneratedImages(generatedImages, originalImageUrl, uploadSection
     resultsContainer.appendChild(imagesGrid);
     resultsContainer.appendChild(actionsContainer);
 
-    // Add to upload section (which now acts as container)
     uploadSection.appendChild(resultsContainer);
 
-    // Add fade-in animation
+    // Add fade-in animation (re-use if not present)
     const style = document.createElement('style');
     style.textContent = `
         @keyframes fadeIn {
