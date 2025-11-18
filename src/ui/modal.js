@@ -1,7 +1,6 @@
 // src/ui/modal.js
 import { debugLog } from '../debug.js';
 import { trackEvent, trackOrderCompletion } from '../tracking.js';
-import { addToQueue, getQueue, removeFromQueue, setMinimized, getMinimized, getSessionId, updateQueueItem, getProcessingItem } from '../state.js';
 
 export function openFurnitureModal(url, sessionId, config) {
     debugLog('Opening furniture modal (upload flow)', { sessionId, config });
@@ -142,77 +141,6 @@ export function openFurnitureModal(url, sessionId, config) {
 
     closeButton.addEventListener('click', () => {
         closeFurnitureModal();
-    });
-
-    // Minimize button
-    const minimizeButton = document.createElement('button');
-    minimizeButton.innerHTML = '−';
-    minimizeButton.setAttribute('aria-label', 'Minimize');
-    
-    if (isMobile) {
-        minimizeButton.style.cssText = `
-          position: absolute;
-          top: 24px;
-          right: 76px;
-          width: 44px;
-          height: 44px;
-          background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.95));
-          color: #64748b;
-          border: 1px solid rgba(148, 163, 184, 0.3);
-          border-radius: 50%;
-          font-size: 24px;
-          font-weight: 300;
-          cursor: pointer;
-          z-index: 999999;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-          backdrop-filter: blur(10px);
-          box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-        `;
-    } else {
-        minimizeButton.style.cssText = `
-          position: absolute;
-          top: 16px;
-          right: 56px;
-          width: 32px;
-          height: 32px;
-          background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.9));
-          color: #64748b;
-          border: 1px solid rgba(148, 163, 184, 0.2);
-          border-radius: 999px;
-          font-size: 20px;
-          font-weight: 300;
-          cursor: pointer;
-          z-index: 999999;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-          backdrop-filter: blur(10px);
-          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
-        `;
-    }
-
-    minimizeButton.addEventListener('mouseenter', function () {
-        this.style.background = 'linear-gradient(135deg, rgba(22, 101, 52, 0.98), rgba(21, 128, 61, 0.98))';
-        this.style.color = '#ffffff';
-        this.style.transform = 'scale(1.08)';
-    });
-
-    minimizeButton.addEventListener('mouseleave', function () {
-        if (isMobile) {
-            this.style.background = 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.95))';
-        } else {
-            this.style.background = 'linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.9))';
-        }
-        this.style.color = '#64748b';
-        this.style.transform = 'scale(1)';
-    });
-
-    minimizeButton.addEventListener('click', () => {
-        minimizeModal(modalOverlay, modalContainer, sessionId, config);
     });
 
     // === MAIN CONTENT (upload flow) ===
@@ -401,9 +329,6 @@ export function openFurnitureModal(url, sessionId, config) {
     `;
     uploadSection.appendChild(tips);
 
-    // Queue section (create early so it's accessible)
-    const queueSection = createQueueSection(sessionId, config);
-
     // Footer actions
     const footer = document.createElement('div');
     footer.style.cssText = `
@@ -414,70 +339,6 @@ export function openFurnitureModal(url, sessionId, config) {
       flex-direction: column;
       gap: 6px;
     `;
-
-    // Add to Queue button
-    const addToQueueButton = document.createElement('button');
-    addToQueueButton.textContent = 'Add to Queue';
-    addToQueueButton.style.cssText = `
-      width: 100%;
-      border: 1px solid rgba(148, 163, 184, 0.3);
-      border-radius: 999px;
-      padding: 8px 14px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      background: rgba(248, 250, 252, 0.8);
-      color: #475569;
-      transition: all 0.2s ease;
-    `;
-    
-    addToQueueButton.addEventListener('mouseenter', () => {
-        addToQueueButton.style.background = 'rgba(22, 101, 52, 0.1)';
-        addToQueueButton.style.borderColor = 'rgba(22, 101, 52, 0.3)';
-        addToQueueButton.style.color = '#166534';
-    });
-    
-    addToQueueButton.addEventListener('mouseleave', () => {
-        addToQueueButton.style.background = 'rgba(248, 250, 252, 0.8)';
-        addToQueueButton.style.borderColor = 'rgba(148, 163, 184, 0.3)';
-        addToQueueButton.style.color = '#475569';
-    });
-    
-    addToQueueButton.addEventListener('click', () => {
-        const productInfo = {
-            url: window.location.href,
-            title: document.title,
-            image: null
-        };
-        
-        if (addToQueue(productInfo)) {
-            addToQueueButton.textContent = 'Added to Queue ✓';
-            addToQueueButton.style.background = 'rgba(22, 101, 52, 0.1)';
-            addToQueueButton.style.color = '#166534';
-            
-            // Update queue display
-            if (queueSection._render) {
-                queueSection._render();
-            }
-            updateWidgetButton();
-            
-            setTimeout(() => {
-                addToQueueButton.textContent = 'Add to Queue';
-                addToQueueButton.style.background = 'rgba(248, 250, 252, 0.8)';
-                addToQueueButton.style.color = '#475569';
-            }, 2000);
-            
-            trackEvent('ai_furniture_added_to_queue', {
-                sessionId,
-                productUrl: productInfo.url
-            });
-        } else {
-            addToQueueButton.textContent = 'Already in Queue';
-            setTimeout(() => {
-                addToQueueButton.textContent = 'Add to Queue';
-            }, 1500);
-        }
-    });
 
     const primaryButton = document.createElement('button');
     primaryButton.textContent = 'Generate Preview';
@@ -530,45 +391,17 @@ export function openFurnitureModal(url, sessionId, config) {
     primaryButton.addEventListener('click', async () => {
         if (!selectedFile) return;
 
-        const currentUrl = window.location.href;
-        const currentTitle = document.title;
-        
-        // Add or get queue item for current product
-        let queueItem = getQueue().find(item => item.url === currentUrl);
-        if (!queueItem) {
-            queueItem = addToQueue({
-                url: currentUrl,
-                title: currentTitle,
-                roomImage: selectedFile
-            }, 'processing');
-        } else {
-            updateQueueItem(queueItem.id, {
-                status: 'processing',
-                roomImage: selectedFile,
-                startedAt: new Date().toISOString()
-            });
-        }
-        
-        // Update queue display
-        if (queueSection._render) {
-            queueSection._render();
-        }
-        updateWidgetButton();
-
         // Disable button during upload
         setPrimaryEnabled(false);
         primaryButton.textContent = 'Generating...';
         primaryButton.style.opacity = '0.6';
         primaryButton.style.cursor = 'not-allowed';
-        
-        // Allow minimizing during generation
-        minimizeButton.disabled = false;
 
         try {
             // Create FormData for file upload
             const formData = new FormData();
             formData.append('image', selectedFile);
-            formData.append('productUrl', currentUrl);
+            formData.append('productUrl', window.location.href);
             formData.append('sessionId', sessionId);
             formData.append('style', 'realistic');
             formData.append('angle', 'front');
@@ -581,18 +414,16 @@ export function openFurnitureModal(url, sessionId, config) {
                 url: generateUrl,
                 fileName: selectedFile.name,
                 fileSize: selectedFile.size,
-                productUrl: currentUrl,
-                queueItemId: queueItem.id
+                productUrl: window.location.href
             });
 
             // Track upload start
             trackEvent('ai_furniture_upload_started', {
                 sessionId,
-                productUrl: currentUrl,
+                productUrl: window.location.href,
                 sourceDomain: config?.domain || window.location.hostname,
                 fileName: selectedFile.name,
-                fileSize: selectedFile.size,
-                queueItemId: queueItem.id
+                fileSize: selectedFile.size
             });
 
             // Upload to backend
@@ -611,86 +442,41 @@ export function openFurnitureModal(url, sessionId, config) {
 
             console.log('✅ Image generation successful:', result);
 
-            // Update queue item with result
-            updateQueueItem(queueItem.id, {
-                status: 'completed',
-                result: result.generatedImages?.[0]?.url || null,
-                completedAt: new Date().toISOString()
-            });
-
             // Track successful upload
             trackEvent('ai_furniture_upload_confirmed', {
                 sessionId,
-                productUrl: currentUrl,
+                productUrl: window.location.href,
                 sourceDomain: config?.domain || window.location.hostname,
                 fileName: selectedFile.name,
                 fileSize: selectedFile.size,
-                generatedImageCount: result.generatedImages?.length || 0,
-                queueItemId: queueItem.id
+                generatedImageCount: result.generatedImages?.length || 0
             });
 
             // Store result in sessionStorage for widget to use
             sessionStorage.setItem('ai_furniture_generated_images', JSON.stringify(result.generatedImages || []));
             sessionStorage.setItem('ai_furniture_user', 'true');
 
-            // Update queue display
-            if (queueSection._render) {
-                queueSection._render();
-            }
-            updateWidgetButton();
-
-            // If modal is still open and not minimized, show results
-            const modalStillOpen = document.querySelector('#ai-furniture-modal') && 
-                                 !document.querySelector('#ai-furniture-modal-minimized');
+            // Get the original image (before) from preview
+            const originalImageUrl = previewImage.src;
             
-            if (modalStillOpen) {
-                // Get the original image (before) from preview
-                const originalImageUrl = previewImage.src;
-                
-                // Display generated images in the modal with before/after comparison
-                displayGeneratedImages(result.generatedImages || [], originalImageUrl, uploadSection, footer);
-                
-                // Hide upload section and show results
-                dropZone.style.display = 'none';
-                previewWrapper.style.display = 'none';
-                primaryButton.style.display = 'none';
-                footerNote.style.display = 'none';
-            } else {
-                // Modal is minimized or closed - user can view results from queue
-                // Reset button for next generation
-                setPrimaryEnabled(true);
-                primaryButton.textContent = 'Generate Preview';
-                primaryButton.style.opacity = '1';
-                selectedFile = null;
-                previewWrapper.style.display = 'none';
-                dropZone.style.display = 'flex';
-            }
+            // Display generated images in the modal with before/after comparison
+            displayGeneratedImages(result.generatedImages || [], originalImageUrl, uploadSection, footer);
+            
+            // Hide upload section and show results
+            dropZone.style.display = 'none';
+            previewWrapper.style.display = 'none';
+            primaryButton.style.display = 'none';
+            footerNote.style.display = 'none';
 
         } catch (error) {
             console.error('❌ Image upload error:', error);
             
-            // Update queue item with error
-            if (queueItem) {
-                updateQueueItem(queueItem.id, {
-                    status: 'error',
-                    error: error.message,
-                    completedAt: new Date().toISOString()
-                });
-                
-                // Update queue display
-                if (queueSection._render) {
-                    queueSection._render();
-                }
-                updateWidgetButton();
-            }
-            
             // Track error
             trackEvent('ai_furniture_upload_error', {
                 sessionId,
-                productUrl: currentUrl,
+                productUrl: window.location.href,
                 sourceDomain: config?.domain || window.location.hostname,
-                error: error.message,
-                queueItemId: queueItem?.id
+                error: error.message
             });
 
             // Re-enable button
@@ -699,12 +485,8 @@ export function openFurnitureModal(url, sessionId, config) {
             primaryButton.style.opacity = '1';
             primaryButton.style.cursor = 'pointer';
 
-            // Show error message only if modal is open
-            const modalStillOpen = document.querySelector('#ai-furniture-modal') && 
-                                 !document.querySelector('#ai-furniture-modal-minimized');
-            if (modalStillOpen) {
-                showErrorMessage(error.message || 'Failed to generate images. Please try again.');
-            }
+            // Show error message
+            showErrorMessage(error.message || 'Failed to generate images. Please try again.');
         }
     });
 
@@ -717,7 +499,6 @@ export function openFurnitureModal(url, sessionId, config) {
       line-height: 1.4;
     `;
 
-    footer.appendChild(addToQueueButton);
     footer.appendChild(primaryButton);
     footer.appendChild(footerNote);
 
@@ -747,11 +528,9 @@ export function openFurnitureModal(url, sessionId, config) {
     // Assemble content
     content.appendChild(header);
     content.appendChild(uploadSection);
-    content.appendChild(queueSection);
     content.appendChild(footer);
-    
+
     modalContainer.appendChild(closeButton);
-    modalContainer.appendChild(minimizeButton);
     modalContainer.appendChild(content);
     modalOverlay.appendChild(modalContainer);
     document.body.appendChild(modalOverlay);
@@ -1141,467 +920,4 @@ export function closeFurnitureModal() {
     }, 320);
 
     debugLog('Furniture modal closed successfully');
-}
-
-// Create queue section
-function createQueueSection(sessionId, config) {
-    const queueSection = document.createElement('div');
-    queueSection.id = 'ai-furniture-queue-section';
-    queueSection.style.cssText = `
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid rgba(226, 232, 240, 0.8);
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      max-height: 300px;
-      overflow-y: auto;
-    `;
-
-    function renderQueue() {
-        const queue = getQueue();
-        queueSection.innerHTML = '';
-        
-        if (queue.length === 0) {
-            queueSection.style.display = 'none';
-            return;
-        }
-        
-        queueSection.style.display = 'flex';
-        
-        const queueHeader = document.createElement('div');
-        queueHeader.style.cssText = `
-          font-size: 11px;
-          font-weight: 600;
-          color: #475569;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          margin-bottom: 4px;
-        `;
-        queueHeader.textContent = `Queue (${queue.length})`;
-        queueSection.appendChild(queueHeader);
-        
-        queue.forEach(item => {
-            const queueItem = document.createElement('div');
-            const statusColors = {
-                pending: { bg: 'rgba(148, 163, 184, 0.1)', color: '#64748b', text: 'Pending' },
-                processing: { bg: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', text: 'Generating...' },
-                completed: { bg: 'rgba(22, 101, 52, 0.1)', color: '#166534', text: '✓ Done' },
-                error: { bg: 'rgba(239, 68, 68, 0.1)', color: '#dc2626', text: '✗ Error' }
-            };
-            const statusStyle = statusColors[item.status] || statusColors.pending;
-            
-            queueItem.style.cssText = `
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-              padding: 10px 12px;
-              background: ${statusStyle.bg};
-              border-radius: 8px;
-              border: 1px solid rgba(226, 232, 240, 0.6);
-              font-size: 11px;
-              gap: 8px;
-            `;
-            
-            const itemContent = document.createElement('div');
-            itemContent.style.cssText = `
-              flex: 1;
-              display: flex;
-              flex-direction: column;
-              gap: 4px;
-              min-width: 0;
-            `;
-            
-            const itemTitle = document.createElement('span');
-            itemTitle.textContent = item.title || 'Furniture item';
-            itemTitle.style.cssText = `
-              overflow: hidden;
-              text-overflow: ellipsis;
-              white-space: nowrap;
-              color: #475569;
-              font-weight: 500;
-            `;
-            
-            const itemStatus = document.createElement('span');
-            itemStatus.textContent = statusStyle.text;
-            itemStatus.style.cssText = `
-              font-size: 10px;
-              color: ${statusStyle.color};
-              font-weight: 600;
-            `;
-            
-            itemContent.appendChild(itemTitle);
-            itemContent.appendChild(itemStatus);
-            
-            const actions = document.createElement('div');
-            actions.style.cssText = `
-              display: flex;
-              align-items: center;
-              gap: 4px;
-              flex-shrink: 0;
-            `;
-            
-            // View result button if completed
-            if (item.status === 'completed' && item.result) {
-                const viewBtn = document.createElement('button');
-                viewBtn.innerHTML = '👁';
-                viewBtn.setAttribute('aria-label', 'View result');
-                viewBtn.style.cssText = `
-                  width: 24px;
-                  height: 24px;
-                  border: none;
-                  background: rgba(22, 101, 52, 0.1);
-                  color: #166534;
-                  border-radius: 4px;
-                  cursor: pointer;
-                  font-size: 12px;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                `;
-                viewBtn.addEventListener('click', () => {
-                    // Open result in new tab or show in modal
-                    if (item.result.startsWith('data:') || item.result.startsWith('http')) {
-                        window.open(item.result, '_blank');
-                    }
-                });
-                actions.appendChild(viewBtn);
-            }
-            
-            const removeBtn = document.createElement('button');
-            removeBtn.innerHTML = '×';
-            removeBtn.style.cssText = `
-              width: 20px;
-              height: 20px;
-              border: none;
-              background: rgba(239, 68, 68, 0.1);
-              color: #dc2626;
-              border-radius: 4px;
-              cursor: pointer;
-              font-size: 14px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-            `;
-            removeBtn.addEventListener('click', () => {
-                removeFromQueue(item.id);
-                renderQueue();
-                updateWidgetButton();
-            });
-            
-            actions.appendChild(removeBtn);
-            queueItem.appendChild(itemContent);
-            queueItem.appendChild(actions);
-            queueSection.appendChild(queueItem);
-        });
-    }
-    
-    renderQueue();
-    queueSection._render = renderQueue;
-    
-    return queueSection;
-}
-
-// Minimize modal
-function minimizeModal(modalOverlay, modalContainer, sessionId, config) {
-    setMinimized(true);
-    
-    // Create minimized widget
-    const minimizedWidget = document.createElement('div');
-    minimizedWidget.id = 'ai-furniture-modal-minimized';
-    minimizedWidget.style.cssText = `
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      width: 280px;
-      max-height: 400px;
-      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-      border-radius: 16px;
-      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(148, 163, 184, 0.25);
-      z-index: 999998;
-      overflow: hidden;
-      transform: translateY(20px);
-      opacity: 0;
-      transition: transform 0.3s ease, opacity 0.3s ease;
-    `;
-    
-    const queue = getQueue();
-    
-    const statusColors = {
-        pending: { bg: 'rgba(148, 163, 184, 0.1)', color: '#64748b', text: 'Pending' },
-        processing: { bg: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', text: 'Generating...' },
-        completed: { bg: 'rgba(22, 101, 52, 0.1)', color: '#166534', text: '✓ Done' },
-        error: { bg: 'rgba(239, 68, 68, 0.1)', color: '#dc2626', text: '✗ Error' }
-    };
-    
-    minimizedWidget.innerHTML = `
-      <div style="
-        padding: 16px;
-        border-bottom: 1px solid rgba(226, 232, 240, 0.8);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-      ">
-        <div style="font-size: 13px; font-weight: 600; color: #0f172a;">
-          Furniture Queue ${queue.length > 0 ? `(${queue.length})` : ''}
-        </div>
-        <div style="display: flex; gap: 4px;">
-          <button id="ai-furniture-restore-btn" style="
-            width: 24px;
-            height: 24px;
-            border: none;
-            background: rgba(22, 101, 52, 0.1);
-            color: #166534;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          ">□</button>
-          <button id="ai-furniture-close-minimized-btn" style="
-            width: 24px;
-            height: 24px;
-            border: none;
-            background: rgba(239, 68, 68, 0.1);
-            color: #dc2626;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          ">×</button>
-        </div>
-      </div>
-      <div id="ai-furniture-minimized-queue-list" style="
-        padding: 12px;
-        max-height: 300px;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      ">
-        ${queue.length === 0 ? `
-          <div style="
-            text-align: center;
-            padding: 20px;
-            color: #64748b;
-            font-size: 12px;
-          ">
-            No items in queue
-          </div>
-        ` : queue.map(item => {
-            const statusStyle = statusColors[item.status] || statusColors.pending;
-            return `
-              <div data-item-id="${item.id}" style="
-                padding: 10px;
-                background: ${statusStyle.bg};
-                border-radius: 8px;
-                font-size: 11px;
-                color: #475569;
-                border: 1px solid rgba(226, 232, 240, 0.6);
-                cursor: ${item.status === 'completed' && item.result ? 'pointer' : 'default'};
-              ">
-                <div style="
-                  overflow: hidden;
-                  text-overflow: ellipsis;
-                  white-space: nowrap;
-                  font-weight: 500;
-                  margin-bottom: 4px;
-                ">${item.title || 'Furniture item'}</div>
-                <div style="
-                  font-size: 10px;
-                  color: ${statusStyle.color};
-                  font-weight: 600;
-                ">${statusStyle.text}</div>
-              </div>
-            `;
-        }).join('')}
-      </div>
-    `;
-    
-    // Add click handlers for completed items
-    queue.forEach(item => {
-        if (item.status === 'completed' && item.result) {
-            const itemEl = minimizedWidget.querySelector(`[data-item-id="${item.id}"]`);
-            if (itemEl) {
-                itemEl.addEventListener('click', () => {
-                    if (item.result.startsWith('data:') || item.result.startsWith('http')) {
-                        window.open(item.result, '_blank');
-                    }
-                });
-                itemEl.style.cursor = 'pointer';
-            }
-        }
-    });
-    
-    document.body.appendChild(minimizedWidget);
-    
-    // Animate in
-    setTimeout(() => {
-        minimizedWidget.style.transform = 'translateY(0)';
-        minimizedWidget.style.opacity = '1';
-    }, 10);
-    
-    // Restore button
-    minimizedWidget.querySelector('#ai-furniture-restore-btn').addEventListener('click', () => {
-        restoreMinimizedModal();
-    });
-    
-    // Close button
-    minimizedWidget.querySelector('#ai-furniture-close-minimized-btn').addEventListener('click', () => {
-        minimizedWidget.remove();
-        closeFurnitureModal();
-    });
-    
-    // Periodically update minimized widget to show status changes
-    const updateInterval = setInterval(() => {
-        if (!document.querySelector('#ai-furniture-modal-minimized')) {
-            clearInterval(updateInterval);
-            return;
-        }
-        updateWidgetButton(); // This will update the minimized widget too
-    }, 2000); // Update every 2 seconds
-    
-    minimizedWidget._updateInterval = updateInterval;
-    
-    // Hide main modal
-    modalOverlay.style.opacity = '0';
-    if (window.innerWidth <= 768) {
-        modalContainer.style.transform = 'translateY(16px)';
-    } else {
-        modalContainer.style.transform = 'translateX(32px)';
-    }
-    
-    setTimeout(() => {
-        modalOverlay.style.display = 'none';
-    }, 320);
-    
-    trackEvent('ai_furniture_modal_minimized', { sessionId });
-}
-
-// Restore minimized modal
-export function restoreMinimizedModal() {
-    const minimizedWidget = document.querySelector('#ai-furniture-modal-minimized');
-    if (!minimizedWidget) return;
-    
-    const modalOverlay = document.querySelector('#ai-furniture-modal');
-    if (!modalOverlay) return;
-    
-    setMinimized(false);
-    
-    // Show main modal
-    modalOverlay.style.display = 'block';
-    setTimeout(() => {
-        modalOverlay.style.opacity = '1';
-        const modalContainer = modalOverlay.querySelector('div');
-        if (modalContainer) {
-            if (window.innerWidth <= 768) {
-                modalContainer.style.transform = 'translateY(0)';
-            } else {
-                modalContainer.style.transform = 'translateX(0)';
-            }
-        }
-    }, 10);
-    
-    // Remove minimized widget
-    minimizedWidget.style.transform = 'translateY(20px)';
-    minimizedWidget.style.opacity = '0';
-    
-    // Clear update interval
-    if (minimizedWidget._updateInterval) {
-        clearInterval(minimizedWidget._updateInterval);
-    }
-    
-    setTimeout(() => {
-        minimizedWidget.remove();
-    }, 300);
-    
-    trackEvent('ai_furniture_modal_restored', { sessionId: getSessionId() });
-}
-
-// Update widget button queue count
-function updateWidgetButton() {
-    // Try widget button's update function
-    const widgetButton = document.querySelector('#ai-furniture-widget');
-    if (widgetButton && widgetButton._updateContent) {
-        widgetButton._updateContent();
-    }
-    
-    // Also try global function
-    if (window.updateAIFurnitureWidgetButton) {
-        window.updateAIFurnitureWidgetButton();
-    }
-    
-    // Also update minimized widget if it exists
-    const minimizedWidget = document.querySelector('#ai-furniture-modal-minimized');
-    if (minimizedWidget) {
-        const queueList = minimizedWidget.querySelector('#ai-furniture-minimized-queue-list');
-        const header = minimizedWidget.querySelector('div:first-child > div:first-child');
-        if (queueList) {
-            const queue = getQueue();
-            const statusColors = {
-                pending: { bg: 'rgba(148, 163, 184, 0.1)', color: '#64748b', text: 'Pending' },
-                processing: { bg: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', text: 'Generating...' },
-                completed: { bg: 'rgba(22, 101, 52, 0.1)', color: '#166534', text: '✓ Done' },
-                error: { bg: 'rgba(239, 68, 68, 0.1)', color: '#dc2626', text: '✗ Error' }
-            };
-            
-            if (header) {
-                header.textContent = `Furniture Queue ${queue.length > 0 ? `(${queue.length})` : ''}`;
-            }
-            
-            queueList.innerHTML = queue.length === 0 ? `
-              <div style="
-                text-align: center;
-                padding: 20px;
-                color: #64748b;
-                font-size: 12px;
-              ">
-                No items in queue
-              </div>
-            ` : queue.map(item => {
-                const statusStyle = statusColors[item.status] || statusColors.pending;
-                return `
-                  <div data-item-id="${item.id}" style="
-                    padding: 10px;
-                    background: ${statusStyle.bg};
-                    border-radius: 8px;
-                    font-size: 11px;
-                    color: #475569;
-                    border: 1px solid rgba(226, 232, 240, 0.6);
-                    cursor: ${item.status === 'completed' && item.result ? 'pointer' : 'default'};
-                  ">
-                    <div style="
-                      overflow: hidden;
-                      text-overflow: ellipsis;
-                      white-space: nowrap;
-                      font-weight: 500;
-                      margin-bottom: 4px;
-                    ">${item.title || 'Furniture item'}</div>
-                    <div style="
-                      font-size: 10px;
-                      color: ${statusStyle.color};
-                      font-weight: 600;
-                    ">${statusStyle.text}</div>
-                  </div>
-                `;
-            }).join('');
-            
-            // Re-attach click handlers for completed items
-            queue.forEach(item => {
-                if (item.status === 'completed' && item.result) {
-                    const itemEl = queueList.querySelector(`[data-item-id="${item.id}"]`);
-                    if (itemEl) {
-                        itemEl.addEventListener('click', () => {
-                            if (item.result.startsWith('data:') || item.result.startsWith('http')) {
-                                window.open(item.result, '_blank');
-                            }
-                        });
-                    }
-                }
-            });
-        }
-    }
 }

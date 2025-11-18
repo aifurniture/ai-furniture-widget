@@ -1,5 +1,4 @@
 // src/init.js
-import { loadQueueFromStorage } from './state.js';
 import { verifyDomain, verifyDomainWithServer } from './domainVerification.js';
 import { debugLog } from './debug.js';
 import { initSession, trackEvent, onOrderAddedToDatabase, resetWidget, disconnectAllTracking, setRecreateWidgetButton } from './tracking.js';
@@ -66,9 +65,6 @@ export async function initializeWidget(isInitialLoad = false) {
         debugLog('Skipping order confirmation check - user has not used AI Furniture');
     }
 
-    // Load queue from storage
-    loadQueueFromStorage();
-    
     createWidgetButton();
 
     if (isAIFurnitureUser) {
