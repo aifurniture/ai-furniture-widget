@@ -75,7 +75,7 @@ export const QueueView = (state) => {
                 viewBtn.style.borderRadius = '6px';
                 viewBtn.style.cursor = 'pointer';
                 viewBtn.onclick = () => {
-                    actions.setGenerationResults(item.result, item);
+                    actions.setGenerationResults(item.result);
                 };
                 itemEl.appendChild(viewBtn);
             }

@@ -73,8 +73,7 @@ export const initialState = {
     view: VIEWS.UPLOAD,
     uploadedImage: null,
     generatedImages: [],
-    queue: [], // Array of { id, productUrl, userImageUrl, status, result, timestamp }
-    currentQueueItem: null, // The queue item currently being viewed in results
+    queue: [], // Array of { id, productId, status, result, timestamp }
     error: null,
     sessionId: null,
     config: {},
@@ -103,10 +102,9 @@ export const actions = {
     startGeneration: () => {
         store.setState({ view: VIEWS.GENERATING, error: null });
     },
-    setGenerationResults: (images, queueItem = null) => {
+    setGenerationResults: (images) => {
         store.setState({
             generatedImages: images,
-            currentQueueItem: queueItem,
             view: VIEWS.RESULTS
         });
     },

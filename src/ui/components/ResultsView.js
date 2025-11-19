@@ -29,20 +29,21 @@ export const ResultsView = (state) => {
     grid.style.flex = '1';
     grid.style.paddingRight = '4px'; // Space for scrollbar
 
-    // Get original image URL
-    // Priority: 1) uploadedImage blob, 2) currentQueueItem.userImageUrl, 3) generatedImages metadata
-    let originalUrl = '';
+    // Try to get original image from state, or fallback (maybe from the result metadata if we had it)
+    // For queue items, we might not have the original blob if page refreshed.
+    // Ideally, the backend should return the original image URL too, or we store it in session (as base64? heavy).
+    // For now, if no original image, we might just show the result or a placeholder.
 
+    let originalUrl = '';
     if (state.uploadedImage) {
-        // Fresh upload - use blob
         originalUrl = URL.createObjectURL(state.uploadedImage);
-    } else if (state.currentQueueItem?.userImageUrl) {
-        // From queue - use S3 URL
-        originalUrl = state.currentQueueItem.userImageUrl;
     } else if (state.generatedImages && state.generatedImages.length > 0 && state.generatedImages[0].originalImageUrl) {
-        // Fallback: check if backend returned original URL
+        // If backend returns original URL (it should!)
         originalUrl = state.generatedImages[0].originalImageUrl;
     }
+
+    // If still no original URL, we can't use the slider effectively. 
+    // We should just show the generated image.
 
     state.generatedImages.forEach((imgData) => {
         const generatedUrl = imgData.url || imgData;
@@ -77,9 +78,9 @@ export const ResultsView = (state) => {
         text: 'Close',
         variant: 'secondary',
         onClick: actions.closeModal,
-        className: 'aif-btn-secondary'
+        className: 'aif-btn-secondary' // We need to define this style or inline it
     });
-    // Quick inline style fix for secondary button
+    // Quick inline style fix for secondary button since we didn't define it in styles.js yet
     closeBtn.style.background = 'white';
     closeBtn.style.border = '1px solid #cbd5e1';
     closeBtn.style.color = '#475569';
