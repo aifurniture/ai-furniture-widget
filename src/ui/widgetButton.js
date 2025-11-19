@@ -1,160 +1,155 @@
 // src/ui/widgetButton.js
 import { debugLog } from '../debug.js';
 import { isFurnitureProductPage } from '../detection.js';
+import { actions, store, QUEUE_STATUS } from '../state/store.js';
 import { getConfig, getSessionId } from '../state.js';
-import { openFurnitureModal } from './modal.js';
 
 export function createWidgetButton() {
     // Avoid duplicates
-    if (document.querySelector('#ai-furniture-widget')) return;
+    if (document.getElementById('ai-furniture-trigger-btn')) return;
 
-    // Re-enable this when you only want it on furniture product pages
-    // if (!isFurnitureProductPage()) {
-    //     debugLog('Not a furniture product page, skipping widget');
-    //     return;
-    // }
+    const button = document.createElement('div');
+    button.id = 'ai-furniture-trigger-btn';
+    button.setAttribute('role', 'button');
+    button.setAttribute('tabindex', '0');
 
-    const config = getConfig();
-    debugLog('Creating AI Furniture widget');
-
-    const button = document.createElement('button');
-    button.id = 'ai-furniture-widget';
-
-    const BASE_BOTTOM = 24; // px
-    const BASE_RIGHT  = 24; // px
-
+    // Basic styles for the floating button
     Object.assign(button.style, {
         position: 'fixed',
-        bottom: BASE_BOTTOM + 'px',
-        right: BASE_RIGHT + 'px',
-        zIndex: '999998', // stay above in stacking order
-        border: 'none',
-        background: 'transparent',
-        padding: '0',
+        bottom: '20px',
+        right: '20px',
+        zIndex: '9999',
+        backgroundColor: '#ffffff',
+        color: '#1e293b',
+        padding: '12px 20px',
+        borderRadius: '50px',
+        boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
         cursor: 'pointer',
-        margin: '0',
-        lineHeight: '0'
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+        fontSize: '14px',
+        fontWeight: '600',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        opacity: '0',
+        transform: 'translateY(20px)',
+        pointerEvents: 'none' // disabled until visible
     });
 
-    button.setAttribute('type', 'button');
-    button.setAttribute('aria-label', 'Open AI furniture assistant');
+    // Icon
+    const icon = document.createElement('span');
+    icon.innerHTML = '🛋️';
+    icon.style.fontSize = '18px';
+    button.appendChild(icon);
 
-    button.innerHTML = `
-      <div style="
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        background: linear-gradient(135deg, #166534, #15803d); /* forest green gradient */
-        color: #f9fafb;
-        border-radius: 999px;
-        padding: 12px 20px;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        box-shadow: 0 8px 22px rgba(22, 101, 52, 0.45);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        white-space: nowrap;
-      ">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M4 7a3 3 0 0 1 3-3h2l1-1h4l1 1h2a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7zm8 2.5A4.5 4.5 0 1 0 16.5 14 4.5 4.5 0 0 0 12 9.5zm0 2A2.5 2.5 0 1 1 9.5 14 2.5 2.5 0 0 1 12 11.5z" />
-        </svg>
-        <span>See this in your room</span>
-      </div>
-    `;
+    // Text
+    const text = document.createElement('span');
+    text.textContent = 'See this in your room';
+    button.appendChild(text);
 
-    const bubble = button.firstElementChild;
+    // Badge for queue count
+    const badge = document.createElement('span');
+    badge.style.display = 'none';
+    badge.style.position = 'absolute';
+    badge.style.top = '-4px';
+    badge.style.right = '-4px';
+    badge.style.background = '#ef4444';
+    badge.style.color = 'white';
+    badge.style.fontSize = '11px';
+    badge.style.fontWeight = '700';
+    badge.style.padding = '2px 6px';
+    badge.style.borderRadius = '10px';
+    badge.style.minWidth = '18px';
+    badge.style.textAlign = 'center';
+    button.appendChild(badge);
 
-    // Hover effects on the bubble
+    // Hover effects
     button.addEventListener('mouseenter', () => {
-        bubble.style.transform = 'translateY(-2px)';
-        bubble.style.boxShadow = '0 12px 28px rgba(22, 101, 52, 0.55)';
+        button.style.transform = 'translateY(-2px)';
+        button.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)';
     });
-
     button.addEventListener('mouseleave', () => {
-        bubble.style.transform = 'translateY(0)';
-        bubble.style.boxShadow = '0 8px 22px rgba(22, 101, 52, 0.45)';
+        button.style.transform = 'translateY(0)';
+        button.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
     });
 
     // Click → open modal
     button.addEventListener('click', () => handleWidgetClick());
 
+    // Subscribe to store to update button status
+    store.subscribe((state) => {
+        const processingCount = state.queue.filter(i => i.status === QUEUE_STATUS.PROCESSING).length;
+        const completedCount = state.queue.filter(i => i.status === QUEUE_STATUS.COMPLETED).length;
+        const totalCount = state.queue.length;
+
+        // Update button text based on status
+        const textSpan = button.querySelector('span:nth-child(2)');
+        const badgeSpan = button.querySelector('span:last-child');
+
+        if (textSpan) {
+            if (processingCount > 0) {
+                textSpan.textContent = `Generating (${processingCount})...`;
+                badgeSpan.style.display = 'block';
+                badgeSpan.textContent = processingCount;
+                badgeSpan.style.background = '#3b82f6';
+            } else if (completedCount > 0) {
+                textSpan.textContent = `View Results (${completedCount})`;
+                badgeSpan.style.display = 'block';
+                badgeSpan.textContent = completedCount;
+                badgeSpan.style.background = '#22c55e';
+            } else if (totalCount > 0) {
+                textSpan.textContent = 'View Queue';
+                badgeSpan.style.display = 'block';
+                badgeSpan.textContent = totalCount;
+                badgeSpan.style.background = '#64748b';
+            } else {
+                textSpan.textContent = 'See this in your room';
+                badgeSpan.style.display = 'none';
+            }
+        }
+    });
+
     document.body.appendChild(button);
     debugLog('Widget button added to body (floating bottom-right)');
 
-    // --- Avoid overlapping other corner widgets (x/y stacking) ---
-    function repositionAboveOtherWidgets() {
-        const GAP = 12; // gap above the highest widget
-        let extraBottom = 0;
-
-        // Heuristic: look for other fixed widgets living bottom-right-ish
-        const candidates = document.querySelectorAll(
-            'iframe, [class*="chat"], [id*="chat"], [class*="widget"], [id*="widget"], [data-widget], [data-chat]'
-        );
-
-        const viewportW = window.innerWidth;
-        const viewportH = window.innerHeight;
-
-        candidates.forEach(el => {
-            if (el === button) return;
-
-            const style = window.getComputedStyle(el);
-            if (style.position !== 'fixed') return;
-
-            const rect = el.getBoundingClientRect();
-            if (!rect.width || !rect.height) return;
-
-            const bottomDistance = viewportH - rect.bottom;
-            const rightDistance  = viewportW - rect.right;
-
-            // Consider things that are reasonably bottom-right
-            const isBottomRightish =
-                bottomDistance >= 0 && bottomDistance < 200 &&
-                rightDistance  >= 0 && rightDistance  < 260;
-
-            if (!isBottomRightish) return;
-
-            const requiredExtra = rect.height + GAP;
-            if (requiredExtra > extraBottom) {
-                extraBottom = requiredExtra;
-            }
-        });
-
-        const newBottom = BASE_BOTTOM + extraBottom;
-        button.style.bottom = newBottom + 'px';
-        debugLog(`Widget repositioned to bottom: ${newBottom}px to sit above other widgets`);
-    }
-
-    // Run once after a short delay to let other widgets mount
-    setTimeout(repositionAboveOtherWidgets, 500);
-    // Re-run on resize in case layout/viewport changes
-    window.addEventListener('resize', () => {
-        repositionAboveOtherWidgets();
+    // Animate in
+    requestAnimationFrame(() => {
+        button.style.opacity = '1';
+        button.style.transform = 'translateY(0)';
+        button.style.pointerEvents = 'auto';
     });
+
+    // Reposition if needed (e.g. to avoid other widgets)
+    repositionWidgetButton();
 }
 
-export function handleWidgetClick() {
-    const config = getConfig();
-    const sessionId = getSessionId();
+function handleWidgetClick() {
+    // Get product info
+    const productUrl = window.location.href;
+    // We might want to scrape the image here or let the modal handle it
 
-    debugLog('Widget clicked');
+    actions.openModal({ productUrl });
+}
 
-    // Store original product URL for return tracking
-    sessionStorage.setItem('ai_furniture_original_url', window.location.href);
+function repositionWidgetButton() {
+    const button = document.getElementById('ai-furniture-trigger-btn');
+    if (!button) return;
 
-    const productInfo = {
-        url: window.location.href,
-        title: document.title,
-        domain: config.domain,
-        sessionId,
-        referrer: document.referrer
-    };
+    // Check for other common widgets (Intercom, Zendesk, etc.)
+    // and move up if necessary. This is a simple heuristic.
+    const otherWidgets = [
+        '#intercom-container',
+        '#launcher', // Zendesk
+        '#drift-widget'
+    ];
 
-    const aiFurnitureUrl = new URL(config.widgetEndpoint);
-    aiFurnitureUrl.searchParams.set('ref', config.domain);
-    aiFurnitureUrl.searchParams.set('product_url', encodeURIComponent(productInfo.url));
-    aiFurnitureUrl.searchParams.set('product_title', encodeURIComponent(productInfo.title));
-    aiFurnitureUrl.searchParams.set('session_id', sessionId);
+    let bottomOffset = 20;
+    otherWidgets.forEach(selector => {
+        if (document.querySelector(selector)) {
+            bottomOffset = 100; // Move up significantly
+        }
+    });
 
-    openFurnitureModal(aiFurnitureUrl.toString(), sessionId, config);
+    button.style.bottom = `${bottomOffset}px`;
 }
