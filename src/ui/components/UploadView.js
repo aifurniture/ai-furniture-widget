@@ -153,7 +153,7 @@ export const UploadView = (state) => {
                 formData.append('image', state.uploadedImage);
 
                 const currentState = store.getState();
-                const apiEndpoint = currentState.config.apiEndpoint || 'http://localhost:4000/api';
+                const apiEndpoint = currentState.config.apiEndpoint;
 
                 const uploadResponse = await fetch(`${apiEndpoint}/upload`, {
                     method: 'POST',

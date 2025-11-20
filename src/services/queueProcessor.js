@@ -58,7 +58,7 @@ function stopPolling(jobId) {
 async function pollJobStatus(jobId) {
     try {
         const { config } = store.getState();
-        const apiEndpoint = config.apiEndpoint || 'http://localhost:4000/api';
+        const apiEndpoint = config.apiEndpoint;
 
         const response = await fetch(`${apiEndpoint}/jobs/${jobId}`);
 
