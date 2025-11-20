@@ -153,11 +153,11 @@ export const UploadView = (state) => {
                 // Switch to generating view
                 actions.startGeneration();
 
-                // Call /api/generate directly with the image
+                // Call /api/generate directly
                 console.log('🎨 Generating images...');
                 const formData = new FormData();
                 formData.append('image', state.uploadedImage);
-                formData.append('productUrl', window.location.href);
+                formData.append('productUrl', window.location.href); // Use current page URL
                 formData.append('domain', currentState.config.domain || window.location.hostname);
 
                 if (currentState.sessionId) {
@@ -184,8 +184,8 @@ export const UploadView = (state) => {
                     throw new Error('No images were generated');
                 }
 
-                // Clear uploaded image
-                actions.setUploadedImage(null);
+                // Keep uploaded image for the slider comparison
+                // actions.setUploadedImage(null);
 
             } catch (error) {
                 console.error('❌ Generation failed:', error);

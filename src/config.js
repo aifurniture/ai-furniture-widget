@@ -1,11 +1,16 @@
 // src/config.js
 
 // Check if running in local development mode
-// This can be controlled via:
+// Auto-detect: if page is on localhost, use local backend
+// Can also be controlled via:
 // 1. URL parameter: ?aif_local=true
 // 2. Explicit config: initAIFurnitureWidget({ useLocalBackend: true })
 const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
-const isLocalMode = urlParams?.get('aif_local') === 'true';
+const isPageOnLocalhost = typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' ||
+        window.location.hostname === '127.0.0.1' ||
+        window.location.hostname === '0.0.0.0');
+const isLocalMode = urlParams?.get('aif_local') === 'true' || isPageOnLocalhost;
 
 // Default configuration
 const DEFAULT_CONFIG = {
