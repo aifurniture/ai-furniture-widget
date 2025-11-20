@@ -10,9 +10,9 @@ const isLocalhost = typeof window !== 'undefined' && (
 );
 
 const DEFAULT_CONFIG = {
-    apiEndpoint: isLocalhost ? 'http://localhost:4000/api' : 'https://aifurniture.app/api',
-    trackingEndpoint: isLocalhost ? 'http://localhost:4000/api/tracking/pixel' : 'https://aifurniture.app/api/tracking/pixel',
-    widgetEndpoint: isLocalhost ? 'http://localhost:3000/furniture' : 'https://aifurniture.app/furniture',
+    apiEndpoint: isLocalhost ? 'http://localhost:4000/api' : 'https://ai-furniture-backend.vercel.app/api',
+    trackingEndpoint: isLocalhost ? 'http://localhost:4000/api/tracking/pixel' : 'https://ai-furniture-backend.vercel.app/api/tracking/pixel',
+    widgetEndpoint: isLocalhost ? 'http://localhost:3000/furniture' : 'https://ai-furniture-backend.vercel.app/furniture',
     debug: isLocalhost // Auto-enable debug in localhost
 };
 
