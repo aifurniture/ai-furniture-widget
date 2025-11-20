@@ -12,6 +12,23 @@ export function verifyDomain() {
         return false;
     }
 
+    // Allow localhost and local development domains
+    const isLocalDevelopment = (
+        currentHostname === 'localhost' ||
+        currentHostname === '127.0.0.1' ||
+        currentHostname === '0.0.0.0' ||
+        currentHostname.startsWith('192.168.') ||
+        currentHostname.startsWith('10.0.') ||
+        currentHostname.startsWith('172.16.') ||
+        currentHostname.endsWith('.local')
+    );
+
+    if (isLocalDevelopment) {
+        debugLog('Domain verification skipped for local development', { currentHostname });
+        console.log('🔧 AI Furniture Widget: Running in local development mode');
+        return true;
+    }
+
     const normalizedCurrent = currentHostname.replace(/^www\./, '');
     const normalizedConfigured = configuredDomain
         .replace(/^www\./, '')

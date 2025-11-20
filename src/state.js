@@ -1,10 +1,13 @@
 // src/state.js
+import { store } from './state/store.js';
 
 let config = null;
 let sessionId = null;
 
 export function setConfig(newConfig) {
     config = newConfig;
+    // Also update the store's config
+    store.setState({ config: newConfig });
 }
 
 export function getConfig() {

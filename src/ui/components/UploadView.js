@@ -147,64 +147,49 @@ export const UploadView = (state) => {
             if (!state.uploadedImage) return;
 
             try {
-                // Step 1: Upload image to S3
-                console.log('📤 Uploading image to S3...');
-                const formData = new FormData();
-                formData.append('image', state.uploadedImage);
-
                 const currentState = store.getState();
                 const apiEndpoint = currentState.config.apiEndpoint;
 
-                const uploadResponse = await fetch(`${apiEndpoint}/upload`, {
+                // Switch to generating view
+                actions.startGeneration();
+
+                // Call /api/generate directly with the image
+                console.log('🎨 Generating images...');
+                const formData = new FormData();
+                formData.append('image', state.uploadedImage);
+                formData.append('productUrl', window.location.href);
+                formData.append('domain', currentState.config.domain || window.location.hostname);
+
+                if (currentState.sessionId) {
+                    formData.append('sessionId', currentState.sessionId);
+                }
+
+                const generateResponse = await fetch(`${apiEndpoint}/generate`, {
                     method: 'POST',
                     body: formData
                 });
 
-                if (!uploadResponse.ok) {
-                    throw new Error('Failed to upload image');
+                if (!generateResponse.ok) {
+                    const errorData = await generateResponse.json();
+                    throw new Error(errorData.error || 'Failed to generate images');
                 }
 
-                const { imageUrl } = await uploadResponse.json();
-                console.log('✅ Image uploaded:', imageUrl);
+                const result = await generateResponse.json();
+                console.log('✅ Generation complete:', result);
 
-                // Step 2: Create job
-                console.log('📝 Creating job...');
-                const jobResponse = await fetch(`${apiEndpoint}/jobs`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        productUrl: window.location.href,
-                        userImageUrl: imageUrl,
-                        sessionId: currentState.sessionId
-                    })
-                });
-
-                if (!jobResponse.ok) {
-                    throw new Error('Failed to create job');
+                // Store results and show them
+                if (result.generatedImages && result.generatedImages.length > 0) {
+                    actions.setGenerationResults(result.generatedImages);
+                } else {
+                    throw new Error('No images were generated');
                 }
-
-                const { jobId } = await jobResponse.json();
-                console.log('✅ Job created:', jobId);
-
-                // Step 3: Add to local queue
-                const queueItem = {
-                    id: jobId,
-                    productUrl: window.location.href,
-                    userImageUrl: imageUrl,
-                    status: 'PENDING'
-                };
-
-                actions.addToQueue(queueItem);
 
                 // Clear uploaded image
                 actions.setUploadedImage(null);
 
-                // Switch to queue view
-                actions.setView('QUEUE');
-
             } catch (error) {
-                console.error('❌ Upload/Job creation failed:', error);
-                actions.setError(error.message || 'Failed to start generation');
+                console.error('❌ Generation failed:', error);
+                actions.setError(error.message || 'Failed to generate images');
             }
         }
     });
