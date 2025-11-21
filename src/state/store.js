@@ -85,9 +85,27 @@ export const store = createStore(initialState);
 // Actions
 export const actions = {
     openModal: (config = {}) => {
+        const currentState = store.getState();
+        // Merge configs, ensuring we preserve all existing config properties
+        const mergedConfig = { 
+            ...currentState.config, 
+            ...config 
+        };
+        
+        // Ensure apiEndpoint is always defined after merge
+        if (!mergedConfig.apiEndpoint) {
+            const isLocalMode = typeof window !== 'undefined' && 
+                               (window.location.hostname === 'localhost' || 
+                                window.location.hostname === '127.0.0.1' || 
+                                window.location.hostname === '0.0.0.0');
+            mergedConfig.apiEndpoint = isLocalMode 
+                ? 'http://localhost:3000/api' 
+                : 'https://ai-furniture-backend.vercel.app/api';
+        }
+        
         store.setState({
             isOpen: true,
-            config: { ...store.getState().config, ...config }
+            config: mergedConfig
         });
     },
     closeModal: () => {

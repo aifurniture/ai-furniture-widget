@@ -148,7 +148,24 @@ export const UploadView = (state) => {
 
             try {
                 const currentState = store.getState();
-                const apiEndpoint = currentState.config.apiEndpoint;
+                
+                // Ensure apiEndpoint is defined - use fallback if missing
+                let apiEndpoint = currentState.config?.apiEndpoint;
+                if (!apiEndpoint) {
+                    // Fallback to default production endpoint if config is missing
+                    const isLocalMode = window.location.hostname === 'localhost' || 
+                                       window.location.hostname === '127.0.0.1' || 
+                                       window.location.hostname === '0.0.0.0';
+                    apiEndpoint = isLocalMode 
+                        ? 'http://localhost:3000/api' 
+                        : 'https://ai-furniture-backend.vercel.app/api';
+                    console.warn('⚠️ apiEndpoint was undefined, using fallback:', apiEndpoint);
+                }
+
+                // Validate apiEndpoint is a valid URL
+                if (!apiEndpoint || typeof apiEndpoint !== 'string') {
+                    throw new Error('API endpoint is not configured. Please ensure the widget is properly initialized.');
+                }
 
                 // Switch to generating view
                 actions.startGeneration();
@@ -158,7 +175,7 @@ export const UploadView = (state) => {
                 const formData = new FormData();
                 formData.append('image', state.uploadedImage);
                 formData.append('productUrl', window.location.href); // Use current page URL
-                formData.append('domain', currentState.config.domain || window.location.hostname);
+                formData.append('domain', currentState.config?.domain || window.location.hostname);
 
                 if (currentState.sessionId) {
                     formData.append('sessionId', currentState.sessionId);

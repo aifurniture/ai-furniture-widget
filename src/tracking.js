@@ -70,7 +70,27 @@ export function trackEvent(eventType, data = {}) {
         }
     }
 
-    const pixelUrl = `${config.apiEndpoint}?${params.toString()}`;
+    // Ensure apiEndpoint is defined - use fallback if missing
+    let apiEndpoint = config.apiEndpoint;
+    if (!apiEndpoint) {
+        // Fallback to default production endpoint if config is missing
+        const isLocalMode = typeof window !== 'undefined' && 
+                           (window.location.hostname === 'localhost' || 
+                            window.location.hostname === '127.0.0.1' || 
+                            window.location.hostname === '0.0.0.0');
+        apiEndpoint = isLocalMode 
+            ? 'http://localhost:3000/api' 
+            : 'https://ai-furniture-backend.vercel.app/api';
+        console.warn('⚠️ apiEndpoint was undefined in tracking, using fallback:', apiEndpoint);
+    }
+
+    // Validate apiEndpoint is a valid URL
+    if (!apiEndpoint || typeof apiEndpoint !== 'string') {
+        console.error('❌ Invalid API endpoint, cannot send tracking event');
+        return;
+    }
+
+    const pixelUrl = `${apiEndpoint}?${params.toString()}`;
 
     console.log('📤 SENDING PIXEL REQUEST TO BACKEND:', {
         url: pixelUrl,

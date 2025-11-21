@@ -55,8 +55,27 @@ export async function verifyDomainWithServer() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
 
+        // Ensure apiEndpoint is defined - use fallback if missing
+        let apiEndpoint = config.apiEndpoint;
+        if (!apiEndpoint) {
+            // Fallback to default production endpoint if config is missing
+            const isLocalMode = window.location.hostname === 'localhost' || 
+                               window.location.hostname === '127.0.0.1' || 
+                               window.location.hostname === '0.0.0.0';
+            apiEndpoint = isLocalMode 
+                ? 'http://localhost:3000/api' 
+                : 'https://ai-furniture-backend.vercel.app/api';
+            console.warn('⚠️ apiEndpoint was undefined in domainVerification, using fallback:', apiEndpoint);
+        }
+
+        // Validate apiEndpoint is a valid URL
+        if (!apiEndpoint || typeof apiEndpoint !== 'string') {
+            console.error('❌ Invalid API endpoint, cannot verify domain with server');
+            return true; // Proceed with client-side verification only
+        }
+
         // Use config API endpoint (auto-detects localhost)
-        const healthUrl = `${config.apiEndpoint}/health?domain=${encodeURIComponent(window.location.hostname)}`;
+        const healthUrl = `${apiEndpoint}/health?domain=${encodeURIComponent(window.location.hostname)}`;
         const response = await fetch(healthUrl, {
             method: 'GET',
             headers: { Accept: 'application/json' },
