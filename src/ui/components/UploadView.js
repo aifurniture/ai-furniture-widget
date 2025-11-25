@@ -1,9 +1,10 @@
 /**
  * Upload View Component
  */
-import { actions, VIEWS, store } from '../../state/store.js';
+import { actions, VIEWS, store, QUEUE_STATUS } from '../../state/store.js';
 import { Button } from './Button.js';
 import { trackEvent } from '../../tracking.js';
+
 
 export const UploadView = (state) => {
     const container = document.createElement('div');
@@ -135,78 +136,135 @@ export const UploadView = (state) => {
 
     container.appendChild(uploadArea);
 
+    // Model Selection
+    const modelSection = document.createElement('div');
+    modelSection.style.display = 'flex';
+    modelSection.style.flexDirection = 'column';
+    modelSection.style.gap = '8px';
+    modelSection.style.marginTop = '12px';
+
+    const modelLabel = document.createElement('label');
+    modelLabel.textContent = 'Generation Speed';
+    modelLabel.style.fontSize = '13px';
+    modelLabel.style.fontWeight = '600';
+    modelLabel.style.color = '#1e293b';
+    modelSection.appendChild(modelLabel);
+
+    const modelOptions = document.createElement('div');
+    modelOptions.style.display = 'flex';
+    modelOptions.style.gap = '12px';
+
+    // Fast model option
+    const fastOption = document.createElement('label');
+    fastOption.style.flex = '1';
+    fastOption.style.padding = '12px';
+    fastOption.style.border = state.selectedModel === 'fast' ? '2px solid #22c55e' : '1px solid #e2e8f0';
+    fastOption.style.borderRadius = '8px';
+    fastOption.style.cursor = 'pointer';
+    fastOption.style.background = state.selectedModel === 'fast' ? '#f0fdf4' : '#fff';
+    fastOption.style.transition = 'all 0.2s';
+    fastOption.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+            <input type="radio" name="model" value="fast" ${state.selectedModel === 'fast' ? 'checked' : ''} 
+                   style="accent-color:#22c55e;">
+            <div>
+                <div style="font-weight:600; font-size:13px; color:#1e293b;">⚡ Fast</div>
+                <div style="font-size:11px; color:#64748b;">~30 seconds</div>
+            </div>
+        </div>
+    `;
+    fastOption.onclick = () => actions.setSelectedModel('fast');
+
+    // Slow model option
+    const slowOption = document.createElement('label');
+    slowOption.style.flex = '1';
+    slowOption.style.padding = '12px';
+    slowOption.style.border = state.selectedModel === 'slow' ? '2px solid #22c55e' : '1px solid #e2e8f0';
+    slowOption.style.borderRadius = '8px';
+    slowOption.style.cursor = 'pointer';
+    slowOption.style.background = state.selectedModel === 'slow' ? '#f0fdf4' : '#fff';
+    slowOption.style.transition = 'all 0.2s';
+    slowOption.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+            <input type="radio" name="model" value="slow" ${state.selectedModel === 'slow' ? 'checked' : ''} 
+                   style="accent-color:#22c55e;">
+            <div>
+                <div style="font-weight:600; font-size:13px; color:#1e293b;">✨ Slow but Better</div>
+                <div style="font-size:11px; color:#64748b;">~60-90 seconds</div>
+            </div>
+        </div>
+    `;
+    slowOption.onclick = () => actions.setSelectedModel('slow');
+
+    modelOptions.appendChild(fastOption);
+    modelOptions.appendChild(slowOption);
+    modelSection.appendChild(modelOptions);
+
+    container.appendChild(modelSection);
+
     // Footer / Action Button
     const footer = document.createElement('div');
     footer.style.marginTop = 'auto';
 
     const generateBtn = Button({
-        text: state.view === VIEWS.GENERATING ? 'Generating Preview...' : 'Generate Preview',
-        loading: state.view === VIEWS.GENERATING,
-        disabled: !state.uploadedImage || state.view === VIEWS.GENERATING,
+        text: 'Generate Preview',
+        disabled: !state.uploadedImage,
         onClick: async () => {
             if (!state.uploadedImage) return;
 
+            // Manually update button to show loading state
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '';
+            const spinner = document.createElement('div');
+            spinner.className = 'aif-spinner';
+            const loadingText = document.createElement('span');
+            loadingText.textContent = ' Generating...';
+            generateBtn.appendChild(spinner);
+            generateBtn.appendChild(loadingText);
+            generateBtn.style.display = 'flex';
+            generateBtn.style.alignItems = 'center';
+            generateBtn.style.justifyContent = 'center';
+            generateBtn.style.gap = '8px';
+
             try {
                 const currentState = store.getState();
-                
-                // Ensure apiEndpoint is defined - use fallback if missing
-                let apiEndpoint = currentState.config?.apiEndpoint;
-                if (!apiEndpoint) {
-                    // Fallback to default production endpoint if config is missing
-                    const isLocalMode = window.location.hostname === 'localhost' || 
-                                       window.location.hostname === '127.0.0.1' || 
-                                       window.location.hostname === '0.0.0.0';
-                    apiEndpoint = isLocalMode 
-                        ? 'http://localhost:3000/api' 
-                        : 'https://ai-furniture-backend.vercel.app/api';
-                    console.warn('⚠️ apiEndpoint was undefined, using fallback:', apiEndpoint);
-                }
 
-                // Validate apiEndpoint is a valid URL
-                if (!apiEndpoint || typeof apiEndpoint !== 'string') {
-                    throw new Error('API endpoint is not configured. Please ensure the widget is properly initialized.');
-                }
+                // Create queue item
+                const queueId = `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                const productName = document.title || window.location.href;
 
-                // Switch to generating view
-                actions.startGeneration();
+                const queueItem = {
+                    id: queueId,
+                    productUrl: window.location.href,
+                    productName: productName,
+                    userImage: state.uploadedImage, // Store the File/Blob object
+                    selectedModel: currentState.selectedModel || 'fast',
+                    config: currentState.config || {},
+                    queuedAt: Date.now()
+                };
 
-                // Call /api/generate directly
-                console.log('🎨 Generating images...');
-                const formData = new FormData();
-                formData.append('image', state.uploadedImage);
-                formData.append('productUrl', window.location.href); // Use current page URL
-                formData.append('domain', currentState.config?.domain || window.location.hostname);
+                // Add to queue - this will trigger the queue processor
+                actions.addToQueue(queueItem);
+                console.log(`✅ Added to queue: ${queueId}`);
 
-                if (currentState.sessionId) {
-                    formData.append('sessionId', currentState.sessionId);
-                }
+                // Switch to queue view to show progress
+                actions.setView(VIEWS.QUEUE);
+                actions.setUploadedImage(null);
 
-                const generateResponse = await fetch(`${apiEndpoint}/generate`, {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!generateResponse.ok) {
-                    const errorData = await generateResponse.json();
-                    throw new Error(errorData.error || 'Failed to generate images');
-                }
-
-                const result = await generateResponse.json();
-                console.log('✅ Generation complete:', result);
-
-                // Store results and show them
-                if (result.generatedImages && result.generatedImages.length > 0) {
-                    actions.setGenerationResults(result.generatedImages);
-                } else {
-                    throw new Error('No images were generated');
-                }
-
-                // Keep uploaded image for the slider comparison
-                // actions.setUploadedImage(null);
+                // Reset button
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '';
+                generateBtn.textContent = 'Generate Preview';
+                generateBtn.style.display = '';
 
             } catch (error) {
-                console.error('❌ Generation failed:', error);
-                actions.setError(error.message || 'Failed to generate images');
+                console.error('❌ Failed to add to queue:', error);
+                actions.setError(error.message || 'Failed to add to queue');
+
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = '';
+                generateBtn.textContent = 'Generate Preview';
+                generateBtn.style.display = '';
             }
         }
     });

@@ -29,29 +29,33 @@ export const ResultsView = (state) => {
     grid.style.flex = '1';
     grid.style.paddingRight = '4px'; // Space for scrollbar
 
-    // Try to get original image from state, or fallback (maybe from the result metadata if we had it)
-    // For queue items, we might not have the original blob if page refreshed.
-    // Ideally, the backend should return the original image URL too, or we store it in session (as base64? heavy).
-    // For now, if no original image, we might just show the result or a placeholder.
-
-    let originalUrl = '';
-    if (state.uploadedImage) {
-        originalUrl = URL.createObjectURL(state.uploadedImage);
-    } else if (state.generatedImages && state.generatedImages.length > 0 && state.generatedImages[0].originalImageUrl) {
-        // If backend returns original URL (it should!)
-        originalUrl = state.generatedImages[0].originalImageUrl;
-    }
-
-    // If still no original URL, we can't use the slider effectively. 
-    // We should just show the generated image.
+    // Use S3 URLs for before/after comparison
+    // Priority: 
+    // 1. originalImageUrl from generatedImages (S3 URL from backend)
+    // 2. uploadedImage blob (if still in memory)
+    // 3. userImageUrl from queue item (S3 URL)
 
     state.generatedImages.forEach((imgData) => {
+        // Get the generated image URL (S3 URL)
         const generatedUrl = imgData.url || imgData;
+        
+        // Get the original image URL - prefer S3 URL from backend
+        let originalUrl = '';
+        
+        if (imgData.originalImageUrl) {
+            // Use S3 URL from backend (preferred)
+            originalUrl = imgData.originalImageUrl;
+        } else if (state.uploadedImage) {
+            // Fallback to blob if still in memory
+            originalUrl = URL.createObjectURL(state.uploadedImage);
+        }
+        
         if (generatedUrl) {
             if (originalUrl) {
+                // Use S3 URLs for both before and after
                 const slider = Slider({
-                    beforeImage: originalUrl,
-                    afterImage: generatedUrl
+                    beforeImage: originalUrl,  // S3 URL for original image
+                    afterImage: generatedUrl   // S3 URL for generated image
                 });
                 grid.appendChild(slider);
             } else {

@@ -1,7 +1,7 @@
 // src/ui/widgetButton.js
 import { debugLog } from '../debug.js';
 import { isFurnitureProductPage } from '../detection.js';
-import { actions, store, QUEUE_STATUS } from '../state/store.js';
+import { actions, store, QUEUE_STATUS, VIEWS } from '../state/store.js';
 import { getConfig, getSessionId } from '../state.js';
 
 export function createWidgetButton() {
@@ -127,9 +127,16 @@ export function createWidgetButton() {
 function handleWidgetClick() {
     // Get product info
     const productUrl = window.location.href;
-    // We might want to scrape the image here or let the modal handle it
-
-    actions.openModal({ productUrl });
+    const state = store.getState();
+    
+    // If there are items in queue, open to queue view, otherwise upload view
+    if (state.queue && state.queue.length > 0) {
+        actions.openModal({ productUrl });
+        actions.setView(VIEWS.QUEUE);
+    } else {
+        actions.openModal({ productUrl });
+        actions.setView(VIEWS.UPLOAD);
+    }
 }
 
 function repositionWidgetButton() {
