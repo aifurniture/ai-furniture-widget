@@ -3,6 +3,9 @@ import { store, actions, QUEUE_STATUS } from '../state/store.js';
 // Track items currently being processed
 const processingItems = new Set();
 
+// Track if queue processor has been initialized to prevent duplicates
+let queueProcessorInitialized = false;
+
 // Helper to convert data URL back to Blob
 const dataURLToBlob = (dataURL) => {
     if (!dataURL) return null;
@@ -23,7 +26,21 @@ const dataURLToBlob = (dataURL) => {
 };
 
 export function initQueueProcessor() {
-    // Subscribe to queue changes
+    // Prevent multiple initializations (script might reload on page navigation)
+    if (queueProcessorInitialized) {
+        console.log('🔄 Queue Processor already initialized, skipping...');
+        // Still check for pending items in case script was reloaded
+        const currentState = store.getState();
+        if (currentState.queue && currentState.queue.length > 0) {
+            console.log('🔄 Checking queue after script reload...');
+            resumePendingItems(currentState);
+        }
+        return;
+    }
+    
+    queueProcessorInitialized = true;
+    
+    // Subscribe to queue changes (only once)
     store.subscribe((state) => {
         checkQueue(state);
     });

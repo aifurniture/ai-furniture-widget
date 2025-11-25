@@ -12,16 +12,32 @@ export function initAIFurnitureWidget(userConfig = {}) {
         return;
     }
 
-    // Prevent multiple initializations
-    if (window.__AIFurnitureInitialized) {
-        console.log('AI Furniture Widget already initialized, skipping...');
-        return;
-    }
-    window.__AIFurnitureInitialized = true;
-
-    // 1. Initialize Config & Store
+    // 1. Initialize Config FIRST (needed for init key matching)
     const config = createConfig(userConfig);
     setConfig(config);
+    
+    // Store config in window immediately for persistence across script reloads
+    window.__AIFurnitureConfig = config;
+
+    // Prevent multiple initializations - only check window object (same script execution)
+    // Don't check sessionStorage here as it may have stale data and block first-time init
+    if (window.__AIFurnitureInitialized) {
+        console.log('AI Furniture Widget already initialized in this script execution, skipping...');
+        // Restore API if it was lost
+        if (!window.AIFurniture) {
+            window.AIFurniture = {
+                open: (options) => actions.openModal(options),
+                close: actions.closeModal,
+                getState: () => store.getState()
+            };
+        }
+        // Still attach listeners in case they were lost
+        attachDomListeners();
+        return;
+    }
+    
+    // Mark as initialized in this script execution
+    window.__AIFurnitureInitialized = true;
 
     // 2. Inject Styles
     injectStyles();

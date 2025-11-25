@@ -5,33 +5,85 @@ import { initSession, trackEvent, onOrderAddedToDatabase, resetWidget, disconnec
 import { createWidgetButton } from './ui/widgetButton.js';
 import { isFurnitureProductPage, detectCartAndOrderPages, checkForOrderCompletion, trackOrderConfirmationPage } from './detection.js';
 
-// Track if widget has been initialized in this session
-let widgetInitialized = false;
+// Track if widget has been initialized - use sessionStorage to persist across script reloads
+function getWidgetInitKey() {
+    try {
+        const config = window.__AIFurnitureConfig || {};
+        return 'aif_widget_init_' + (config.domain || 'default');
+    } catch {
+        return 'aif_widget_init_default';
+    }
+}
+
+function isWidgetInitialized() {
+    try {
+        // Check if widget button exists in DOM - most reliable check
+        const widgetButton = document.getElementById('ai-furniture-trigger-btn');
+        if (widgetButton) {
+            return true;
+        }
+        // Fallback to sessionStorage check
+        return sessionStorage.getItem(getWidgetInitKey()) === 'true';
+    } catch {
+        return false;
+    }
+}
+
+function setWidgetInitialized(value) {
+    try {
+        if (value) {
+            sessionStorage.setItem(getWidgetInitKey(), 'true');
+        } else {
+            sessionStorage.removeItem(getWidgetInitKey());
+        }
+    } catch (e) {
+        console.warn('Failed to update widget init state in sessionStorage', e);
+    }
+}
 
 export async function initializeWidget(isInitialLoad = false) {
     console.log('🚀 INITIALIZING WIDGET:', {
         isInitialLoad,
         currentUrl: window.location.href,
         currentPage: window.location.pathname + window.location.search,
-        alreadyInitialized: widgetInitialized
+        alreadyInitialized: isWidgetInitialized(),
+        hasConfig: !!window.__AIFurnitureConfig
     });
 
-    // If already initialized and not initial load, just update page tracking
-    if (widgetInitialized && !isInitialLoad) {
-        console.log('✅ Widget already initialized, updating page tracking only');
+    // If widget button already exists and not initial load, just update page tracking
+    const existingButton = document.getElementById('ai-furniture-trigger-btn');
+    if (existingButton && !isInitialLoad) {
+        console.log('✅ Widget button already exists, updating page tracking only');
         updatePageTracking();
         return;
     }
 
     debugLog('Initializing AI Furniture widget', { isInitialLoad });
 
-    if (!verifyDomain()) return;
+    // Check if domain was already verified (persist across script reloads)
+    const domainVerifiedKey = 'aif_domain_verified_' + (window.__AIFurnitureConfig?.domain || 'default');
+    let domainVerified = sessionStorage.getItem(domainVerifiedKey) === 'true';
+    
+    if (!domainVerified) {
+        if (!verifyDomain()) return;
 
-    const serverVerification = await verifyDomainWithServer();
-    if (!serverVerification) {
-        console.error('🚫 AI Furniture Widget: Server verification failed. Widget will not initialize.');
-        return;
+        const serverVerification = await verifyDomainWithServer();
+        if (!serverVerification) {
+            console.error('🚫 AI Furniture Widget: Server verification failed. Widget will not initialize.');
+            return;
+        }
+        
+        // Mark domain as verified
+        try {
+            sessionStorage.setItem(domainVerifiedKey, 'true');
+            domainVerified = true;
+        } catch (e) {
+            console.warn('Failed to save domain verification state', e);
+        }
+    } else {
+        console.log('✅ Domain already verified, skipping verification');
     }
+    
     console.log('init widget')
     initSession();
 
@@ -45,7 +97,7 @@ export async function initializeWidget(isInitialLoad = false) {
             console.log('🔄 PRODUCT PAGE DETECTED - re-enabling tracking for new session');
             debugLog('Product page detected after order completion - re-enabling tracking');
             resetWidget();
-            widgetInitialized = false; // Allow reinitialization
+            setWidgetInitialized(false); // Allow reinitialization
         } else {
             console.log('❌ Non-product page after order completion - keeping tracking disabled');
             debugLog('Non-product page after order completion - keeping tracking disabled');
@@ -98,8 +150,8 @@ export async function initializeWidget(isInitialLoad = false) {
     // expose backend hook
     window.onOrderAddedToDatabase = onOrderAddedToDatabase;
 
-    // Mark as initialized
-    widgetInitialized = true;
+    // Mark as initialized (persist in sessionStorage)
+    setWidgetInitialized(true);
     console.log('✅ Widget fully initialized');
 }
 
@@ -123,6 +175,20 @@ function updatePageTracking() {
 }
 
 export function attachDomListeners() {
+    // Prevent duplicate listeners if script reloads
+    if (window.__AIFurnitureListenersAttached) {
+        console.log('🔄 Listeners already attached, skipping...');
+        // Still initialize widget if needed
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => initializeWidget(true));
+        } else {
+            initializeWidget(true);
+        }
+        return;
+    }
+    
+    window.__AIFurnitureListenersAttached = true;
+    
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => initializeWidget(true));
     } else {
@@ -136,33 +202,47 @@ export function attachDomListeners() {
     const urlChangeHandler = () => {
         const currentUrl = window.location.href;
         if (currentUrl !== lastUrl) {
+            const previousUrl = lastUrl;
             lastUrl = currentUrl;
-            console.log('🔄 URL changed, updating widget...', { from: lastUrl, to: currentUrl });
+            console.log('🔄 URL changed, updating widget...', { from: previousUrl, to: currentUrl });
+            // Only update page tracking, don't reinitialize
             setTimeout(() => initializeWidget(false), 100);
         }
     };
 
     // Watch for DOM changes (for SPAs that don't use pushState)
-    new MutationObserver(() => {
-        urlChangeHandler();
-    }).observe(document, { subtree: true, childList: true });
+    // Only create one observer
+    if (!window.__AIFurnitureMutationObserver) {
+        window.__AIFurnitureMutationObserver = new MutationObserver(() => {
+            urlChangeHandler();
+        });
+        window.__AIFurnitureMutationObserver.observe(document, { subtree: true, childList: true });
+    }
 
     // Watch for pushState/replaceState (for SPAs)
-    const originalPushState = history.pushState;
-    const originalReplaceState = history.replaceState;
-    
-    history.pushState = function(...args) {
-        originalPushState.apply(history, args);
-        setTimeout(urlChangeHandler, 0);
-    };
-    
-    history.replaceState = function(...args) {
-        originalReplaceState.apply(history, args);
-        setTimeout(urlChangeHandler, 0);
-    };
+    // Only override if not already overridden
+    if (!window.__AIFurniturePushStatePatched) {
+        window.__AIFurniturePushStatePatched = true;
+        const originalPushState = history.pushState;
+        const originalReplaceState = history.replaceState;
+        
+        history.pushState = function(...args) {
+            originalPushState.apply(history, args);
+            setTimeout(urlChangeHandler, 0);
+        };
+        
+        history.replaceState = function(...args) {
+            originalReplaceState.apply(history, args);
+            setTimeout(urlChangeHandler, 0);
+        };
+    }
 
     // Also listen to popstate (back/forward)
-    window.addEventListener('popstate', urlChangeHandler);
+    // Use named function to allow removal if needed
+    if (!window.__AIFurniturePopstateHandler) {
+        window.__AIFurniturePopstateHandler = urlChangeHandler;
+        window.addEventListener('popstate', window.__AIFurniturePopstateHandler);
+    }
 
     debugLog('AI Furniture widget initialized successfully');
 }
