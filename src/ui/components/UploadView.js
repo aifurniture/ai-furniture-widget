@@ -126,7 +126,17 @@ export const UploadView = (state) => {
         fileInput.style.display = 'none';
         fileInput.onchange = (e) => {
             if (e.target.files[0]) {
-                actions.setUploadedImage(e.target.files[0]);
+                const file = e.target.files[0];
+                actions.setUploadedImage(file);
+                
+                // Track image upload
+                trackEvent('image_uploaded', {
+                    productUrl: window.location.href,
+                    productName: document.title,
+                    imageSize: file.size,
+                    imageType: file.type,
+                    fileName: file.name
+                });
             }
         };
 
@@ -242,6 +252,15 @@ export const UploadView = (state) => {
                     config: currentState.config || {},
                     queuedAt: Date.now()
                 };
+
+                // Track AI generation started
+                trackEvent('ai_generation_started', {
+                    queueId,
+                    productUrl: window.location.href,
+                    productName: productName,
+                    model: currentState.selectedModel || 'fast',
+                    imageSize: state.uploadedImage?.size || 0
+                });
 
                 // Add to queue - this will trigger the queue processor
                 actions.addToQueue(queueItem);

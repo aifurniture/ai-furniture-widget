@@ -3,6 +3,7 @@
  */
 import { actions, QUEUE_STATUS, VIEWS } from '../../state/store.js';
 import { Button } from './Button.js';
+import { trackEvent } from '../../tracking.js';
 
 export const QueueView = (state) => {
     const container = document.createElement('div');
@@ -244,6 +245,15 @@ function createQueueItem(item) {
         viewBtn.style.fontSize = '12px';
         viewBtn.style.fontWeight = '600';
         viewBtn.onclick = () => {
+            // Track results viewed
+            trackEvent('results_viewed', {
+                queueId: item.id,
+                productUrl: item.productUrl,
+                productName: item.productName,
+                model: item.selectedModel,
+                generationTime: item.result?.generationTime
+            });
+            
             // Convert queue item result to the format expected by ResultsView
             // ResultsView expects: [{ url: generatedImageUrl (S3), originalImageUrl: originalImageUrl (S3) }]
             // Use S3 URLs from the result, fallback to userImageUrl if needed

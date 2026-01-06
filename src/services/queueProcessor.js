@@ -1,4 +1,5 @@
 import { store, actions, QUEUE_STATUS } from '../state/store.js';
+import { trackEvent } from '../tracking.js';
 
 // Track items currently being processed
 const processingItems = new Set();
@@ -274,6 +275,17 @@ async function processQueueItem(item) {
                 timestamp: new Date().toISOString(),
                 productData: result.productData
             }
+        });
+
+        // Track AI generation completed
+        trackEvent('ai_generation_completed', {
+            queueId: id,
+            productUrl: productUrl,
+            productName: item.productName || document.title,
+            model: selectedModel,
+            generationTime: result.timings?.total?.durationSeconds,
+            hasResult: !!generatedImageUrl,
+            generatedImageUrl: generatedImageUrl
         });
 
         processingItems.delete(id);

@@ -3,6 +3,7 @@ import { debugLog } from '../debug.js';
 import { isFurnitureProductPage } from '../detection.js';
 import { actions, store, QUEUE_STATUS, VIEWS } from '../state/store.js';
 import { getConfig, getSessionId } from '../state.js';
+import { trackEvent } from '../tracking.js';
 
 export function createWidgetButton() {
     // Avoid duplicates
@@ -128,6 +129,17 @@ function handleWidgetClick() {
     // Get product info
     const productUrl = window.location.href;
     const state = store.getState();
+    
+    // Track widget button click
+    trackEvent('widget_opened', {
+        productUrl,
+        productName: document.title,
+        hasQueueItems: state.queue && state.queue.length > 0,
+        queueCount: state.queue ? state.queue.length : 0
+    });
+    
+    // Mark user as AI Furniture user (for tracking)
+    sessionStorage.setItem('ai_furniture_user', 'true');
     
     // If there are items in queue, open to queue view, otherwise upload view
     if (state.queue && state.queue.length > 0) {
