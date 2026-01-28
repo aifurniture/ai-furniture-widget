@@ -236,7 +236,7 @@ async function processQueueItem(item) {
         const formData = new FormData();
         formData.append('image', imageToUse);
         formData.append('productUrl', productUrl);
-        formData.append('model', selectedModel || 'fast');
+        formData.append('model', 'slow'); // Always use high quality model
         formData.append('domain', config?.domain || window.location.hostname);
 
         if (config?.sessionId) {

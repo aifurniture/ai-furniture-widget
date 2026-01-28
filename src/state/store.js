@@ -174,7 +174,7 @@ export const initialState = {
     sessionId: null,
     config: {},
     isMobile: typeof window !== 'undefined' ? window.innerWidth <= 768 : false,
-    selectedModel: 'fast', // Default to fast model
+    selectedModel: 'slow', // Always use high quality model
     queueTab: 'all', // Active tab in queue view
 };
 

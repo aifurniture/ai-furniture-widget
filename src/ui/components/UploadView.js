@@ -147,71 +147,6 @@ export const UploadView = (state) => {
     container.appendChild(uploadArea);
 
     // Model Selection
-    const modelSection = document.createElement('div');
-    modelSection.style.display = 'flex';
-    modelSection.style.flexDirection = 'column';
-    modelSection.style.gap = '8px';
-    modelSection.style.marginTop = '12px';
-
-    const modelLabel = document.createElement('label');
-    modelLabel.textContent = 'Generation Speed';
-    modelLabel.style.fontSize = '13px';
-    modelLabel.style.fontWeight = '600';
-    modelLabel.style.color = '#1e293b';
-    modelSection.appendChild(modelLabel);
-
-    const modelOptions = document.createElement('div');
-    modelOptions.style.display = 'flex';
-    modelOptions.style.gap = '12px';
-
-    // Fast model option
-    const fastOption = document.createElement('label');
-    fastOption.style.flex = '1';
-    fastOption.style.padding = '12px';
-    fastOption.style.border = state.selectedModel === 'fast' ? '2px solid #22c55e' : '1px solid #e2e8f0';
-    fastOption.style.borderRadius = '8px';
-    fastOption.style.cursor = 'pointer';
-    fastOption.style.background = state.selectedModel === 'fast' ? '#f0fdf4' : '#fff';
-    fastOption.style.transition = 'all 0.2s';
-    fastOption.innerHTML = `
-        <div style="display:flex; align-items:center; gap:8px;">
-            <input type="radio" name="model" value="fast" ${state.selectedModel === 'fast' ? 'checked' : ''} 
-                   style="accent-color:#22c55e;">
-            <div>
-                <div style="font-weight:600; font-size:13px; color:#1e293b;">⚡ Fast</div>
-                <div style="font-size:11px; color:#64748b;">~30 seconds</div>
-            </div>
-        </div>
-    `;
-    fastOption.onclick = () => actions.setSelectedModel('fast');
-
-    // Slow model option
-    const slowOption = document.createElement('label');
-    slowOption.style.flex = '1';
-    slowOption.style.padding = '12px';
-    slowOption.style.border = state.selectedModel === 'slow' ? '2px solid #22c55e' : '1px solid #e2e8f0';
-    slowOption.style.borderRadius = '8px';
-    slowOption.style.cursor = 'pointer';
-    slowOption.style.background = state.selectedModel === 'slow' ? '#f0fdf4' : '#fff';
-    slowOption.style.transition = 'all 0.2s';
-    slowOption.innerHTML = `
-        <div style="display:flex; align-items:center; gap:8px;">
-            <input type="radio" name="model" value="slow" ${state.selectedModel === 'slow' ? 'checked' : ''} 
-                   style="accent-color:#22c55e;">
-            <div>
-                <div style="font-weight:600; font-size:13px; color:#1e293b;">✨ Slow but Better</div>
-                <div style="font-size:11px; color:#64748b;">~60-90 seconds</div>
-            </div>
-        </div>
-    `;
-    slowOption.onclick = () => actions.setSelectedModel('slow');
-
-    modelOptions.appendChild(fastOption);
-    modelOptions.appendChild(slowOption);
-    modelSection.appendChild(modelOptions);
-
-    container.appendChild(modelSection);
-
     // Footer / Action Button
     const footer = document.createElement('div');
     footer.style.marginTop = 'auto';
@@ -248,7 +183,7 @@ export const UploadView = (state) => {
                     productUrl: window.location.href,
                     productName: productName,
                     userImage: state.uploadedImage, // Store the File/Blob object
-                    selectedModel: currentState.selectedModel || 'fast',
+                    selectedModel: 'slow', // Always use high quality model
                     config: currentState.config || {},
                     queuedAt: Date.now()
                 };
@@ -258,7 +193,7 @@ export const UploadView = (state) => {
                     queueId,
                     productUrl: window.location.href,
                     productName: productName,
-                    model: currentState.selectedModel || 'fast',
+                    model: 'slow', // Always use high quality model
                     imageSize: state.uploadedImage?.size || 0
                 });
 

@@ -183,18 +183,6 @@ function createQueueItem(item) {
     productName.textContent = item.productName || `Product #${item.id.slice(0, 8)}`;
     content.appendChild(productName);
 
-    // Model badge
-    const modelBadge = document.createElement('div');
-    modelBadge.style.fontSize = '11px';
-    modelBadge.style.display = 'inline-block';
-    modelBadge.style.padding = '2px 8px';
-    modelBadge.style.borderRadius = '4px';
-    modelBadge.style.background = item.selectedModel === 'slow' ? '#fef3c7' : '#dbeafe';
-    modelBadge.style.color = item.selectedModel === 'slow' ? '#92400e' : '#1e40af';
-    modelBadge.style.width = 'fit-content';
-    modelBadge.textContent = item.selectedModel === 'slow' ? '✨ Slow Model' : '⚡ Fast Model';
-    content.appendChild(modelBadge);
-
     // Status
     const statusEl = document.createElement('div');
     statusEl.style.display = 'flex';
@@ -207,7 +195,7 @@ function createQueueItem(item) {
         statusEl.innerHTML = `<span style="color:#64748b;">⏳ Waiting in queue...</span>`;
     } else if (item.status === QUEUE_STATUS.PROCESSING) {
         const elapsed = item.startedAt ? Math.floor((Date.now() - item.startedAt) / 1000) : 0;
-        const estimated = item.selectedModel === 'slow' ? 75 : 30;
+        const estimated = 75; // High quality model takes ~75 seconds
         const remaining = Math.max(0, estimated - elapsed);
 
         statusEl.innerHTML = `
