@@ -12,6 +12,12 @@ export function initAIFurnitureWidget(userConfig = {}) {
         return;
     }
 
+    // 1. Read config from window.FURNITURE_AI_CONFIG if not provided
+    if (!userConfig.domain && window.FURNITURE_AI_CONFIG) {
+        console.log('📦 Using config from window.FURNITURE_AI_CONFIG');
+        userConfig = { ...window.FURNITURE_AI_CONFIG, ...userConfig };
+    }
+
     // 1. Initialize Config FIRST (needed for init key matching)
     const config = createConfig(userConfig);
     setConfig(config);
