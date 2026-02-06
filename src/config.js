@@ -21,12 +21,9 @@ const DEFAULT_CONFIG = {
 };
 
 export function createConfig(userConfig = {}) {
-    if (!userConfig.domain) {
-        throw new Error(
-            'AI Furniture Widget: "domain" is required. ' +
-            'Call initAIFurnitureWidget({ domain: "example.com" })'
-        );
-    }
+    // Domain is optional - if not provided, widget will work on any domain
+    // You can also set domain: "*" to explicitly allow any domain
+    // Or set a specific domain like "example.com" to restrict to that domain only
 
     // Allow explicit override via useLocalBackend config
     let config = { ...DEFAULT_CONFIG };

@@ -61,7 +61,10 @@ export async function initializeWidget(isInitialLoad = false) {
     debugLog('Initializing AI Furniture widget', { isInitialLoad });
 
     // Check if domain was already verified (persist across script reloads)
-    const domainVerifiedKey = 'aif_domain_verified_' + (window.__AIFurnitureConfig?.domain || 'default');
+    // Normalize domain (remove www) so both www and non-www versions share verification state
+    const currentHostname = window.location.hostname;
+    const normalizedDomain = currentHostname.replace(/^www\./, '');
+    const domainVerifiedKey = 'aif_domain_verified_' + normalizedDomain;
     let domainVerified = sessionStorage.getItem(domainVerifiedKey) === 'true';
     
     if (!domainVerified) {
@@ -69,11 +72,11 @@ export async function initializeWidget(isInitialLoad = false) {
 
         const serverVerification = await verifyDomainWithServer();
         if (!serverVerification) {
-            console.error('🚫 AI Furniture Widget: Server verification failed. Widget will not initialize.');
+            console.error('🚫 AI Furniture Widget: Domain "' + currentHostname + '" is not authorized in backend database. Widget will not initialize.');
             return;
         }
         
-        // Mark domain as verified
+        // Mark domain as verified (only if backend confirmed it's in database)
         try {
             sessionStorage.setItem(domainVerifiedKey, 'true');
             domainVerified = true;
@@ -81,7 +84,7 @@ export async function initializeWidget(isInitialLoad = false) {
             console.warn('Failed to save domain verification state', e);
         }
     } else {
-        console.log('✅ Domain already verified, skipping verification');
+        console.log('✅ Domain already verified with backend database, skipping verification');
     }
     
     console.log('init widget')
