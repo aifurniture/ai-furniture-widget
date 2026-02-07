@@ -51,7 +51,7 @@ export async function verifyDomainWithServer() {
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // Increased timeout for database check
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         // Ensure apiEndpoint is defined - use fallback if missing
         let apiEndpoint = config.apiEndpoint;

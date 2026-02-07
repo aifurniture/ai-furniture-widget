@@ -14,20 +14,25 @@ export function createWidgetButton() {
     button.setAttribute('role', 'button');
     button.setAttribute('tabindex', '0');
 
+    // Detect mobile device
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+                     (window.innerWidth <= 768) ||
+                     ('ontouchstart' in window);
+
     // Basic styles for the floating button
     Object.assign(button.style, {
         position: 'fixed',
-        bottom: '20px',
-        right: '20px',
+        bottom: isMobile ? '16px' : '20px',
+        right: isMobile ? '16px' : '20px',
         zIndex: '9999',
         backgroundColor: '#ffffff',
         color: '#1e293b',
-        padding: '12px 20px',
+        padding: isMobile ? '14px 18px' : '12px 20px',
         borderRadius: '50px',
         boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
         cursor: 'pointer',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-        fontSize: '14px',
+        fontSize: isMobile ? '13px' : '14px',
         fontWeight: '600',
         display: 'flex',
         alignItems: 'center',
@@ -35,7 +40,14 @@ export function createWidgetButton() {
         transition: 'transform 0.2s ease, box-shadow 0.2s ease',
         opacity: '0',
         transform: 'translateY(20px)',
-        pointerEvents: 'none' // disabled until visible
+        pointerEvents: 'none', // disabled until visible
+        // Mobile-specific: prevent text selection and double-tap zoom
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'manipulation', // Prevents double-tap zoom
+        minHeight: '44px', // Minimum touch target size for mobile
+        minWidth: '44px'
     });
 
     // Icon
@@ -65,18 +77,46 @@ export function createWidgetButton() {
     badge.style.textAlign = 'center';
     button.appendChild(badge);
 
-    // Hover effects
-    button.addEventListener('mouseenter', () => {
-        button.style.transform = 'translateY(-2px)';
-        button.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)';
-    });
-    button.addEventListener('mouseleave', () => {
-        button.style.transform = 'translateY(0)';
-        button.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
-    });
+    // Hover effects (desktop only)
+    if (!isMobile) {
+        button.addEventListener('mouseenter', () => {
+            button.style.transform = 'translateY(-2px)';
+            button.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)';
+        });
+        button.addEventListener('mouseleave', () => {
+            button.style.transform = 'translateY(0)';
+            button.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
+        });
+    }
 
     // Click → open modal
-    button.addEventListener('click', () => handleWidgetClick());
+    button.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleWidgetClick();
+    });
+
+    // Mobile touch events for better responsiveness
+    if (isMobile) {
+        let touchStartTime = 0;
+        button.addEventListener('touchstart', (e) => {
+            touchStartTime = Date.now();
+            button.style.transform = 'scale(0.95)';
+            button.style.opacity = '0.9';
+        }, { passive: true });
+        
+        button.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const touchDuration = Date.now() - touchStartTime;
+            button.style.transform = 'scale(1)';
+            button.style.opacity = '1';
+            // Only trigger if it was a quick tap (not a swipe)
+            if (touchDuration < 300) {
+                handleWidgetClick();
+            }
+        }, { passive: false });
+    }
 
     // Subscribe to store to update button status
     store.subscribe((state) => {
@@ -139,7 +179,12 @@ function handleWidgetClick() {
     });
     
     // Mark user as AI Furniture user (for tracking)
-    sessionStorage.setItem('ai_furniture_user', 'true');
+    // Safely handle sessionStorage (may fail on mobile private browsing)
+    try {
+        sessionStorage.setItem('ai_furniture_user', 'true');
+    } catch (e) {
+        console.warn('⚠️ Could not save user state to sessionStorage:', e.message);
+    }
     
     // If there are items in queue, open to queue view, otherwise upload view
     if (state.queue && state.queue.length > 0) {
@@ -155,6 +200,10 @@ function repositionWidgetButton() {
     const button = document.getElementById('ai-furniture-trigger-btn');
     if (!button) return;
 
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+                     (window.innerWidth <= 768) ||
+                     ('ontouchstart' in window);
+
     // Check for other common widgets (Intercom, Zendesk, etc.)
     // and move up if necessary. This is a simple heuristic.
     const otherWidgets = [
@@ -163,12 +212,15 @@ function repositionWidgetButton() {
         '#drift-widget'
     ];
 
-    let bottomOffset = 20;
+    let bottomOffset = isMobile ? 16 : 20;
+    let rightOffset = isMobile ? 16 : 20;
+    
     otherWidgets.forEach(selector => {
         if (document.querySelector(selector)) {
-            bottomOffset = 100; // Move up significantly
+            bottomOffset = isMobile ? 80 : 100; // Move up significantly
         }
     });
 
     button.style.bottom = `${bottomOffset}px`;
+    button.style.right = `${rightOffset}px`;
 }
