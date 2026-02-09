@@ -22,70 +22,77 @@ export function createWidgetButton() {
     // Basic styles for the floating button
     Object.assign(button.style, {
         position: 'fixed',
-        bottom: isMobile ? '16px' : '20px',
-        right: isMobile ? '16px' : '20px',
+        bottom: isMobile ? '20px' : '24px',
+        right: isMobile ? '20px' : '24px',
         zIndex: '9999',
-        backgroundColor: '#ffffff',
-        color: '#1e293b',
-        padding: isMobile ? '14px 18px' : '12px 20px',
-        borderRadius: '50px',
-        boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+        color: '#ffffff',
+        padding: isMobile ? '14px 20px' : '14px 24px',
+        borderRadius: '999px',
+        boxShadow: '0 8px 24px rgba(16, 185, 129, 0.35), 0 2px 8px rgba(0, 0, 0, 0.1)',
         cursor: 'pointer',
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-        fontSize: isMobile ? '13px' : '14px',
+        fontSize: isMobile ? '14px' : '15px',
         fontWeight: '600',
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
-        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        gap: '10px',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         opacity: '0',
-        transform: 'translateY(20px)',
-        pointerEvents: 'none', // disabled until visible
-        // Mobile-specific: prevent text selection and double-tap zoom
+        transform: 'translateY(20px) scale(0.9)',
+        pointerEvents: 'none',
+        border: 'none',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
         WebkitUserSelect: 'none',
         userSelect: 'none',
         WebkitTapHighlightColor: 'transparent',
-        touchAction: 'manipulation', // Prevents double-tap zoom
-        minHeight: '44px', // Minimum touch target size for mobile
-        minWidth: '44px'
+        touchAction: 'manipulation',
+        minHeight: '48px',
+        minWidth: '48px',
+        letterSpacing: '0.01em'
     });
 
     // Icon
     const icon = document.createElement('span');
-    icon.innerHTML = '🛋️';
-    icon.style.fontSize = '18px';
+    icon.innerHTML = '✨';
+    icon.style.fontSize = '20px';
+    icon.style.lineHeight = '1';
     button.appendChild(icon);
 
     // Text
     const text = document.createElement('span');
-    text.textContent = 'See this in your room';
+    text.textContent = 'Visualize in Your Room';
+    text.style.lineHeight = '1';
     button.appendChild(text);
 
     // Badge for queue count
     const badge = document.createElement('span');
     badge.style.display = 'none';
     badge.style.position = 'absolute';
-    badge.style.top = '-4px';
-    badge.style.right = '-4px';
+    badge.style.top = '-6px';
+    badge.style.right = '-6px';
     badge.style.background = '#ef4444';
     badge.style.color = 'white';
     badge.style.fontSize = '11px';
     badge.style.fontWeight = '700';
-    badge.style.padding = '2px 6px';
-    badge.style.borderRadius = '10px';
-    badge.style.minWidth = '18px';
+    badge.style.padding = '4px 8px';
+    badge.style.borderRadius = '999px';
+    badge.style.minWidth = '20px';
     badge.style.textAlign = 'center';
+    badge.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
+    badge.style.border = '2px solid white';
     button.appendChild(badge);
 
     // Hover effects (desktop only)
     if (!isMobile) {
         button.addEventListener('mouseenter', () => {
-            button.style.transform = 'translateY(-2px)';
-            button.style.boxShadow = '0 6px 20px rgba(0,0,0,0.15)';
+            button.style.transform = 'translateY(-4px) scale(1.02)';
+            button.style.boxShadow = '0 12px 32px rgba(16, 185, 129, 0.45), 0 4px 12px rgba(0, 0, 0, 0.15)';
         });
         button.addEventListener('mouseleave', () => {
-            button.style.transform = 'translateY(0)';
-            button.style.boxShadow = '0 4px 15px rgba(0,0,0,0.1)';
+            button.style.transform = 'translateY(0) scale(1)';
+            button.style.boxShadow = '0 8px 24px rgba(16, 185, 129, 0.35), 0 2px 8px rgba(0, 0, 0, 0.1)';
         });
     }
 
@@ -130,23 +137,27 @@ export function createWidgetButton() {
 
         if (textSpan) {
             if (processingCount > 0) {
-                textSpan.textContent = `Generating (${processingCount})...`;
+                textSpan.textContent = `Generating ${processingCount}...`;
                 badgeSpan.style.display = 'block';
                 badgeSpan.textContent = processingCount;
-                badgeSpan.style.background = '#3b82f6';
+                badgeSpan.style.background = 'linear-gradient(135deg, #3b82f6, #2563eb)';
+                button.style.background = 'linear-gradient(135deg, #3b82f6, #2563eb)';
             } else if (completedCount > 0) {
-                textSpan.textContent = `View Results (${completedCount})`;
+                textSpan.textContent = `${completedCount} Ready to View`;
                 badgeSpan.style.display = 'block';
                 badgeSpan.textContent = completedCount;
-                badgeSpan.style.background = '#22c55e';
+                badgeSpan.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+                button.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
             } else if (totalCount > 0) {
                 textSpan.textContent = 'View Queue';
                 badgeSpan.style.display = 'block';
                 badgeSpan.textContent = totalCount;
-                badgeSpan.style.background = '#64748b';
+                badgeSpan.style.background = 'linear-gradient(135deg, #64748b, #475569)';
+                button.style.background = 'linear-gradient(135deg, #64748b, #475569)';
             } else {
-                textSpan.textContent = 'See this in your room';
+                textSpan.textContent = 'Visualize in Your Room';
                 badgeSpan.style.display = 'none';
+                button.style.background = 'linear-gradient(135deg, #10b981, #059669)';
             }
         }
     });
@@ -154,12 +165,14 @@ export function createWidgetButton() {
     document.body.appendChild(button);
     debugLog('Widget button added to body (floating bottom-right)');
 
-    // Animate in
-    requestAnimationFrame(() => {
-        button.style.opacity = '1';
-        button.style.transform = 'translateY(0)';
-        button.style.pointerEvents = 'auto';
-    });
+    // Animate in with stagger
+    setTimeout(() => {
+        requestAnimationFrame(() => {
+            button.style.opacity = '1';
+            button.style.transform = 'translateY(0) scale(1)';
+            button.style.pointerEvents = 'auto';
+        });
+    }, 100);
 
     // Reposition if needed (e.g. to avoid other widgets)
     repositionWidgetButton();
