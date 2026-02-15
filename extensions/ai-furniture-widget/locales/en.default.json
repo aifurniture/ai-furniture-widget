@@ -1,0 +1,21 @@
+{
+  "widget_block": {
+    "name": "AI Furniture Widget",
+    "settings": {
+      "domain_id": {
+        "label": "Domain ID",
+        "info": "Get your Domain ID from furniture-ai.com/dashboard"
+      },
+      "enabled": {
+        "label": "Enable Widget"
+      },
+      "button_position": {
+        "label": "Button Position",
+        "options": {
+          "bottom-right": "Bottom Right",
+          "bottom-left": "Bottom Left"
+        }
+      }
+    }
+  }
+}

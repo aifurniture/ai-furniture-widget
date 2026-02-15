@@ -1,0 +1,16 @@
+# Learn more at https://shopify.dev/docs/api/shopify-app-remix/hmr
+
+
+uid = "2cd6b9cc-5355-11eb-8609-0bc8572ab1080dc44707"
+
+
+type = "theme_app_extension"
+name = "AI Furniture Widget"
+
+[settings]
+  [[settings.fields]]
+    key = "domain_id"
+    type = "text"
+    name = "Domain ID"
+    info = "Get your Domain ID from furniture-ai.com/dashboard"
+

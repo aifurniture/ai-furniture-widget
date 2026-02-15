@@ -243,11 +243,13 @@ function createQueueItem(item) {
             });
             
             // Convert queue item result to the format expected by ResultsView
-            // ResultsView expects: [{ url: generatedImageUrl (S3), originalImageUrl: originalImageUrl (S3) }]
-            // Use S3 URLs from the result, fallback to userImageUrl if needed
+            // ResultsView expects: [{ url, originalImageUrl, originalAspectRatio, originalWidth, originalHeight }]
             const resultForView = {
                 url: item.result?.generatedImageUrl, // S3 URL for generated image
-                originalImageUrl: item.result?.originalImageUrl || item.userImageUrl // S3 URL for original image
+                originalImageUrl: item.result?.originalImageUrl || item.userImageUrl, // S3 URL for original image
+                originalAspectRatio: item.result?.originalAspectRatio,
+                originalWidth: item.result?.originalWidth,
+                originalHeight: item.result?.originalHeight
             };
             actions.setGenerationResults([resultForView]);
         };
