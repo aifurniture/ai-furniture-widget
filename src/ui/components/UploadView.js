@@ -107,19 +107,20 @@ export const UploadView = (state) => {
         uploadArea.appendChild(previewContainer);
     } else {
         // Dropzone Mode
-        const dropzone = document.createElement('label');
+        const dropzone = document.createElement('div');
         dropzone.className = 'aif-dropzone';
         dropzone.innerHTML = `
       <div style="width:40px; height:40px; border-radius:50%; background:#dcfce7; display:flex; align-items:center; justify-content:center; color:#166534; font-size:20px;">
-        ⬆
+        📸
       </div>
       <div>
-        <span style="font-weight:600; color:#166534;">Upload a room photo</span>
-        <span style="color:#64748b; margin:0 4px;">or drag & drop</span>
+        <span style="font-weight:600; color:#166534;">Upload or Take a Photo</span>
+        <span style="color:#64748b; margin:0 4px;">of your room</span>
       </div>
       <p style="font-size:11px; color:#94a3b8; margin:0;">JPG or PNG, up to 10 MB</p>
     `;
 
+        // Create hidden file input for gallery
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = 'image/*';
@@ -139,12 +140,116 @@ export const UploadView = (state) => {
                     productName: productName,
                     imageSize: file.size,
                     imageType: file.type,
-                    fileName: file.name
+                    fileName: file.name,
+                    source: 'gallery'
                 });
             }
         };
 
+        // Create hidden file input for camera
+        const cameraInput = document.createElement('input');
+        cameraInput.type = 'file';
+        cameraInput.accept = 'image/*';
+        cameraInput.capture = 'environment'; // Use rear camera by default
+        cameraInput.style.display = 'none';
+        cameraInput.onchange = (e) => {
+            if (e.target.files[0]) {
+                const file = e.target.files[0];
+                actions.setUploadedImage(file);
+                
+                const currentState = store.getState();
+                const productUrl = currentState.config?.productUrl || window.location.href;
+                const productName = currentState.config?.productTitle || document.title;
+                
+                // Track camera capture
+                trackEvent('image_uploaded', {
+                    productUrl: productUrl,
+                    productName: productName,
+                    imageSize: file.size,
+                    imageType: file.type,
+                    fileName: file.name,
+                    source: 'camera'
+                });
+            }
+        };
+
+        // Detect if device has camera (mobile)
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
+                         window.innerWidth <= 768;
+
+        // Button container
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.gap = '12px';
+        buttonContainer.style.width = '100%';
+        buttonContainer.style.marginTop = '16px';
+
+        // Upload from gallery button
+        const uploadBtn = document.createElement('button');
+        uploadBtn.innerHTML = `
+            <span style="font-size:18px; margin-right:6px;">📁</span>
+            <span>Choose Photo</span>
+        `;
+        uploadBtn.style.flex = '1';
+        uploadBtn.style.padding = '14px 20px';
+        uploadBtn.style.background = 'white';
+        uploadBtn.style.border = '2px solid #10b981';
+        uploadBtn.style.borderRadius = '12px';
+        uploadBtn.style.color = '#10b981';
+        uploadBtn.style.fontWeight = '600';
+        uploadBtn.style.fontSize = '14px';
+        uploadBtn.style.cursor = 'pointer';
+        uploadBtn.style.display = 'flex';
+        uploadBtn.style.alignItems = 'center';
+        uploadBtn.style.justifyContent = 'center';
+        uploadBtn.style.transition = 'all 0.2s';
+        uploadBtn.onmouseover = () => {
+            uploadBtn.style.background = '#f0fdf4';
+            uploadBtn.style.transform = 'translateY(-2px)';
+        };
+        uploadBtn.onmouseout = () => {
+            uploadBtn.style.background = 'white';
+            uploadBtn.style.transform = 'translateY(0)';
+        };
+        uploadBtn.onclick = () => fileInput.click();
+
+        // Camera button (only show on mobile)
+        if (isMobile) {
+            const cameraBtn = document.createElement('button');
+            cameraBtn.innerHTML = `
+                <span style="font-size:18px; margin-right:6px;">📷</span>
+                <span>Take Photo</span>
+            `;
+            cameraBtn.style.flex = '1';
+            cameraBtn.style.padding = '14px 20px';
+            cameraBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+            cameraBtn.style.border = 'none';
+            cameraBtn.style.borderRadius = '12px';
+            cameraBtn.style.color = 'white';
+            cameraBtn.style.fontWeight = '600';
+            cameraBtn.style.fontSize = '14px';
+            cameraBtn.style.cursor = 'pointer';
+            cameraBtn.style.display = 'flex';
+            cameraBtn.style.alignItems = 'center';
+            cameraBtn.style.justifyContent = 'center';
+            cameraBtn.style.transition = 'all 0.2s';
+            cameraBtn.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)';
+            cameraBtn.onmousedown = () => {
+                cameraBtn.style.transform = 'scale(0.95)';
+            };
+            cameraBtn.onmouseup = () => {
+                cameraBtn.style.transform = 'scale(1)';
+            };
+            cameraBtn.onclick = () => cameraInput.click();
+            
+            buttonContainer.appendChild(cameraBtn);
+        }
+
+        buttonContainer.appendChild(uploadBtn);
+
         dropzone.appendChild(fileInput);
+        dropzone.appendChild(cameraInput);
+        dropzone.appendChild(buttonContainer);
         uploadArea.appendChild(dropzone);
     }
 
