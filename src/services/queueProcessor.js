@@ -277,7 +277,14 @@ async function processQueueItem(item) {
                 model: selectedModel,
                 generationTime: result.timings?.total?.durationSeconds,
                 timestamp: new Date().toISOString(),
-                productData: result.productData
+                productData: result.productData,
+                // Store aspect ratio data for proper display
+                originalAspectRatio: result.originalImageDimensions?.aspectRatio || 
+                                    (result.generatedImages?.[0]?.originalAspectRatio),
+                originalWidth: result.originalImageDimensions?.width || 
+                              result.generatedImages?.[0]?.originalWidth,
+                originalHeight: result.originalImageDimensions?.height || 
+                               result.generatedImages?.[0]?.originalHeight
             }
         });
 

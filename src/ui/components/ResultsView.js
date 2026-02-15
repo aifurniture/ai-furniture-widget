@@ -50,12 +50,21 @@ export const ResultsView = (state) => {
             originalUrl = URL.createObjectURL(state.uploadedImage);
         }
         
+        // Get aspect ratio from API response
+        const aspectRatio = imgData.originalAspectRatio || 
+                           (imgData.originalWidth && imgData.originalHeight 
+                            ? imgData.originalWidth / imgData.originalHeight 
+                            : null);
+        
+        console.log(`📐 Creating slider with aspect ratio: ${aspectRatio || 'auto'}`);
+        
         if (generatedUrl) {
             if (originalUrl) {
-                // Use S3 URLs for both before and after
+                // Use S3 URLs for both before and after, with aspect ratio
                 const slider = Slider({
                     beforeImage: originalUrl,  // S3 URL for original image
-                    afterImage: generatedUrl   // S3 URL for generated image
+                    afterImage: generatedUrl,  // S3 URL for generated image
+                    aspectRatio: aspectRatio   // Pass aspect ratio from API response
                 });
                 grid.appendChild(slider);
             } else {

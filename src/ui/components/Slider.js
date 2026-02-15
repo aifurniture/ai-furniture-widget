@@ -1,8 +1,12 @@
 /**
  * Before/After Slider Component - Premium & Smooth
  */
-export const Slider = ({ beforeImage, afterImage }) => {
+export const Slider = ({ beforeImage, afterImage, aspectRatio }) => {
     const container = document.createElement('div');
+    
+    // Set aspect ratio immediately if provided, otherwise default to 4/3 until image loads
+    const initialAspectRatio = aspectRatio || '4/3';
+    
     Object.assign(container.style, {
         position: 'relative',
         width: '100%',
@@ -10,7 +14,7 @@ export const Slider = ({ beforeImage, afterImage }) => {
         overflow: 'hidden',
         border: '1px solid #e5e7eb',
         background: '#f9fafb',
-        // No fixed aspectRatio - will be set dynamically
+        aspectRatio: initialAspectRatio, // Set immediately if provided
         userSelect: 'none',
         WebkitUserSelect: 'none',
         touchAction: 'none',
@@ -29,12 +33,16 @@ export const Slider = ({ beforeImage, afterImage }) => {
         pointerEvents: 'none'
     });
 
-    // Load image to get natural dimensions and set container aspect ratio
-    imgBefore.onload = () => {
-        const aspectRatio = imgBefore.naturalWidth / imgBefore.naturalHeight;
-        container.style.aspectRatio = aspectRatio.toString();
-        console.log(`📐 Image aspect ratio: ${aspectRatio.toFixed(2)} (${imgBefore.naturalWidth}x${imgBefore.naturalHeight})`);
-    };
+    // Load image to get natural dimensions and update container aspect ratio if not provided
+    if (!aspectRatio) {
+        imgBefore.onload = () => {
+            const calculatedAspectRatio = imgBefore.naturalWidth / imgBefore.naturalHeight;
+            container.style.aspectRatio = calculatedAspectRatio.toString();
+            console.log(`📐 Image aspect ratio (calculated): ${calculatedAspectRatio.toFixed(2)} (${imgBefore.naturalWidth}x${imgBefore.naturalHeight})`);
+        };
+    } else {
+        console.log(`📐 Image aspect ratio (provided): ${aspectRatio}`);
+    }
 
     // After Image (Left side - clipped)
     const imgAfter = document.createElement('img');
