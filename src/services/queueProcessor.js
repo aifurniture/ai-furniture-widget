@@ -246,7 +246,11 @@ async function processQueueItem(item) {
         // Call API - direct generation (not job-based)
         const response = await fetch(`${apiEndpoint}/generate`, {
             method: 'POST',
-            body: formData
+            headers: {
+                'Accept': 'application/json',
+            },
+            body: formData,
+            credentials: 'omit', // Don't send cookies for CORS
         });
 
         if (!response.ok) {

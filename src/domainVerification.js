@@ -84,8 +84,12 @@ export async function verifyDomainWithServer() {
         
         const response = await fetch(healthUrl, {
             method: 'GET',
-            headers: { Accept: 'application/json' },
-            signal: controller.signal
+            headers: { 
+                'Accept': 'application/json',
+            },
+            signal: controller.signal,
+            credentials: 'omit', // Don't send cookies for CORS
+            mode: 'cors', // Explicitly set CORS mode
         });
         
         clearTimeout(timeoutId);
