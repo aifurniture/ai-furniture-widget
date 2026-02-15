@@ -129,10 +129,14 @@ export const UploadView = (state) => {
                 const file = e.target.files[0];
                 actions.setUploadedImage(file);
                 
+                const currentState = store.getState();
+                const productUrl = currentState.config?.productUrl || window.location.href;
+                const productName = currentState.config?.productTitle || document.title;
+                
                 // Track image upload
                 trackEvent('image_uploaded', {
-                    productUrl: window.location.href,
-                    productName: document.title,
+                    productUrl: productUrl,
+                    productName: productName,
                     imageSize: file.size,
                     imageType: file.type,
                     fileName: file.name
@@ -173,14 +177,17 @@ export const UploadView = (state) => {
 
             try {
                 const currentState = store.getState();
+                
+                // Get product URL from config (Shopify) or fallback to current URL
+                const productUrl = currentState.config?.productUrl || window.location.href;
+                const productName = currentState.config?.productTitle || document.title || productUrl;
 
                 // Create queue item
                 const queueId = `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                const productName = document.title || window.location.href;
 
                 const queueItem = {
                     id: queueId,
-                    productUrl: window.location.href,
+                    productUrl: productUrl,
                     productName: productName,
                     userImage: state.uploadedImage, // Store the File/Blob object
                     selectedModel: 'slow', // Always use high quality model
@@ -191,7 +198,7 @@ export const UploadView = (state) => {
                 // Track AI generation started
                 trackEvent('ai_generation_started', {
                     queueId,
-                    productUrl: window.location.href,
+                    productUrl: productUrl,
                     productName: productName,
                     model: 'slow', // Always use high quality model
                     imageSize: state.uploadedImage?.size || 0

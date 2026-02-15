@@ -10,7 +10,7 @@ export const Slider = ({ beforeImage, afterImage }) => {
         overflow: 'hidden',
         border: '1px solid #e5e7eb',
         background: '#f9fafb',
-        aspectRatio: '4/3',
+        // No fixed aspectRatio - will be set dynamically
         userSelect: 'none',
         WebkitUserSelect: 'none',
         touchAction: 'none',
@@ -25,9 +25,16 @@ export const Slider = ({ beforeImage, afterImage }) => {
         inset: '0',
         width: '100%',
         height: '100%',
-        objectFit: 'cover',
+        objectFit: 'contain', // Changed from 'cover' to maintain aspect ratio
         pointerEvents: 'none'
     });
+
+    // Load image to get natural dimensions and set container aspect ratio
+    imgBefore.onload = () => {
+        const aspectRatio = imgBefore.naturalWidth / imgBefore.naturalHeight;
+        container.style.aspectRatio = aspectRatio.toString();
+        console.log(`📐 Image aspect ratio: ${aspectRatio.toFixed(2)} (${imgBefore.naturalWidth}x${imgBefore.naturalHeight})`);
+    };
 
     // After Image (Left side - clipped)
     const imgAfter = document.createElement('img');
@@ -37,7 +44,7 @@ export const Slider = ({ beforeImage, afterImage }) => {
         inset: '0',
         width: '100%',
         height: '100%',
-        objectFit: 'cover',
+        objectFit: 'contain', // Changed from 'cover' to maintain aspect ratio
         clipPath: 'inset(0 50% 0 0)',
         pointerEvents: 'none'
     });
