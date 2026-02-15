@@ -106,19 +106,45 @@ export const UploadView = (state) => {
         previewContainer.appendChild(changeBtn);
         uploadArea.appendChild(previewContainer);
     } else {
-        // Dropzone Mode
-        const dropzone = document.createElement('div');
-        dropzone.className = 'aif-dropzone';
-        dropzone.innerHTML = `
-      <div style="width:40px; height:40px; border-radius:50%; background:#dcfce7; display:flex; align-items:center; justify-content:center; color:#166534; font-size:20px;">
-        📸
-      </div>
-      <div>
-        <span style="font-weight:600; color:#166534;">Upload or Take a Photo</span>
-        <span style="color:#64748b; margin:0 4px;">of your room</span>
-      </div>
-      <p style="font-size:11px; color:#94a3b8; margin:0;">JPG or PNG, up to 10 MB</p>
-    `;
+        // Dropzone Mode - restructured for camera support
+        const dropzoneContainer = document.createElement('div');
+        dropzoneContainer.className = 'aif-dropzone';
+        
+        // Icon
+        const icon = document.createElement('div');
+        icon.style.width = '40px';
+        icon.style.height = '40px';
+        icon.style.borderRadius = '50%';
+        icon.style.background = '#dcfce7';
+        icon.style.display = 'flex';
+        icon.style.alignItems = 'center';
+        icon.style.justifyContent = 'center';
+        icon.style.color = '#166534';
+        icon.style.fontSize = '20px';
+        icon.textContent = '📸';
+        dropzoneContainer.appendChild(icon);
+        
+        // Text container
+        const textDiv = document.createElement('div');
+        const titleSpan = document.createElement('span');
+        titleSpan.style.fontWeight = '600';
+        titleSpan.style.color = '#166534';
+        titleSpan.textContent = 'Upload or Take a Photo';
+        const subtitleSpan = document.createElement('span');
+        subtitleSpan.style.color = '#64748b';
+        subtitleSpan.style.margin = '0 4px';
+        subtitleSpan.textContent = 'of your room';
+        textDiv.appendChild(titleSpan);
+        textDiv.appendChild(subtitleSpan);
+        dropzoneContainer.appendChild(textDiv);
+        
+        // Note
+        const note = document.createElement('p');
+        note.style.fontSize = '11px';
+        note.style.color = '#94a3b8';
+        note.style.margin = '0';
+        note.textContent = 'JPG or PNG, up to 10 MB';
+        dropzoneContainer.appendChild(note);
 
         // Create hidden file input for gallery
         const fileInput = document.createElement('input');
@@ -184,42 +210,18 @@ export const UploadView = (state) => {
         buttonContainer.style.width = '100%';
         buttonContainer.style.marginTop = '16px';
 
-        // Upload from gallery button
-        const uploadBtn = document.createElement('button');
-        uploadBtn.innerHTML = `
-            <span style="font-size:18px; margin-right:6px;">📁</span>
-            <span>Choose Photo</span>
-        `;
-        uploadBtn.style.flex = '1';
-        uploadBtn.style.padding = '14px 20px';
-        uploadBtn.style.background = 'white';
-        uploadBtn.style.border = '2px solid #10b981';
-        uploadBtn.style.borderRadius = '12px';
-        uploadBtn.style.color = '#10b981';
-        uploadBtn.style.fontWeight = '600';
-        uploadBtn.style.fontSize = '14px';
-        uploadBtn.style.cursor = 'pointer';
-        uploadBtn.style.display = 'flex';
-        uploadBtn.style.alignItems = 'center';
-        uploadBtn.style.justifyContent = 'center';
-        uploadBtn.style.transition = 'all 0.2s';
-        uploadBtn.onmouseover = () => {
-            uploadBtn.style.background = '#f0fdf4';
-            uploadBtn.style.transform = 'translateY(-2px)';
-        };
-        uploadBtn.onmouseout = () => {
-            uploadBtn.style.background = 'white';
-            uploadBtn.style.transform = 'translateY(0)';
-        };
-        uploadBtn.onclick = () => fileInput.click();
-
-        // Camera button (only show on mobile)
+        // Camera button (show first on mobile for prominence)
         if (isMobile) {
             const cameraBtn = document.createElement('button');
-            cameraBtn.innerHTML = `
-                <span style="font-size:18px; margin-right:6px;">📷</span>
-                <span>Take Photo</span>
-            `;
+            const cameraBtnIcon = document.createElement('span');
+            cameraBtnIcon.style.fontSize = '18px';
+            cameraBtnIcon.style.marginRight = '6px';
+            cameraBtnIcon.textContent = '📷';
+            const cameraBtnText = document.createElement('span');
+            cameraBtnText.textContent = 'Take Photo';
+            cameraBtn.appendChild(cameraBtnIcon);
+            cameraBtn.appendChild(cameraBtnText);
+            
             cameraBtn.style.flex = '1';
             cameraBtn.style.padding = '14px 20px';
             cameraBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
@@ -234,23 +236,72 @@ export const UploadView = (state) => {
             cameraBtn.style.justifyContent = 'center';
             cameraBtn.style.transition = 'all 0.2s';
             cameraBtn.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)';
-            cameraBtn.onmousedown = () => {
+            
+            // Touch feedback
+            cameraBtn.addEventListener('touchstart', () => {
                 cameraBtn.style.transform = 'scale(0.95)';
-            };
-            cameraBtn.onmouseup = () => {
+            }, { passive: true });
+            cameraBtn.addEventListener('touchend', () => {
                 cameraBtn.style.transform = 'scale(1)';
+            }, { passive: true });
+            
+            cameraBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                cameraInput.click();
             };
-            cameraBtn.onclick = () => cameraInput.click();
             
             buttonContainer.appendChild(cameraBtn);
         }
 
+        // Upload from gallery button
+        const uploadBtn = document.createElement('button');
+        const uploadBtnIcon = document.createElement('span');
+        uploadBtnIcon.style.fontSize = '18px';
+        uploadBtnIcon.style.marginRight = '6px';
+        uploadBtnIcon.textContent = '📁';
+        const uploadBtnText = document.createElement('span');
+        uploadBtnText.textContent = isMobile ? 'Gallery' : 'Choose Photo';
+        uploadBtn.appendChild(uploadBtnIcon);
+        uploadBtn.appendChild(uploadBtnText);
+        
+        uploadBtn.style.flex = '1';
+        uploadBtn.style.padding = '14px 20px';
+        uploadBtn.style.background = 'white';
+        uploadBtn.style.border = '2px solid #10b981';
+        uploadBtn.style.borderRadius = '12px';
+        uploadBtn.style.color = '#10b981';
+        uploadBtn.style.fontWeight = '600';
+        uploadBtn.style.fontSize = '14px';
+        uploadBtn.style.cursor = 'pointer';
+        uploadBtn.style.display = 'flex';
+        uploadBtn.style.alignItems = 'center';
+        uploadBtn.style.justifyContent = 'center';
+        uploadBtn.style.transition = 'all 0.2s';
+        
+        uploadBtn.addEventListener('mouseenter', () => {
+            uploadBtn.style.background = '#f0fdf4';
+            uploadBtn.style.transform = 'translateY(-2px)';
+        });
+        uploadBtn.addEventListener('mouseleave', () => {
+            uploadBtn.style.background = 'white';
+            uploadBtn.style.transform = 'translateY(0)';
+        });
+        
+        uploadBtn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            fileInput.click();
+        };
+
         buttonContainer.appendChild(uploadBtn);
 
-        dropzone.appendChild(fileInput);
-        dropzone.appendChild(cameraInput);
-        dropzone.appendChild(buttonContainer);
-        uploadArea.appendChild(dropzone);
+        // Append inputs and buttons to dropzone
+        dropzoneContainer.appendChild(fileInput);
+        dropzoneContainer.appendChild(cameraInput);
+        dropzoneContainer.appendChild(buttonContainer);
+        
+        uploadArea.appendChild(dropzoneContainer);
     }
 
     container.appendChild(uploadArea);
