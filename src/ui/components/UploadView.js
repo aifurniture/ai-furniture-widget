@@ -206,18 +206,16 @@ export const UploadView = (state) => {
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
                          window.innerWidth <= 768;
 
-        // Button container
+        // Button container - explicit stacking above dropzone overlay
         const buttonContainer = document.createElement('div');
-        buttonContainer.style.display = 'flex';
-        buttonContainer.style.gap = '12px';
-        buttonContainer.style.width = '100%';
-        buttonContainer.style.marginTop = '16px';
+        buttonContainer.style.cssText = 'display:flex; gap:12px; width:100%; margin-top:16px; position:relative; z-index:2;';
+        const btnBase = 'flex:1; padding:14px 20px; border:none; border-radius:12px; font-weight:600; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; -webkit-tap-highlight-color:transparent; position:relative; z-index:2; pointer-events:auto; touch-action:manipulation; user-select:none; min-height:48px;';
 
         // Camera button - use label for native tap (required for Android camera)
         if (isMobile) {
             const cameraLabel = document.createElement('label');
             cameraLabel.htmlFor = cameraInput.id;
-            cameraLabel.style.cssText = 'flex:1; padding:14px 20px; background:linear-gradient(135deg, #10b981, #059669); border:none; border-radius:12px; color:white; font-weight:600; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; box-shadow:0 4px 12px rgba(16, 185, 129, 0.3); -webkit-tap-highlight-color:transparent;';
+            cameraLabel.style.cssText = btnBase + ' background:linear-gradient(135deg, #10b981, #059669); color:white; box-shadow:0 4px 12px rgba(16, 185, 129, 0.3);';
             cameraLabel.innerHTML = '<span style="font-size:18px;margin-right:6px">📷</span><span>Take Photo</span>';
             
             buttonContainer.appendChild(cameraLabel);
@@ -226,7 +224,7 @@ export const UploadView = (state) => {
         // Upload from gallery button - use label for native tap (Android compatibility)
         const uploadLabel = document.createElement('label');
         uploadLabel.htmlFor = fileInput.id;
-        uploadLabel.style.cssText = 'flex:1; padding:14px 20px; background:white; border:2px solid #10b981; border-radius:12px; color:#10b981; font-weight:600; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; -webkit-tap-highlight-color:transparent;';
+        uploadLabel.style.cssText = btnBase + ' background:white; border:2px solid #10b981; color:#10b981;';
         uploadLabel.innerHTML = '<span style="font-size:18px;margin-right:6px">📁</span><span>' + (isMobile ? 'Gallery' : 'Choose Photo') + '</span>';
         
         uploadLabel.addEventListener('mouseenter', () => {

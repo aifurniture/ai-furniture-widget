@@ -189,7 +189,12 @@ export const styles = `
     text-align: center;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
-    overflow: hidden;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .aif-dropzone > div:last-child {
+    pointer-events: auto;
   }
 
   .aif-dropzone::before {
