@@ -199,6 +199,7 @@ export const styles = `
     background: linear-gradient(135deg, rgba(16, 185, 129, 0.05), rgba(5, 150, 105, 0.05));
     opacity: 0;
     transition: opacity 0.3s ease;
+    pointer-events: none; /* Allow clicks to pass through to buttons */
   }
 
   .aif-dropzone:hover {
