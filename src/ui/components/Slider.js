@@ -4,8 +4,9 @@
 export const Slider = ({ beforeImage, afterImage, aspectRatio }) => {
     const container = document.createElement('div');
     
-    // Set aspect ratio immediately if provided, otherwise default to 4/3 until image loads
-    const initialAspectRatio = aspectRatio || '4/3';
+    // Start with provided aspect ratio or sensible default; will update on image load
+    const numericRatio = typeof aspectRatio === 'number' ? aspectRatio : null;
+    const initialAspectRatio = numericRatio != null ? String(numericRatio) : '4/3';
     
     Object.assign(container.style, {
         position: 'relative',
@@ -14,7 +15,7 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio }) => {
         overflow: 'hidden',
         border: '1px solid #e5e7eb',
         background: '#f9fafb',
-        aspectRatio: initialAspectRatio, // Set immediately if provided
+        aspectRatio: initialAspectRatio,
         userSelect: 'none',
         WebkitUserSelect: 'none',
         touchAction: 'none',
@@ -29,20 +30,19 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio }) => {
         inset: '0',
         width: '100%',
         height: '100%',
-        objectFit: 'contain', // Changed from 'cover' to maintain aspect ratio
+        objectFit: 'contain',
         pointerEvents: 'none'
     });
 
-    // Load image to get natural dimensions and update container aspect ratio if not provided
-    if (!aspectRatio) {
-        imgBefore.onload = () => {
-            const calculatedAspectRatio = imgBefore.naturalWidth / imgBefore.naturalHeight;
-            container.style.aspectRatio = calculatedAspectRatio.toString();
-            console.log(`📐 Image aspect ratio (calculated): ${calculatedAspectRatio.toFixed(2)} (${imgBefore.naturalWidth}x${imgBefore.naturalHeight})`);
-        };
-    } else {
-        console.log(`📐 Image aspect ratio (provided): ${aspectRatio}`);
-    }
+    // Always set aspect ratio from actual image dimensions on load (most reliable)
+    imgBefore.onload = () => {
+        const w = imgBefore.naturalWidth;
+        const h = imgBefore.naturalHeight;
+        if (w > 0 && h > 0) {
+            const ratio = w / h;
+            container.style.aspectRatio = String(ratio);
+        }
+    };
 
     // After Image (Left side - clipped)
     const imgAfter = document.createElement('img');

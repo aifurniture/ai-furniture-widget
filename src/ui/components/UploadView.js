@@ -146,10 +146,11 @@ export const UploadView = (state) => {
         note.textContent = 'JPG or PNG, up to 10 MB';
         dropzoneContainer.appendChild(note);
 
-        // Create hidden file input for gallery
+        // Create hidden file input for gallery - use label for Android compatibility
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = 'image/*';
+        fileInput.id = 'aif-file-input-' + Date.now();
         fileInput.style.display = 'none';
         fileInput.onchange = (e) => {
             if (e.target.files[0]) {
@@ -172,11 +173,13 @@ export const UploadView = (state) => {
             }
         };
 
-        // Create hidden file input for camera
+        // Create hidden file input for camera - use label for Android compatibility
+        // Programmatic click() is blocked on mobile; label association allows native camera access
         const cameraInput = document.createElement('input');
         cameraInput.type = 'file';
         cameraInput.accept = 'image/*';
-        cameraInput.capture = 'environment'; // Use rear camera by default
+        cameraInput.setAttribute('capture', 'environment');
+        cameraInput.id = 'aif-camera-input-' + Date.now();
         cameraInput.style.display = 'none';
         cameraInput.onchange = (e) => {
             if (e.target.files[0]) {
@@ -210,91 +213,32 @@ export const UploadView = (state) => {
         buttonContainer.style.width = '100%';
         buttonContainer.style.marginTop = '16px';
 
-        // Camera button (show first on mobile for prominence)
+        // Camera button - use label for native tap (required for Android camera)
         if (isMobile) {
-            const cameraBtn = document.createElement('button');
-            const cameraBtnIcon = document.createElement('span');
-            cameraBtnIcon.style.fontSize = '18px';
-            cameraBtnIcon.style.marginRight = '6px';
-            cameraBtnIcon.textContent = '📷';
-            const cameraBtnText = document.createElement('span');
-            cameraBtnText.textContent = 'Take Photo';
-            cameraBtn.appendChild(cameraBtnIcon);
-            cameraBtn.appendChild(cameraBtnText);
+            const cameraLabel = document.createElement('label');
+            cameraLabel.htmlFor = cameraInput.id;
+            cameraLabel.style.cssText = 'flex:1; padding:14px 20px; background:linear-gradient(135deg, #10b981, #059669); border:none; border-radius:12px; color:white; font-weight:600; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; box-shadow:0 4px 12px rgba(16, 185, 129, 0.3); -webkit-tap-highlight-color:transparent;';
+            cameraLabel.innerHTML = '<span style="font-size:18px;margin-right:6px">📷</span><span>Take Photo</span>';
             
-            cameraBtn.style.flex = '1';
-            cameraBtn.style.padding = '14px 20px';
-            cameraBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-            cameraBtn.style.border = 'none';
-            cameraBtn.style.borderRadius = '12px';
-            cameraBtn.style.color = 'white';
-            cameraBtn.style.fontWeight = '600';
-            cameraBtn.style.fontSize = '14px';
-            cameraBtn.style.cursor = 'pointer';
-            cameraBtn.style.display = 'flex';
-            cameraBtn.style.alignItems = 'center';
-            cameraBtn.style.justifyContent = 'center';
-            cameraBtn.style.transition = 'all 0.2s';
-            cameraBtn.style.boxShadow = '0 4px 12px rgba(16, 185, 129, 0.3)';
-            
-            // Touch feedback
-            cameraBtn.addEventListener('touchstart', () => {
-                cameraBtn.style.transform = 'scale(0.95)';
-            }, { passive: true });
-            cameraBtn.addEventListener('touchend', () => {
-                cameraBtn.style.transform = 'scale(1)';
-            }, { passive: true });
-            
-            cameraBtn.onclick = (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                cameraInput.click();
-            };
-            
-            buttonContainer.appendChild(cameraBtn);
+            buttonContainer.appendChild(cameraLabel);
         }
 
-        // Upload from gallery button
-        const uploadBtn = document.createElement('button');
-        const uploadBtnIcon = document.createElement('span');
-        uploadBtnIcon.style.fontSize = '18px';
-        uploadBtnIcon.style.marginRight = '6px';
-        uploadBtnIcon.textContent = '📁';
-        const uploadBtnText = document.createElement('span');
-        uploadBtnText.textContent = isMobile ? 'Gallery' : 'Choose Photo';
-        uploadBtn.appendChild(uploadBtnIcon);
-        uploadBtn.appendChild(uploadBtnText);
+        // Upload from gallery button - use label for native tap (Android compatibility)
+        const uploadLabel = document.createElement('label');
+        uploadLabel.htmlFor = fileInput.id;
+        uploadLabel.style.cssText = 'flex:1; padding:14px 20px; background:white; border:2px solid #10b981; border-radius:12px; color:#10b981; font-weight:600; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; -webkit-tap-highlight-color:transparent;';
+        uploadLabel.innerHTML = '<span style="font-size:18px;margin-right:6px">📁</span><span>' + (isMobile ? 'Gallery' : 'Choose Photo') + '</span>';
         
-        uploadBtn.style.flex = '1';
-        uploadBtn.style.padding = '14px 20px';
-        uploadBtn.style.background = 'white';
-        uploadBtn.style.border = '2px solid #10b981';
-        uploadBtn.style.borderRadius = '12px';
-        uploadBtn.style.color = '#10b981';
-        uploadBtn.style.fontWeight = '600';
-        uploadBtn.style.fontSize = '14px';
-        uploadBtn.style.cursor = 'pointer';
-        uploadBtn.style.display = 'flex';
-        uploadBtn.style.alignItems = 'center';
-        uploadBtn.style.justifyContent = 'center';
-        uploadBtn.style.transition = 'all 0.2s';
-        
-        uploadBtn.addEventListener('mouseenter', () => {
-            uploadBtn.style.background = '#f0fdf4';
-            uploadBtn.style.transform = 'translateY(-2px)';
+        uploadLabel.addEventListener('mouseenter', () => {
+            uploadLabel.style.background = '#f0fdf4';
+            uploadLabel.style.transform = 'translateY(-2px)';
         });
-        uploadBtn.addEventListener('mouseleave', () => {
-            uploadBtn.style.background = 'white';
-            uploadBtn.style.transform = 'translateY(0)';
+        uploadLabel.addEventListener('mouseleave', () => {
+            uploadLabel.style.background = 'white';
+            uploadLabel.style.transform = 'translateY(0)';
         });
-        
-        uploadBtn.onclick = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            fileInput.click();
-        };
 
-        buttonContainer.appendChild(uploadBtn);
+        buttonContainer.appendChild(uploadLabel);
 
         // Append inputs and buttons to dropzone
         dropzoneContainer.appendChild(fileInput);
