@@ -9,6 +9,13 @@ import { downloadUrlAsFile, getFilenameFromUrl } from '../../utils/downloadImage
 export const ResultsView = (state) => {
     const uploadedBlobUrl = state.uploadedImage ? URL.createObjectURL(state.uploadedImage) : '';
 
+    const apiEndpoint =
+        state.config?.apiEndpoint ||
+        (typeof window !== 'undefined' && window.__AIFurnitureConfig?.apiEndpoint) ||
+        'https://ai-furniture-backend.vercel.app/api';
+
+    const dlOpts = { apiEndpoint };
+
     const buildPairs = () => {
         const pairs = [];
         state.generatedImages.forEach((imgData, index) => {
@@ -82,7 +89,7 @@ export const ResultsView = (state) => {
         };
 
         const saveRoomBtn = makeBtn('Save room photo', () => {
-            downloadUrlAsFile(beforeUrl, `room-${getFilenameFromUrl(beforeUrl)}`);
+            downloadUrlAsFile(beforeUrl, `room-${getFilenameFromUrl(beforeUrl)}`, dlOpts);
         });
         if (!beforeUrl) {
             saveRoomBtn.disabled = true;
@@ -92,7 +99,7 @@ export const ResultsView = (state) => {
 
         const savePreviewBtn = makeBtn(
             'Save AI preview',
-            () => downloadUrlAsFile(afterUrl, `preview-${getFilenameFromUrl(afterUrl)}`),
+            () => downloadUrlAsFile(afterUrl, `preview-${getFilenameFromUrl(afterUrl)}`, dlOpts),
             true
         );
         const shareBtn = makeBtn('Share', () => shareImage(afterUrl));
