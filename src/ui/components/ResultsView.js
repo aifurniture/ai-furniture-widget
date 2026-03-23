@@ -4,7 +4,7 @@
 import { actions } from '../../state/store.js';
 import { Slider } from './Slider.js';
 import { Button } from './Button.js';
-import { downloadUrlAsFile, delay, getFilenameFromUrl } from '../../utils/downloadImage.js';
+import { downloadUrlAsFile, downloadImagesAsZip, getFilenameFromUrl } from '../../utils/downloadImage.js';
 
 export const ResultsView = (state) => {
     const uploadedBlobUrl = state.uploadedImage ? URL.createObjectURL(state.uploadedImage) : '';
@@ -135,19 +135,25 @@ export const ResultsView = (state) => {
         if (!pairs.length) return;
         downloadAllBtn.disabled = true;
         const prevText = downloadAllBtn.textContent;
-        downloadAllBtn.textContent = 'Downloading…';
+        downloadAllBtn.textContent = 'Preparing download…';
         try {
+            const entries = [];
             const multi = pairs.length > 1;
             for (let i = 0; i < pairs.length; i++) {
                 const { beforeUrl, afterUrl } = pairs[i];
                 const suf = multi ? `-${i + 1}` : '';
-                if (beforeUrl) {
-                    await downloadUrlAsFile(beforeUrl, `before${suf}-${getFilenameFromUrl(beforeUrl)}`);
-                    await delay(280);
-                }
-                await downloadUrlAsFile(afterUrl, `after${suf}-${getFilenameFromUrl(afterUrl)}`);
-                if (i < pairs.length - 1) await delay(280);
+                if (beforeUrl) entries.push({ url: beforeUrl, baseName: `before${suf}` });
+                entries.push({ url: afterUrl, baseName: `after${suf}` });
             }
+            await downloadImagesAsZip(entries, 'ai-furniture-room-preview.zip');
+        } catch (e) {
+            console.error('[AI Furniture] Download all failed:', e);
+            const msg = e && e.message ? String(e.message) : 'Unknown error';
+            alert(
+                /fetch|network|Failed/i.test(msg)
+                    ? 'Could not download images (network or browser blocked access). Try “Download Before” and “Download After”, or check that image URLs allow downloads.'
+                    : `Download failed: ${msg}`
+            );
         } finally {
             downloadAllBtn.textContent = prevText;
             downloadAllBtn.disabled = false;
@@ -155,7 +161,7 @@ export const ResultsView = (state) => {
     };
 
     const downloadAllHint = document.createElement('span');
-    downloadAllHint.textContent = 'Saves each image as a file (not a link).';
+    downloadAllHint.textContent = 'One ZIP file with your before & after images.';
     downloadAllHint.style.fontSize = '11px';
     downloadAllHint.style.color = '#64748b';
 
