@@ -6,6 +6,87 @@ import { Slider } from './Slider.js';
 import { Button } from './Button.js';
 
 export const ResultsView = (state) => {
+    const getFilenameFromUrl = (url) => {
+        try {
+            const u = new URL(url);
+            return u.pathname.split('/').pop() || 'image';
+        } catch (_) {
+            return 'image';
+        }
+    };
+
+    const downloadImage = (url, prefix) => {
+        if (!url) return;
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.download = `${prefix}-${getFilenameFromUrl(url)}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    };
+
+    const shareImage = async (url) => {
+        if (!url) return;
+        try {
+            if (navigator.share) {
+                await navigator.share({
+                    title: 'AI Furniture Result',
+                    text: 'Check out my room preview',
+                    url
+                });
+                return;
+            }
+        } catch (_) {
+            // Fall back to clipboard below.
+        }
+
+        try {
+            await navigator.clipboard.writeText(url);
+            alert('Share link copied to clipboard');
+        } catch (_) {
+            alert('Unable to share automatically. Please copy this URL:\n' + url);
+        }
+    };
+
+    const createActionsRow = (beforeUrl, afterUrl) => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.gap = '8px';
+        row.style.flexWrap = 'wrap';
+
+        const makeBtn = (text, onClick, primary = false) => {
+            const btn = document.createElement('button');
+            btn.textContent = text;
+            btn.style.padding = '8px 10px';
+            btn.style.fontSize = '12px';
+            btn.style.fontWeight = '600';
+            btn.style.borderRadius = '8px';
+            btn.style.cursor = 'pointer';
+            btn.style.border = primary ? '1px solid #059669' : '1px solid #cbd5e1';
+            btn.style.background = primary ? '#10b981' : '#ffffff';
+            btn.style.color = primary ? '#ffffff' : '#334155';
+            btn.onclick = onClick;
+            return btn;
+        };
+
+        const downloadBeforeBtn = makeBtn('Download Before', () => downloadImage(beforeUrl, 'before'));
+        if (!beforeUrl) {
+            downloadBeforeBtn.disabled = true;
+            downloadBeforeBtn.style.opacity = '0.5';
+            downloadBeforeBtn.style.cursor = 'not-allowed';
+        }
+
+        const downloadAfterBtn = makeBtn('Download After', () => downloadImage(afterUrl, 'after'), true);
+        const shareBtn = makeBtn('Share Result', () => shareImage(afterUrl));
+
+        row.appendChild(downloadBeforeBtn);
+        row.appendChild(downloadAfterBtn);
+        row.appendChild(shareBtn);
+        return row;
+    };
+
     const container = document.createElement('div');
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
@@ -67,6 +148,7 @@ export const ResultsView = (state) => {
                     aspectRatio: aspectRatio   // Pass aspect ratio from API response
                 });
                 grid.appendChild(slider);
+                grid.appendChild(createActionsRow(originalUrl, generatedUrl));
             } else {
                 // Fallback: just show the generated image
                 const img = document.createElement('img');
@@ -74,6 +156,7 @@ export const ResultsView = (state) => {
                 img.style.maxWidth = '100%';
                 img.style.borderRadius = '8px';
                 grid.appendChild(img);
+                grid.appendChild(createActionsRow('', generatedUrl));
             }
         }
     });
