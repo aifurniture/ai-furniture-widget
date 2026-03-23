@@ -3,6 +3,28 @@
  */
 export const Slider = ({ beforeImage, afterImage, aspectRatio }) => {
     const container = document.createElement('div');
+
+    const getFilenameFromUrl = (url) => {
+        try {
+            const u = new URL(url);
+            const name = u.pathname.split('/').pop();
+            return name || 'image';
+        } catch (_) {
+            return 'image';
+        }
+    };
+
+    const downloadImage = (url, prefix) => {
+        if (!url) return;
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.download = `${prefix}-${getFilenameFromUrl(url)}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    };
     
     // Start with provided aspect ratio or sensible default; will update on image load
     const numericRatio = typeof aspectRatio === 'number' ? aspectRatio : null;
@@ -152,6 +174,57 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio }) => {
     dividerWrapper.appendChild(divider);
     dividerWrapper.appendChild(handle);
 
+    // Download buttons (before + after)
+    const downloadBeforeBtn = document.createElement('button');
+    downloadBeforeBtn.textContent = 'Download Before';
+    Object.assign(downloadBeforeBtn.style, {
+        position: 'absolute',
+        bottom: '12px',
+        left: '12px',
+        zIndex: '25',
+        padding: '8px 10px',
+        fontSize: '11px',
+        fontWeight: '700',
+        letterSpacing: '0.01em',
+        background: 'rgba(255, 255, 255, 0.92)',
+        border: '1px solid #e5e7eb',
+        borderRadius: '10px',
+        color: '#0f172a',
+        cursor: 'pointer',
+        pointerEvents: 'auto',
+        backdropFilter: 'blur(8px)'
+    });
+    downloadBeforeBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        downloadImage(beforeImage, 'before');
+    };
+
+    const downloadAfterBtn = document.createElement('button');
+    downloadAfterBtn.textContent = 'Download After';
+    Object.assign(downloadAfterBtn.style, {
+        position: 'absolute',
+        bottom: '12px',
+        right: '12px',
+        zIndex: '25',
+        padding: '8px 10px',
+        fontSize: '11px',
+        fontWeight: '700',
+        letterSpacing: '0.01em',
+        background: 'rgba(16, 185, 129, 0.95)',
+        border: '1px solid rgba(16, 185, 129, 0.5)',
+        borderRadius: '10px',
+        color: '#fff',
+        cursor: 'pointer',
+        pointerEvents: 'auto',
+        backdropFilter: 'blur(8px)'
+    });
+    downloadAfterBtn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        downloadImage(afterImage, 'after');
+    };
+
     // Interaction state
     let isDragging = false;
     let startPos = 50;
@@ -246,6 +319,8 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio }) => {
     container.appendChild(labelBefore);
     container.appendChild(labelAfter);
     container.appendChild(dividerWrapper);
+    container.appendChild(downloadBeforeBtn);
+    container.appendChild(downloadAfterBtn);
 
     return container;
 };

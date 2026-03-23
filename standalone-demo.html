@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Furniture Widget - Standalone Demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    }
+    .product {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    }
+    .product-image {
+      width: 100%;
+      max-width: 600px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 32px;
+      margin: 0 0 16px 0;
+      color: #111827;
+    }
+    p {
+      color: #6b7280;
+      line-height: 1.6;
+      margin: 0 0 24px 0;
+    }
+    .price {
+      font-size: 28px;
+      font-weight: 700;
+      color: #10b981;
+      margin-bottom: 24px;
+    }
+    .instructions {
+      background: #fef3c7;
+      border: 2px solid #f59e0b;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 40px;
+    }
+    .instructions h2 {
+      margin: 0 0 12px 0;
+      color: #92400e;
+      font-size: 18px;
+    }
+    .instructions code {
+      background: #fffbeb;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 14px;
+      color: #92400e;
+    }
+  </style>
+</head>
+<body>
+  <div class="product">
+    <h1>🛋️ Modern Velvet Sofa</h1>
+    <img src="https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&q=80" 
+         alt="Modern Velvet Sofa" 
+         class="product-image">
+    <div class="price">$899.99</div>
+    <p>
+      Experience luxury and comfort with our Modern Velvet Sofa. 
+      This elegant piece features premium velvet upholstery, solid wood frame, 
+      and contemporary design that fits any modern living space.
+    </p>
+    <p>
+      <strong>Features:</strong><br>
+      • Premium velvet fabric<br>
+      • Solid hardwood frame<br>
+      • High-density foam cushions<br>
+      • Easy assembly<br>
+      • 5-year warranty
+    </p>
+    
+    <div class="instructions">
+      <h2>👀 Look for the Widget Button!</h2>
+      <p style="margin: 0; color: #92400e;">
+        The <strong>"✨ Visualize in Your Room"</strong> button should appear 
+        in the bottom-right corner of your screen. Click it to try the AI furniture 
+        visualization!
+      </p>
+      <p style="margin: 12px 0 0 0; font-size: 14px; color: #78350f;">
+        <strong>Note:</strong> You need a valid <code>domainId</code> from 
+        <a href="https://furniture-ai.com/dashboard" target="_blank" style="color: #92400e;">
+          furniture-ai.com/dashboard
+        </a> for the widget to work.
+      </p>
+    </div>
+  </div>
+
+  <!-- ========================================
+       AI FURNITURE WIDGET - STANDALONE VERSION
+       ======================================== -->
+  
+  <!-- Step 1: Configure the widget -->
+  <script>
+    console.log('🔧 Setting up AI Furniture Widget...');
+    
+    window.FURNITURE_AI_CONFIG = {
+      domain: 'demo.furniture-ai.com',          // Your domain
+      domainId: 'REPLACE_WITH_YOUR_DOMAIN_ID',  // Get from dashboard
+      position: 'bottom-right',
+      // For Shopify stores, these would be set automatically:
+      // shopifyStore: true,
+      // productId: 12345,
+      // productTitle: 'Modern Velvet Sofa',
+      // productUrl: window.location.href
+    };
+    
+    console.log('✅ Config set:', window.FURNITURE_AI_CONFIG);
+  </script>
+  
+  <!-- Step 2: Load standalone widget (inline, no build required) -->
+  <script>
+    (function(window, document) {
+      'use strict';
+      
+      if (window.__AIFurnitureLoaded) {
+        console.log('Widget already loaded');
+        return;
+      }
+      window.__AIFurnitureLoaded = true;
+      
+      const config = window.FURNITURE_AI_CONFIG || {};
+      if (!config.domain || !config.domainId) {
+        console.error('❌ Missing domain or domainId in config');
+        console.warn('Get your Domain ID from: https://furniture-ai.com/dashboard');
+        return;
+      }
+      
+      console.log('🚀 Initializing widget...');
+      
+      const isLocal = window.location.hostname.includes('localhost');
+      const apiEndpoint = isLocal ? 'http://localhost:3000/api' : 'https://ai-furniture-backend.vercel.app/api';
+      
+      // Inject CSS (minified for production)
+      const css = '#ai-furniture-btn{position:fixed;bottom:24px;right:24px;z-index:9999;background:linear-gradient(135deg,#10b981,#059669);color:#fff;padding:14px 24px;border-radius:999px;box-shadow:0 8px 24px rgba(16,185,129,.35);cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:15px;font-weight:600;display:flex;align-items:center;gap:10px;border:none;transition:all .3s cubic-bezier(.4,0,.2,1)}#ai-furniture-btn:hover{transform:translateY(-4px) scale(1.02);box-shadow:0 12px 32px rgba(16,185,129,.45)}#ai-furniture-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);z-index:999999;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}#ai-furniture-modal.open{display:flex;align-items:center;justify-content:center}.aif-panel{background:#fff;border-radius:20px;padding:32px;max-width:500px;width:90%;max-height:90vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,.25);position:relative}.aif-close{position:absolute;top:20px;right:20px;width:40px;height:40px;background:#f9fafb;border:none;border-radius:50%;font-size:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}.aif-close:hover{background:#111827;color:#fff;transform:scale(1.05)}';
+      
+      const style = document.createElement('style');
+      style.textContent = css;
+      document.head.appendChild(style);
+      
+      // Create button
+      const btn = document.createElement('button');
+      btn.id = 'ai-furniture-btn';
+      btn.innerHTML = '<span style="font-size:20px">✨</span><span>Visualize in Your Room</span>';
+      btn.onclick = () => document.getElementById('ai-furniture-modal').classList.add('open');
+      document.body.appendChild(btn);
+      
+      // Create modal
+      const modal = document.createElement('div');
+      modal.id = 'ai-furniture-modal';
+      modal.innerHTML = '<div class="aif-panel"><button class="aif-close" onclick="document.getElementById(\'ai-furniture-modal\').classList.remove(\'open\')">×</button><h2 style="margin:0 0 8px 0;font-size:24px;font-weight:700">See This in Your Room</h2><p style="margin:0 0 24px 0;color:#6b7280;font-size:14px">Upload a photo and we\'ll show you how this furniture looks!</p><div id="aif-upload" style="border:2px dashed #d1d5db;border-radius:12px;padding:48px 24px;text-align:center;cursor:pointer;background:linear-gradient(135deg,#f9fafb,#fff)"><div style="font-size:48px;margin-bottom:16px">📸</div><p style="margin:0 0 8px 0;font-weight:600">Drop your room photo here</p><p style="margin:0;font-size:14px;color:#6b7280">or click to browse</p><input type="file" id="aif-file" accept="image/*" style="display:none"></div><button id="aif-gen-btn" style="width:100%;margin-top:24px;padding:16px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;display:none">Generate Preview</button><div id="aif-result" style="margin-top:24px;display:none"></div></div>';
+      document.body.appendChild(modal);
+      
+      // File upload
+      const upload = document.getElementById('aif-upload');
+      const fileInput = document.getElementById('aif-file');
+      const genBtn = document.getElementById('aif-gen-btn');
+      let file = null;
+      
+      upload.onclick = () => fileInput.click();
+      fileInput.onchange = (e) => {
+        file = e.target.files[0];
+        if (!file) return;
+        upload.innerHTML = '<img src="' + URL.createObjectURL(file) + '" style="max-width:100%;border-radius:8px;margin-bottom:12px"><p style="color:#10b981;font-weight:600;margin:0">✓ Photo uploaded</p>';
+        genBtn.style.display = 'block';
+      };
+      
+      // Generate
+      genBtn.onclick = async () => {
+        if (!file) return;
+        genBtn.textContent = 'Generating...';
+        genBtn.disabled = true;
+        
+        try {
+          const fd = new FormData();
+          fd.append('userImage', file);
+          fd.append('productUrl', window.location.href);
+          fd.append('domain', config.domain);
+          fd.append('domainId', config.domainId);
+          
+          console.log('🎨 Generating visualization...');
+          
+          const res = await fetch(apiEndpoint + '/generate', {
+            method: 'POST',
+            headers: { 'Accept': 'application/json' },
+            body: fd,
+            credentials: 'omit'
+          });
+          
+          if (!res.ok) throw new Error('Generation failed');
+          
+          const data = await res.json();
+          console.log('✅ Success:', data);
+          
+          const orig = data.generatedImages[0].originalImageUrl;
+          const gen = data.generatedImages[0].url;
+          
+          document.getElementById('aif-result').innerHTML = '<div id="aif-slider" style="position:relative;border-radius:12px;overflow:hidden;aspect-ratio:4/3"><img src="' + orig + '" style="width:100%;height:100%;object-fit:cover;position:absolute"><img src="' + gen + '" style="width:100%;height:100%;object-fit:cover;position:absolute;clip-path:inset(0 50% 0 0)" id="aif-after"><div style="position:absolute;top:16px;left:16px;background:rgba(16,185,129,.9);color:#fff;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700">AFTER</div><div style="position:absolute;top:16px;right:16px;background:rgba(0,0,0,.7);color:#fff;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700">BEFORE</div><div id="aif-handle" style="position:absolute;top:0;bottom:0;left:50%;width:40px;transform:translateX(-50%);cursor:ew-resize;display:flex;align-items:center;justify-content:center"><div style="width:3px;height:100%;background:#fff;box-shadow:0 0 10px rgba(0,0,0,.3)"></div><div style="position:absolute;width:48px;height:48px;background:#fff;border-radius:50%;box-shadow:0 4px 16px rgba(0,0,0,.2);display:flex;align-items:center;justify-content:center"><span style="color:#10b981;font-size:20px;font-weight:700">⟷</span></div></div></div><p style="text-align:center;margin:16px 0 0;color:#6b7280;font-size:14px">Drag to compare</p>';
+          document.getElementById('aif-result').style.display = 'block';
+          
+          // Slider
+          setTimeout(() => {
+            const slider = document.getElementById('aif-slider');
+            const h = document.getElementById('aif-handle');
+            const a = document.getElementById('aif-after');
+            let d = false;
+            const u = (x) => {
+              const r = slider.getBoundingClientRect();
+              let p = ((x - r.left) / r.width) * 100;
+              p = Math.max(0, Math.min(100, p));
+              a.style.clipPath = 'inset(0 ' + (100-p) + '% 0 0)';
+              h.style.left = p + '%';
+            };
+            h.onmousedown = () => d = true;
+            document.onmousemove = (e) => d && u(e.clientX);
+            document.onmouseup = () => d = false;
+            h.ontouchstart = () => d = true;
+            document.ontouchmove = (e) => d && u(e.touches[0].clientX);
+            document.ontouchend = () => d = false;
+          }, 100);
+          
+          genBtn.textContent = 'Generate Another';
+          genBtn.disabled = false;
+          
+        } catch (error) {
+          console.error('❌ Error:', error);
+          alert('Generation failed. Please check your Domain ID and try again.');
+          genBtn.textContent = 'Generate Preview';
+          genBtn.disabled = false;
+        }
+      };
+      
+      console.log('✅ Widget ready!');
+      
+    })(window, document);
+  </script>
+</body>
+</html>

@@ -28,6 +28,7 @@ export const styles = `
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     z-index: 999999;
+    pointer-events: none; /* allow interacting with the underlying page */
     opacity: 0;
     transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     font-family: var(--aif-font);
@@ -47,6 +48,7 @@ export const styles = `
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     display: flex;
     flex-direction: column;
+    pointer-events: auto; /* re-enable interactions inside the panel */
   }
 
   /* Desktop Styles */

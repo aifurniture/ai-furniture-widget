@@ -60,10 +60,8 @@ export const Modal = () => {
     store.subscribe((state) => {
         if (state.isOpen) {
             modalOverlay.classList.add('open');
-            document.body.style.overflow = 'hidden';
         } else {
             modalOverlay.classList.remove('open');
-            document.body.style.overflow = '';
         }
 
         // Re-render content when view changes
