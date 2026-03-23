@@ -7,7 +7,10 @@
   var h1=document.querySelector('.productView-title,.productView-product h1,h1.productTitle');
   if(h1)window.FURNITURE_AI_CONFIG.productTitle=h1.textContent.trim();
   var s=document.createElement('script');
-  s.src='https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js';
+  // Cache-bust to ensure users always get the latest widget bundle from jsDelivr
+  // (helps when a browser caches an older dist/widget.js)
+  var cacheBust = Date.now();
+  s.src='https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?t='+cacheBust;
   s.async=1;
   s.onload=function(){
     if(window.AIFurnitureWidget&&window.AIFurnitureWidget.initAIFurnitureWidget)window.AIFurnitureWidget.initAIFurnitureWidget(window.FURNITURE_AI_CONFIG);
