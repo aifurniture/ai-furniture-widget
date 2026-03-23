@@ -8,9 +8,9 @@ Use the same widget and CDN as Shopify. Loads from GitHub via jsDelivr.
 2. **Create a Script**
 3. Choose **"Load a script from a URL"** (or External / Script URL)
 4. **Script URL:**  
-   `https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/integrations/bigcommerce/loader.js?v=6&domainId=YOUR_DOMAIN_ID`  
+   `https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/integrations/bigcommerce/loader.js?v=8&domainId=YOUR_DOMAIN_ID`  
    Replace `YOUR_DOMAIN_ID` with your ID from [furniture-ai.com/dashboard](https://furniture-ai.com/dashboard).  
-   (`?v=6` cache-busts the loader; bump `v` in `loader.js` when you release a new widget—same pattern as the dashboard.)
+   (`?v=8` cache-busts the loader; bump `v` in `loader.js` when you release a new widget—same pattern as the dashboard.)
 5. **Location:** Footer | **Pages:** Storefront
 6. Save
 
@@ -41,7 +41,7 @@ window.FURNITURE_AI_CONFIG = {
   productUrl: window.location.href
 };
 </script>
-<script src="https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?v=6" async></script>
+<script src="https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?v=8" async></script>
 <script>
 (function check() {
   if (window.AIFurnitureWidget && window.AIFurnitureWidget.initAIFurnitureWidget) {
@@ -59,4 +59,4 @@ Replace `YOUR_DOMAIN_ID` with your Domain ID. Stencil variable names may differ 
 ## Purge CDN cache
 
 After pushing updates: [jsdelivr.com/tools/purge](https://www.jsdelivr.com/tools/purge)  
-URL: `https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?v=6` (or purge without query string)
+URL: `https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?v=8` (or purge without query string)

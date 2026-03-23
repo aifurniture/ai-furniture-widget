@@ -8,7 +8,7 @@
   if(!domain||!domainId){console.warn('AI Furniture: Add ?domain=YOUR_DOMAIN&domainId=YOUR_ID to script URL');return;}
   window.FURNITURE_AI_CONFIG={domain:domain,domainId:domainId};
   var script=document.createElement('script');
-  var WIDGET_CDN_VERSION='7';
+  var WIDGET_CDN_VERSION='8';
   script.src='https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?v='+WIDGET_CDN_VERSION;
   script.async=1;
   script.onload=function(){var w=window.AIFurnitureWidget;if(w&&w.initAIFurnitureWidget)w.initAIFurnitureWidget(window.FURNITURE_AI_CONFIG);};

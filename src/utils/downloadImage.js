@@ -1,8 +1,6 @@
 /**
- * Download helpers: blob fetch + optional ZIP (single download for multiple images).
+ * Save image URLs as files (fetch → blob → download). Works for blob:/data: URLs too.
  */
-import JSZip from 'jszip';
-
 export function getFilenameFromUrl(url, fallback = 'image') {
     try {
         const u = new URL(url, typeof window !== 'undefined' ? window.location.href : undefined);
@@ -15,20 +13,7 @@ export function getFilenameFromUrl(url, fallback = 'image') {
     }
 }
 
-function extFromBlob(blob) {
-    const t = blob.type || '';
-    if (t.includes('png')) return '.png';
-    if (t.includes('jpeg') || t.includes('jpg')) return '.jpg';
-    if (t.includes('webp')) return '.webp';
-    if (t.includes('gif')) return '.gif';
-    return '.jpg';
-}
-
-/**
- * @param {string} url
- * @returns {Promise<Blob>}
- */
-export async function fetchBlobFromUrl(url) {
+async function fetchBlobFromUrl(url) {
     if (!url) throw new Error('Missing image URL');
     if (url.startsWith('blob:') || url.startsWith('data:')) {
         const res = await fetch(url);
@@ -38,39 +23,6 @@ export async function fetchBlobFromUrl(url) {
     const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
     if (!res.ok) throw new Error(`Could not download image (${res.status})`);
     return await res.blob();
-}
-
-/**
- * One ZIP file containing multiple images — avoids browsers blocking multiple downloads.
- * @param {{ url: string, baseName: string }[]} entries — baseName without extension (e.g. "before", "after-1")
- * @param {string} [zipName]
- */
-export async function downloadImagesAsZip(entries, zipName = 'ai-furniture-room-preview.zip') {
-    if (!entries || entries.length === 0) return;
-    const zip = new JSZip();
-    const usedNames = new Set();
-    for (const { url, baseName } of entries) {
-        const blob = await fetchBlobFromUrl(url);
-        const ext = extFromBlob(blob);
-        let name = `${baseName}${ext}`;
-        let n = 2;
-        while (usedNames.has(name)) {
-            name = `${baseName}-${n}${ext}`;
-            n += 1;
-        }
-        usedNames.add(name);
-        zip.file(name, blob);
-    }
-    const zipBlob = await zip.generateAsync({ type: 'blob' });
-    const blobUrl = URL.createObjectURL(zipBlob);
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = zipName;
-    a.rel = 'noopener';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(blobUrl);
 }
 
 /**
@@ -103,7 +55,7 @@ export async function downloadUrlAsFile(url, filename) {
         a.remove();
         URL.revokeObjectURL(blobUrl);
     } catch (err) {
-        console.warn('[AI Furniture] Blob download failed, trying direct save:', err);
+        console.warn('[AI Furniture] Save failed, trying direct link:', err);
         const a = document.createElement('a');
         a.href = url;
         a.download = filename;
@@ -112,8 +64,4 @@ export async function downloadUrlAsFile(url, filename) {
         a.click();
         a.remove();
     }
-}
-
-export function delay(ms) {
-    return new Promise((r) => setTimeout(r, ms));
 }

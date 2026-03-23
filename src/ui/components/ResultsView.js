@@ -4,7 +4,7 @@
 import { actions } from '../../state/store.js';
 import { Slider } from './Slider.js';
 import { Button } from './Button.js';
-import { downloadUrlAsFile, downloadImagesAsZip, getFilenameFromUrl } from '../../utils/downloadImage.js';
+import { downloadUrlAsFile, getFilenameFromUrl } from '../../utils/downloadImage.js';
 
 export const ResultsView = (state) => {
     const uploadedBlobUrl = state.uploadedImage ? URL.createObjectURL(state.uploadedImage) : '';
@@ -43,20 +43,33 @@ export const ResultsView = (state) => {
     };
 
     const createActionsRow = (beforeUrl, afterUrl) => {
+        const wrap = document.createElement('div');
+        wrap.style.flexShrink = '0';
+        wrap.style.marginTop = '4px';
+        wrap.style.padding = '12px 0 4px';
+        wrap.style.borderTop = '1px solid #e2e8f0';
+        wrap.setAttribute('data-aif-actions', 'download-share');
+
+        const hint = document.createElement('p');
+        hint.style.margin = '0 0 10px 0';
+        hint.style.fontSize = '12px';
+        hint.style.fontWeight = '600';
+        hint.style.color = '#334155';
+        hint.textContent = beforeUrl
+            ? 'Save both images — tap each button:'
+            : 'Save your preview:';
+
         const row = document.createElement('div');
         row.style.display = 'flex';
         row.style.gap = '8px';
         row.style.flexWrap = 'wrap';
-        row.style.flexShrink = '0';
-        row.style.marginTop = '4px';
-        row.style.padding = '12px 0 4px';
-        row.style.borderTop = '1px solid #e2e8f0';
-        row.setAttribute('data-aif-actions', 'download-share');
+        row.style.alignItems = 'center';
 
         const makeBtn = (text, onClick, primary = false) => {
             const btn = document.createElement('button');
+            btn.type = 'button';
             btn.textContent = text;
-            btn.style.padding = '8px 10px';
+            btn.style.padding = '10px 12px';
             btn.style.fontSize = '12px';
             btn.style.fontWeight = '600';
             btn.style.borderRadius = '8px';
@@ -68,24 +81,29 @@ export const ResultsView = (state) => {
             return btn;
         };
 
-        const downloadBeforeBtn = makeBtn('Download Before', () => {
-            downloadUrlAsFile(beforeUrl, `before-${getFilenameFromUrl(beforeUrl)}`);
+        const saveRoomBtn = makeBtn('Save room photo', () => {
+            downloadUrlAsFile(beforeUrl, `room-${getFilenameFromUrl(beforeUrl)}`);
         });
         if (!beforeUrl) {
-            downloadBeforeBtn.disabled = true;
-            downloadBeforeBtn.style.opacity = '0.5';
-            downloadBeforeBtn.style.cursor = 'not-allowed';
+            saveRoomBtn.disabled = true;
+            saveRoomBtn.style.opacity = '0.5';
+            saveRoomBtn.style.cursor = 'not-allowed';
         }
 
-        const downloadAfterBtn = makeBtn('Download After', () => {
-            downloadUrlAsFile(afterUrl, `after-${getFilenameFromUrl(afterUrl)}`);
-        }, true);
-        const shareBtn = makeBtn('Share Result', () => shareImage(afterUrl));
+        const savePreviewBtn = makeBtn(
+            'Save AI preview',
+            () => downloadUrlAsFile(afterUrl, `preview-${getFilenameFromUrl(afterUrl)}`),
+            true
+        );
+        const shareBtn = makeBtn('Share', () => shareImage(afterUrl));
 
-        row.appendChild(downloadBeforeBtn);
-        row.appendChild(downloadAfterBtn);
+        row.appendChild(saveRoomBtn);
+        row.appendChild(savePreviewBtn);
         row.appendChild(shareBtn);
-        return row;
+
+        wrap.appendChild(hint);
+        wrap.appendChild(row);
+        return wrap;
     };
 
     const container = document.createElement('div');
@@ -99,75 +117,11 @@ export const ResultsView = (state) => {
     const header = document.createElement('div');
     header.innerHTML = `
     <h3 style="margin:0; font-size:16px; font-weight:600;">✨ Your room preview</h3>
-    <p style="margin:4px 0 0; font-size:12px; color:#64748b;">Drag the slider to compare.</p>
+    <p style="margin:4px 0 0; font-size:12px; color:#64748b;">Drag the slider to compare, then save your photos below.</p>
   `;
     container.appendChild(header);
 
     const pairs = buildPairs();
-
-    // Download all (every before/after as files)
-    const downloadAllBar = document.createElement('div');
-    downloadAllBar.style.display = 'flex';
-    downloadAllBar.style.flexWrap = 'wrap';
-    downloadAllBar.style.gap = '8px';
-    downloadAllBar.style.alignItems = 'center';
-
-    const downloadAllBtn = document.createElement('button');
-    downloadAllBtn.textContent = 'Download all';
-    downloadAllBtn.type = 'button';
-    Object.assign(downloadAllBtn.style, {
-        padding: '10px 14px',
-        fontSize: '13px',
-        fontWeight: '600',
-        borderRadius: '8px',
-        cursor: 'pointer',
-        border: '1px solid #047857',
-        background: 'linear-gradient(135deg, #059669, #047857)',
-        color: '#ffffff',
-        boxShadow: '0 2px 8px rgba(5, 150, 105, 0.35)'
-    });
-    downloadAllBtn.disabled = pairs.length === 0;
-    if (downloadAllBtn.disabled) {
-        downloadAllBtn.style.opacity = '0.5';
-        downloadAllBtn.style.cursor = 'not-allowed';
-    }
-    downloadAllBtn.onclick = async () => {
-        if (!pairs.length) return;
-        downloadAllBtn.disabled = true;
-        const prevText = downloadAllBtn.textContent;
-        downloadAllBtn.textContent = 'Preparing download…';
-        try {
-            const entries = [];
-            const multi = pairs.length > 1;
-            for (let i = 0; i < pairs.length; i++) {
-                const { beforeUrl, afterUrl } = pairs[i];
-                const suf = multi ? `-${i + 1}` : '';
-                if (beforeUrl) entries.push({ url: beforeUrl, baseName: `before${suf}` });
-                entries.push({ url: afterUrl, baseName: `after${suf}` });
-            }
-            await downloadImagesAsZip(entries, 'ai-furniture-room-preview.zip');
-        } catch (e) {
-            console.error('[AI Furniture] Download all failed:', e);
-            const msg = e && e.message ? String(e.message) : 'Unknown error';
-            alert(
-                /fetch|network|Failed/i.test(msg)
-                    ? 'Could not download images (network or browser blocked access). Try “Download Before” and “Download After”, or check that image URLs allow downloads.'
-                    : `Download failed: ${msg}`
-            );
-        } finally {
-            downloadAllBtn.textContent = prevText;
-            downloadAllBtn.disabled = false;
-        }
-    };
-
-    const downloadAllHint = document.createElement('span');
-    downloadAllHint.textContent = 'One ZIP file with your before & after images.';
-    downloadAllHint.style.fontSize = '11px';
-    downloadAllHint.style.color = '#64748b';
-
-    downloadAllBar.appendChild(downloadAllBtn);
-    downloadAllBar.appendChild(downloadAllHint);
-    container.appendChild(downloadAllBar);
 
     // Results Grid
     const grid = document.createElement('div');
