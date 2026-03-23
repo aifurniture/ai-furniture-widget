@@ -12,7 +12,7 @@
   var cacheBust = Date.now();
   // Use a fixed commit to avoid jsDelivr/@main caching lag.
   // (If you change widget code again, update this SHA in loader.js.)
-  var widgetCommit = '5f650541475e4ba609f8821417bf7c34fd491892';
+  var widgetCommit = '5f65054872462365461c695fecd627a7819a9d6f';
   s.src='https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@' + widgetCommit + '/dist/widget.js?t=' + cacheBust;
   s.async=1;
   s.onload=function(){
