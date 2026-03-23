@@ -10,7 +10,10 @@
   // Cache-bust to ensure users always get the latest widget bundle from jsDelivr
   // (helps when a browser caches an older dist/widget.js)
   var cacheBust = Date.now();
-  s.src='https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?t='+cacheBust;
+  // Use a fixed commit to avoid jsDelivr/@main caching lag.
+  // (If you change widget code again, update this SHA in loader.js.)
+  var widgetCommit = '65137c862d3fe792e446f3070b0208b8cf84a5e1';
+  s.src='https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@' + widgetCommit + '/dist/widget.js?t=' + cacheBust;
   s.async=1;
   s.onload=function(){
     if(window.AIFurnitureWidget&&window.AIFurnitureWidget.initAIFurnitureWidget)window.AIFurnitureWidget.initAIFurnitureWidget(window.FURNITURE_AI_CONFIG);
