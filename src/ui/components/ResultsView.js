@@ -55,6 +55,11 @@ export const ResultsView = (state) => {
         row.style.display = 'flex';
         row.style.gap = '8px';
         row.style.flexWrap = 'wrap';
+        row.style.flexShrink = '0';
+        row.style.marginTop = '4px';
+        row.style.padding = '12px 0 4px';
+        row.style.borderTop = '1px solid #e2e8f0';
+        row.setAttribute('data-aif-actions', 'download-share');
 
         const makeBtn = (text, onClick, primary = false) => {
             const btn = document.createElement('button');
@@ -92,6 +97,7 @@ export const ResultsView = (state) => {
     container.style.flexDirection = 'column';
     container.style.gap = '16px';
     container.style.height = '100%';
+    container.style.minHeight = '0'; /* flex: allow scroll area to shrink */
 
     // Header
     const header = document.createElement('div');

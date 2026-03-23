@@ -117,6 +117,7 @@ export const styles = `
 
   .aif-content {
     flex: 1;
+    min-height: 0; /* allow flex child to shrink so inner scroll + footer actions work */
     display: flex;
     flex-direction: column;
     padding: 32px 24px 24px;
