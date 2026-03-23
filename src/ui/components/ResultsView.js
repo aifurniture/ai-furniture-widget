@@ -4,27 +4,19 @@
 import { actions } from '../../state/store.js';
 import { Slider } from './Slider.js';
 import { Button } from './Button.js';
+import { downloadUrlAsFile, delay, getFilenameFromUrl } from '../../utils/downloadImage.js';
 
 export const ResultsView = (state) => {
-    const getFilenameFromUrl = (url) => {
-        try {
-            const u = new URL(url);
-            return u.pathname.split('/').pop() || 'image';
-        } catch (_) {
-            return 'image';
-        }
-    };
+    const uploadedBlobUrl = state.uploadedImage ? URL.createObjectURL(state.uploadedImage) : '';
 
-    const downloadImage = (url, prefix) => {
-        if (!url) return;
-        const a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener';
-        a.download = `${prefix}-${getFilenameFromUrl(url)}`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+    const buildPairs = () => {
+        const pairs = [];
+        state.generatedImages.forEach((imgData, index) => {
+            const afterUrl = imgData.url || imgData;
+            const beforeUrl = imgData.originalImageUrl || uploadedBlobUrl || '';
+            if (afterUrl) pairs.push({ beforeUrl, afterUrl, index });
+        });
+        return pairs;
     };
 
     const shareImage = async (url) => {
@@ -76,14 +68,18 @@ export const ResultsView = (state) => {
             return btn;
         };
 
-        const downloadBeforeBtn = makeBtn('Download Before', () => downloadImage(beforeUrl, 'before'));
+        const downloadBeforeBtn = makeBtn('Download Before', () => {
+            downloadUrlAsFile(beforeUrl, `before-${getFilenameFromUrl(beforeUrl)}`);
+        });
         if (!beforeUrl) {
             downloadBeforeBtn.disabled = true;
             downloadBeforeBtn.style.opacity = '0.5';
             downloadBeforeBtn.style.cursor = 'not-allowed';
         }
 
-        const downloadAfterBtn = makeBtn('Download After', () => downloadImage(afterUrl, 'after'), true);
+        const downloadAfterBtn = makeBtn('Download After', () => {
+            downloadUrlAsFile(afterUrl, `after-${getFilenameFromUrl(afterUrl)}`);
+        }, true);
         const shareBtn = makeBtn('Share Result', () => shareImage(afterUrl));
 
         row.appendChild(downloadBeforeBtn);
@@ -107,6 +103,66 @@ export const ResultsView = (state) => {
   `;
     container.appendChild(header);
 
+    const pairs = buildPairs();
+
+    // Download all (every before/after as files)
+    const downloadAllBar = document.createElement('div');
+    downloadAllBar.style.display = 'flex';
+    downloadAllBar.style.flexWrap = 'wrap';
+    downloadAllBar.style.gap = '8px';
+    downloadAllBar.style.alignItems = 'center';
+
+    const downloadAllBtn = document.createElement('button');
+    downloadAllBtn.textContent = 'Download all';
+    downloadAllBtn.type = 'button';
+    Object.assign(downloadAllBtn.style, {
+        padding: '10px 14px',
+        fontSize: '13px',
+        fontWeight: '600',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        border: '1px solid #047857',
+        background: 'linear-gradient(135deg, #059669, #047857)',
+        color: '#ffffff',
+        boxShadow: '0 2px 8px rgba(5, 150, 105, 0.35)'
+    });
+    downloadAllBtn.disabled = pairs.length === 0;
+    if (downloadAllBtn.disabled) {
+        downloadAllBtn.style.opacity = '0.5';
+        downloadAllBtn.style.cursor = 'not-allowed';
+    }
+    downloadAllBtn.onclick = async () => {
+        if (!pairs.length) return;
+        downloadAllBtn.disabled = true;
+        const prevText = downloadAllBtn.textContent;
+        downloadAllBtn.textContent = 'Downloading…';
+        try {
+            const multi = pairs.length > 1;
+            for (let i = 0; i < pairs.length; i++) {
+                const { beforeUrl, afterUrl } = pairs[i];
+                const suf = multi ? `-${i + 1}` : '';
+                if (beforeUrl) {
+                    await downloadUrlAsFile(beforeUrl, `before${suf}-${getFilenameFromUrl(beforeUrl)}`);
+                    await delay(280);
+                }
+                await downloadUrlAsFile(afterUrl, `after${suf}-${getFilenameFromUrl(afterUrl)}`);
+                if (i < pairs.length - 1) await delay(280);
+            }
+        } finally {
+            downloadAllBtn.textContent = prevText;
+            downloadAllBtn.disabled = false;
+        }
+    };
+
+    const downloadAllHint = document.createElement('span');
+    downloadAllHint.textContent = 'Saves each image as a file (not a link).';
+    downloadAllHint.style.fontSize = '11px';
+    downloadAllHint.style.color = '#64748b';
+
+    downloadAllBar.appendChild(downloadAllBtn);
+    downloadAllBar.appendChild(downloadAllHint);
+    container.appendChild(downloadAllBar);
+
     // Results Grid
     const grid = document.createElement('div');
     grid.style.display = 'flex';
@@ -114,49 +170,28 @@ export const ResultsView = (state) => {
     grid.style.gap = '16px';
     grid.style.overflowY = 'auto';
     grid.style.flex = '1';
+    grid.style.minHeight = '0';
     grid.style.paddingRight = '4px'; // Space for scrollbar
 
-    // Use S3 URLs for before/after comparison
-    // Priority: 
-    // 1. originalImageUrl from generatedImages (S3 URL from backend)
-    // 2. uploadedImage blob (if still in memory)
-    // 3. userImageUrl from queue item (S3 URL)
-
-    state.generatedImages.forEach((imgData) => {
-        // Get the generated image URL (S3 URL)
+    pairs.forEach(({ beforeUrl, afterUrl, index: i }) => {
+        const imgData = state.generatedImages[i];
         const generatedUrl = imgData.url || imgData;
-        
-        // Get the original image URL - prefer S3 URL from backend
-        let originalUrl = '';
-        
-        if (imgData.originalImageUrl) {
-            // Use S3 URL from backend (preferred)
-            originalUrl = imgData.originalImageUrl;
-        } else if (state.uploadedImage) {
-            // Fallback to blob if still in memory
-            originalUrl = URL.createObjectURL(state.uploadedImage);
-        }
-        
-        // Get aspect ratio from API response
-        const aspectRatio = imgData.originalAspectRatio || 
-                           (imgData.originalWidth && imgData.originalHeight 
-                            ? imgData.originalWidth / imgData.originalHeight 
-                            : null);
-        
-        console.log(`📐 Creating slider with aspect ratio: ${aspectRatio || 'auto'}`);
-        
+        const aspectRatio =
+            imgData.originalAspectRatio ||
+            (imgData.originalWidth && imgData.originalHeight
+                ? imgData.originalWidth / imgData.originalHeight
+                : null);
+
         if (generatedUrl) {
-            if (originalUrl) {
-                // Use S3 URLs for both before and after, with aspect ratio
+            if (beforeUrl) {
                 const slider = Slider({
-                    beforeImage: originalUrl,  // S3 URL for original image
-                    afterImage: generatedUrl,  // S3 URL for generated image
-                    aspectRatio: aspectRatio   // Pass aspect ratio from API response
+                    beforeImage: beforeUrl,
+                    afterImage: generatedUrl,
+                    aspectRatio: aspectRatio
                 });
                 grid.appendChild(slider);
-                grid.appendChild(createActionsRow(originalUrl, generatedUrl));
+                grid.appendChild(createActionsRow(beforeUrl, generatedUrl));
             } else {
-                // Fallback: just show the generated image
                 const img = document.createElement('img');
                 img.src = generatedUrl;
                 img.style.maxWidth = '100%';
@@ -186,8 +221,8 @@ export const ResultsView = (state) => {
     closeBtn.style.background = 'white';
     closeBtn.style.border = '1px solid #cbd5e1';
     closeBtn.style.color = '#475569';
-    closeBtn.onmouseover = () => closeBtn.style.background = '#f8fafc';
-    closeBtn.onmouseout = () => closeBtn.style.background = 'white';
+    closeBtn.onmouseover = () => (closeBtn.style.background = '#f8fafc');
+    closeBtn.onmouseout = () => (closeBtn.style.background = 'white');
 
     const tryAgainBtn = document.createElement('button');
     tryAgainBtn.textContent = 'Try another photo';
