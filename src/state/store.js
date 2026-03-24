@@ -6,6 +6,44 @@
 const STORAGE_KEY = 'ai_furniture_widget_state';
 const MODAL_STATE_KEY = 'ai_furniture_modal_state';
 
+function ensureApiEndpoint(config) {
+    const c = { ...(config || {}) };
+    if (!c.apiEndpoint) {
+        const isLocalMode =
+            typeof window !== 'undefined' &&
+            (window.location.hostname === 'localhost' ||
+                window.location.hostname === '127.0.0.1' ||
+                window.location.hostname === '0.0.0.0');
+        c.apiEndpoint = isLocalMode
+            ? 'http://localhost:3000/api'
+            : 'https://ai-furniture-backend.vercel.app/api';
+    }
+    return c;
+}
+
+/** Strip non-serializable fields; keep userImageDataUrl for restore after navigation. */
+function serializeQueueForStorage(queue) {
+    return queue.map((item) => {
+        const cleanItem = { ...item };
+        delete cleanItem.userImage;
+        return cleanItem;
+    });
+}
+
+function writeSessionSnapshot(state) {
+    const { queue, generatedImages, selectedModel, queueTab, config } = state;
+    sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+            queue: serializeQueueForStorage(queue),
+            generatedImages,
+            selectedModel,
+            queueTab,
+            config: ensureApiEndpoint(config || {})
+        })
+    );
+}
+
 const loadState = () => {
     try {
         const serialized = sessionStorage.getItem(STORAGE_KEY);
@@ -44,19 +82,23 @@ const saveState = async (state) => {
             return cleanItem;
         }));
 
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
-            queue: cleanQueue,
-            generatedImages,
-            selectedModel,
-            queueTab
-        }));
+        sessionStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({
+                queue: cleanQueue,
+                generatedImages,
+                selectedModel,
+                queueTab,
+                config: ensureApiEndpoint(state.config || {})
+            })
+        );
     } catch (e) {
         console.warn('Failed to save state', e);
     }
 };
 
-// Helper to convert File/Blob to data URL
-const fileToDataURL = (file) => {
+// Helper to convert File/Blob to data URL (exported so queue items always have data URL before persist)
+export const fileToDataURL = (file) => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
@@ -122,6 +164,10 @@ export const createStore = (initialState) => {
     let state = {
         ...initialState,
         ...loaded,
+        config: ensureApiEndpoint({
+            ...initialState.config,
+            ...(loaded?.config || {})
+        }),
         queue: restoredQueue.length > 0 ? restoredQueue : (loaded?.queue || initialState.queue),
         ...modalState // Restore modal state
     };
@@ -180,6 +226,17 @@ export const initialState = {
 
 export const store = createStore(initialState);
 
+// Flush session synchronously on navigation — avoids losing queue when async saveState hasn't finished
+if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', () => {
+        try {
+            writeSessionSnapshot(store.getState());
+        } catch (e) {
+            console.warn('Session snapshot on pagehide failed', e);
+        }
+    });
+}
+
 // Actions
 export const actions = {
     openModal: (config = {}) => {
@@ -190,20 +247,9 @@ export const actions = {
             ...config
         };
 
-        // Ensure apiEndpoint is always defined after merge
-        if (!mergedConfig.apiEndpoint) {
-            const isLocalMode = typeof window !== 'undefined' &&
-                (window.location.hostname === 'localhost' ||
-                    window.location.hostname === '127.0.0.1' ||
-                    window.location.hostname === '0.0.0.0');
-            mergedConfig.apiEndpoint = isLocalMode
-                ? 'http://localhost:3000/api'
-                : 'https://ai-furniture-backend.vercel.app/api';
-        }
-
         store.setState({
             isOpen: true,
-            config: mergedConfig
+            config: ensureApiEndpoint(mergedConfig)
         });
     },
     closeModal: () => {
@@ -246,24 +292,27 @@ export const actions = {
     // Queue Actions
     addToQueue: (item) => {
         const queue = store.getState().queue;
-        // Ensure image is stored as data URL for persistence
         const queueItem = { ...item, status: QUEUE_STATUS.PENDING, timestamp: Date.now() };
-        
-        // If userImage is a File/Blob, convert to data URL asynchronously
-        if (item.userImage && (item.userImage instanceof File || item.userImage instanceof Blob)) {
-            fileToDataURL(item.userImage).then(dataUrl => {
-                queueItem.userImageDataUrl = dataUrl;
-                // Update the item with data URL
-                const currentQueue = store.getState().queue;
-                const updatedQueue = currentQueue.map(qi => 
-                    qi.id === queueItem.id ? { ...qi, userImageDataUrl: dataUrl } : qi
-                );
-                store.setState({ queue: updatedQueue });
-            }).catch(e => {
-                console.warn('Failed to convert image to data URL for queue item', e);
-            });
+
+        // Legacy: image without data URL yet — convert async (prefer passing userImageDataUrl from UploadView)
+        if (
+            item.userImage &&
+            (item.userImage instanceof File || item.userImage instanceof Blob) &&
+            !item.userImageDataUrl
+        ) {
+            fileToDataURL(item.userImage)
+                .then((dataUrl) => {
+                    const currentQueue = store.getState().queue;
+                    const updatedQueue = currentQueue.map((qi) =>
+                        qi.id === queueItem.id ? { ...qi, userImageDataUrl: dataUrl } : qi
+                    );
+                    store.setState({ queue: updatedQueue });
+                })
+                .catch((e) => {
+                    console.warn('Failed to convert image to data URL for queue item', e);
+                });
         }
-        
+
         store.setState({
             queue: [...queue, queueItem]
         });

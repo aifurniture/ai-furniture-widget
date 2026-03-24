@@ -172,6 +172,11 @@ function resumePendingItems(state) {
  */
 async function processQueueItem(item) {
     const { id, userImage, productUrl, selectedModel, config, userImageDataUrl } = item;
+    // Merge store config (restored after navigation) with per-item config from when queued
+    const mergedConfig = {
+        ...(store.getState().config || {}),
+        ...(config || {})
+    };
 
     if (processingItems.has(id)) {
         console.log(`⏭️ Item ${id.slice(0, 8)} already being processed, skipping...`);
@@ -219,7 +224,7 @@ async function processQueueItem(item) {
         });
 
         // Get API endpoint
-        let apiEndpoint = config?.apiEndpoint;
+        let apiEndpoint = mergedConfig?.apiEndpoint;
         if (!apiEndpoint) {
             const isLocalMode = typeof window !== 'undefined' &&
                 (window.location.hostname === 'localhost' ||
@@ -237,10 +242,10 @@ async function processQueueItem(item) {
         formData.append('image', imageToUse);
         formData.append('productUrl', productUrl);
         formData.append('model', 'slow'); // Always use high quality model
-        formData.append('domain', config?.domain || window.location.hostname);
+        formData.append('domain', mergedConfig?.domain || window.location.hostname);
 
-        if (config?.sessionId) {
-            formData.append('sessionId', config.sessionId);
+        if (mergedConfig?.sessionId) {
+            formData.append('sessionId', mergedConfig.sessionId);
         }
 
         // Call API - direct generation (not job-based)

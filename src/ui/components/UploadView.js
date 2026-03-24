@@ -1,7 +1,7 @@
 /**
  * Upload View Component
  */
-import { actions, VIEWS, store, QUEUE_STATUS } from '../../state/store.js';
+import { actions, VIEWS, store, QUEUE_STATUS, fileToDataURL } from '../../state/store.js';
 import { Button } from './Button.js';
 import { trackEvent } from '../../tracking.js';
 
@@ -280,6 +280,10 @@ export const UploadView = (state) => {
                 const productUrl = currentState.config?.productUrl || window.location.href;
                 const productName = currentState.config?.productTitle || document.title || productUrl;
 
+                // Encode image before queueing so sessionStorage always has userImageDataUrl
+                // (avoids losing the job if the user navigates away before async conversion finished)
+                const userImageDataUrl = await fileToDataURL(state.uploadedImage);
+
                 // Create queue item
                 const queueId = `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -287,7 +291,8 @@ export const UploadView = (state) => {
                     id: queueId,
                     productUrl: productUrl,
                     productName: productName,
-                    userImage: state.uploadedImage, // Store the File/Blob object
+                    userImage: state.uploadedImage,
+                    userImageDataUrl,
                     selectedModel: 'slow', // Always use high quality model
                     config: currentState.config || {},
                     queuedAt: Date.now()
