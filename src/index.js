@@ -37,6 +37,11 @@ export function initAIFurnitureWidget(userConfig = {}) {
                 getState: () => store.getState()
             };
         }
+        try {
+            actions.syncThemeConfig();
+        } catch (e) {
+            console.warn('syncThemeConfig failed', e);
+        }
         // Still attach listeners in case they were lost
         attachDomListeners();
         return;

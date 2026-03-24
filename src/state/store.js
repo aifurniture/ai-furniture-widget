@@ -2,6 +2,7 @@
  * Simple pub/sub store for widget state management
  * Uses sessionStorage for cross-page persistence within the same session
  */
+import { createConfig } from '../config.js';
 
 const STORAGE_KEY = 'ai_furniture_widget_state';
 const MODAL_STATE_KEY = 'ai_furniture_modal_state';
@@ -254,6 +255,30 @@ export const actions = {
     },
     closeModal: () => {
         store.setState({ isOpen: false });
+    },
+    /**
+     * Update product URL/title from the current page + Shopify embed config after navigation.
+     * Preserves domainId, apiEndpoint, session — only refreshes product context for new uploads.
+     * In-flight queue items keep their own stored productUrl.
+     */
+    syncThemeConfig: () => {
+        if (typeof window === 'undefined') return;
+        const cur = store.getState().config || {};
+        const themeCfg = window.FURNITURE_AI_CONFIG
+            ? createConfig(window.FURNITURE_AI_CONFIG)
+            : createConfig({});
+        store.setState({
+            config: ensureApiEndpoint({
+                ...cur,
+                ...themeCfg,
+                productUrl:
+                    (window.FURNITURE_AI_CONFIG && window.FURNITURE_AI_CONFIG.productUrl) ||
+                    window.location.href,
+                productTitle:
+                    (window.FURNITURE_AI_CONFIG && window.FURNITURE_AI_CONFIG.productTitle) ||
+                    document.title,
+            }),
+        });
     },
     setUploadedImage: (file) => {
         store.setState({

@@ -1,4 +1,5 @@
 // src/init.js
+import { actions } from './state/store.js';
 import { verifyDomain, verifyDomainWithServer } from './domainVerification.js';
 import { debugLog } from './debug.js';
 import { initSession, trackEvent, onOrderAddedToDatabase, resetWidget, disconnectAllTracking, setRecreateWidgetButton } from './tracking.js';
@@ -87,7 +88,12 @@ export async function initializeWidget(isInitialLoad = false) {
         console.log('✅ Domain already verified with backend database, skipping verification');
     }
     
-    console.log('init widget')
+    console.log('init widget');
+    try {
+        actions.syncThemeConfig();
+    } catch (e) {
+        console.warn('syncThemeConfig failed', e);
+    }
     initSession();
 
     const trackingDisconnected = sessionStorage.getItem('tracking_disconnected') === 'true';
@@ -162,6 +168,12 @@ export async function initializeWidget(isInitialLoad = false) {
  * Update page tracking without reinitializing entire widget
  */
 function updatePageTracking() {
+    try {
+        actions.syncThemeConfig();
+    } catch (e) {
+        console.warn('syncThemeConfig failed', e);
+    }
+
     const isAIFurnitureUser = sessionStorage.getItem('ai_furniture_user') === 'true';
 
     if (isAIFurnitureUser) {
