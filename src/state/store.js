@@ -55,7 +55,11 @@ const loadState = () => {
     }
 };
 
+let isPageUnloading = false;
+
 const saveState = async (state) => {
+    // Don't let a pending async write overwrite the synchronous pagehide snapshot
+    if (isPageUnloading) return;
     try {
         // Persist essential data (queue, generatedImages, selectedModel, queueTab)
         // Store image data as URLs/data URLs for persistence
@@ -230,6 +234,7 @@ export const store = createStore(initialState);
 // Flush session synchronously on navigation — avoids losing queue when async saveState hasn't finished
 if (typeof window !== 'undefined') {
     window.addEventListener('pagehide', () => {
+        isPageUnloading = true;
         try {
             writeSessionSnapshot(store.getState());
         } catch (e) {

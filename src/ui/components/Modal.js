@@ -68,5 +68,13 @@ export const Modal = () => {
         renderContent(state);
     });
 
+    // Restore modal immediately on full-page reload (subscribe only fires on changes,
+    // so if isOpen:true was persisted in sessionStorage we must render the initial state here)
+    const initialState = store.getState();
+    if (initialState.isOpen) {
+        modalOverlay.classList.add('open');
+        renderContent(initialState);
+    }
+
     return modalOverlay;
 };
