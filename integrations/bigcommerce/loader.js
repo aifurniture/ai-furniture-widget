@@ -9,7 +9,7 @@
   var s=document.createElement('script');
   // Bump WIDGET_CDN_VERSION when you push a new dist/widget.js so jsDelivr + browsers
   // fetch fresh @main (same URL pattern as demo / dashboard snippets).
-  var WIDGET_CDN_VERSION='16';
+  var WIDGET_CDN_VERSION='17';
   s.src='https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?v='+WIDGET_CDN_VERSION;
   s.async=1;
   s.onload=function(){

@@ -1,7 +1,7 @@
 /**
  * Optional email field — bottom of modal; links shopper to server-side preview history.
  */
-import { store, actions } from '../../state/store.js';
+import { store, actions, VIEWS } from '../../state/store.js';
 
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -31,17 +31,55 @@ export function WidgetFooter() {
         if (v && !EMAIL_OK.test(v)) {
             hint.textContent = 'Enter a valid email or leave blank.';
             hint.style.color = '#b91c1c';
-            return;
+            return false;
         }
         hint.style.color = '';
         hint.textContent = 'Save your previews for this store across visits.';
         actions.setUserEmail(v);
+        return true;
     };
+
+    const row = document.createElement('div');
+    row.className = 'aif-widget-footer__row';
+
+    const submitBtn = document.createElement('button');
+    submitBtn.type = 'button';
+    submitBtn.className = 'aif-widget-footer__submit';
+    submitBtn.textContent = 'Save';
+    submitBtn.title = 'Save email and load saved previews in Queue → Completed';
+
+    const applyEmail = async () => {
+        const v = (input.value || '').trim().toLowerCase();
+        if (v && !EMAIL_OK.test(v)) {
+            hint.textContent = 'Enter a valid email or leave blank.';
+            hint.style.color = '#b91c1c';
+            return;
+        }
+        hint.style.color = '';
+        submitBtn.disabled = true;
+        try {
+            await actions.setUserEmail(v);
+            if (v) {
+                actions.setView(VIEWS.QUEUE);
+                actions.setQueueTab('completed');
+                hint.textContent =
+                    'Saved for this session. Your previews from this store appear under Queue → Completed.';
+            } else {
+                hint.textContent = 'Email cleared.';
+            }
+        } finally {
+            submitBtn.disabled = false;
+        }
+    };
+
+    submitBtn.addEventListener('click', () => {
+        applyEmail();
+    });
 
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
-            input.blur();
+            applyEmail();
         }
     });
 
@@ -63,8 +101,11 @@ export function WidgetFooter() {
         }
     });
 
+    row.appendChild(input);
+    row.appendChild(submitBtn);
+
     wrap.appendChild(label);
-    wrap.appendChild(input);
+    wrap.appendChild(row);
     wrap.appendChild(hint);
 
     const initial = store.getState();

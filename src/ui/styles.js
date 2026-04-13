@@ -482,6 +482,41 @@ export const styles = `
     margin-bottom: 6px;
   }
 
+  .aif-widget-footer__row {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .aif-widget-footer__row .aif-widget-footer__input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .aif-widget-footer__submit {
+    flex-shrink: 0;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    background: #059669;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: var(--aif-font);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .aif-widget-footer__submit:hover:not(:disabled) {
+    background: #047857;
+  }
+
+  .aif-widget-footer__submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
   .aif-widget-footer__input {
     width: 100%;
     box-sizing: border-box;

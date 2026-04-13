@@ -305,7 +305,7 @@ export const actions = {
             });
         }
     },
-    /** Optional shopper email (saved on this device + synced to backend for history). */
+    /** Optional shopper email (saved on this device + synced to backend for history). Returns a Promise when email is set (sync completes) or resolves immediately when cleared. */
     setUserEmail: (raw) => {
         const trimmed = (raw || '').trim().toLowerCase();
         try {
@@ -320,10 +320,10 @@ export const actions = {
             postWidgetShopper(api.apiEndpoint, trimmed, domain).catch((e) =>
                 console.warn('[AI Furniture] shopper register:', e?.message || e)
             );
-            syncShopperGenerationsFromServer();
-        } else {
-            store.setState({ remoteGenerations: [] });
+            return syncShopperGenerationsFromServer();
         }
+        store.setState({ remoteGenerations: [] });
+        return Promise.resolve();
     },
     /** Refresh “My previews” from the server (same email + storefront domain). */
     syncShopperGenerations: () => syncShopperGenerationsFromServer(),
