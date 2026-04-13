@@ -184,56 +184,6 @@ export const ResultsView = (state) => {
   `;
     container.appendChild(header);
 
-    const remote = state.remoteGenerations || [];
-    if (state.userEmail && remote.length > 0) {
-        const histWrap = document.createElement('div');
-        histWrap.className = 'aif-history';
-        const ht = document.createElement('h4');
-        ht.className = 'aif-history__title';
-        ht.textContent = 'Your saved previews';
-        const row = document.createElement('div');
-        row.className = 'aif-history__row';
-        remote.forEach((entry) => {
-            const card = document.createElement('button');
-            card.type = 'button';
-            card.className = 'aif-history__card';
-            const thumb = document.createElement('img');
-            thumb.src = entry.previewImageUrl;
-            thumb.alt = entry.productName || 'Preview';
-            thumb.loading = 'lazy';
-            const meta = document.createElement('div');
-            meta.className = 'aif-history__meta';
-            let pathLabel = 'Preview';
-            try {
-                if (entry.productUrl) {
-                    pathLabel = new URL(entry.productUrl).pathname.split('/').filter(Boolean).pop() || pathLabel;
-                }
-            } catch {
-                /* ignore */
-            }
-            const label =
-                (entry.productName && entry.productName.slice(0, 40)) || pathLabel;
-            meta.textContent = label;
-            card.appendChild(thumb);
-            card.appendChild(meta);
-            card.onclick = () => {
-                actions.setGenerationResults([
-                    {
-                        url: entry.previewImageUrl,
-                        originalImageUrl: entry.originalImageUrl || '',
-                        originalAspectRatio: entry.metadata?.originalAspectRatio,
-                        originalWidth: entry.metadata?.originalWidth,
-                        originalHeight: entry.metadata?.originalHeight
-                    }
-                ]);
-            };
-            row.appendChild(card);
-        });
-        histWrap.appendChild(ht);
-        histWrap.appendChild(row);
-        container.appendChild(histWrap);
-    }
-
     const pairs = buildPairs();
 
     // Results Grid

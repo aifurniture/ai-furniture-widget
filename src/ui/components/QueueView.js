@@ -22,7 +22,7 @@ export const QueueView = (state) => {
 
     header.innerHTML = `
     <div class="aif-badge">
-      <span style="width:6px; height:6px; border-radius:50%; background:${processingCount > 0 ? '#3b82f6' : '#22c55e'};"></span>
+      <span style="width:6px; height:6px; border-radius:50%; background:${processingCount > 0 ? '#475569' : '#059669'};"></span>
       Your Visualizations
     </div>
     <h2>Queue & Results</h2>
@@ -38,10 +38,14 @@ export const QueueView = (state) => {
     tabs.style.borderBottom = '1px solid #e2e8f0';
     tabs.style.marginBottom = '8px';
 
+    const remoteGenerations = state.remoteGenerations || [];
+    const savedCount = state.userEmail ? remoteGenerations.length : 0;
+    const completedTabCount = completedCount + savedCount;
+
     const tabOptions = [
         { id: 'all', label: 'All', count: state.queue.length },
         { id: 'processing', label: 'Processing', count: processingCount },
-        { id: 'completed', label: 'Completed', count: completedCount }
+        { id: 'completed', label: 'Completed', count: completedTabCount }
     ];
 
     if (failedCount > 0) {
@@ -54,8 +58,8 @@ export const QueueView = (state) => {
         tabBtn.style.padding = '8px 16px';
         tabBtn.style.background = 'none';
         tabBtn.style.border = 'none';
-        tabBtn.style.borderBottom = activeTab === tab.id ? '2px solid #3b82f6' : '2px solid transparent';
-        tabBtn.style.color = activeTab === tab.id ? '#3b82f6' : '#64748b';
+        tabBtn.style.borderBottom = activeTab === tab.id ? '2px solid #059669' : '2px solid transparent';
+        tabBtn.style.color = activeTab === tab.id ? '#059669' : '#64748b';
         tabBtn.style.fontWeight = activeTab === tab.id ? '600' : '400';
         tabBtn.style.cursor = 'pointer';
         tabBtn.style.fontSize = '13px';
@@ -63,6 +67,9 @@ export const QueueView = (state) => {
 
         tabBtn.onclick = () => {
             actions.setQueueTab(tab.id);
+            if (tab.id === 'completed' && state.userEmail) {
+                actions.syncShopperGenerations();
+            }
         };
 
         tabs.appendChild(tabBtn);
@@ -88,12 +95,46 @@ export const QueueView = (state) => {
     list.style.flexDirection = 'column';
     list.style.gap = '12px';
 
-    if (filteredQueue.length === 0) {
-        list.innerHTML = `<p style="text-align:center; color:#94a3b8; margin-top:20px;">No items in this category.</p>`;
+    if (activeTab === 'completed' && state.userEmail && remoteGenerations.length > 0) {
+        const savedSection = document.createElement('div');
+        savedSection.className = 'aif-queue-saved';
+        const savedTitle = document.createElement('h4');
+        savedTitle.className = 'aif-queue-saved__title';
+        savedTitle.textContent = 'Saved with your email';
+        savedSection.appendChild(savedTitle);
+        remoteGenerations.forEach((entry) => {
+            savedSection.appendChild(createSavedHistoryRow(entry));
+        });
+        list.appendChild(savedSection);
+    }
+
+    if (activeTab === 'completed' && completedCount > 0) {
+        const sessionLabel = document.createElement('h4');
+        sessionLabel.className = 'aif-queue-saved__title';
+        sessionLabel.style.marginTop = savedCount > 0 ? '8px' : '0';
+        sessionLabel.textContent = 'This session';
+        list.appendChild(sessionLabel);
+    }
+
+    const sessionItemsToShow =
+        activeTab === 'completed'
+            ? state.queue.filter((i) => i.status === QUEUE_STATUS.COMPLETED)
+            : filteredQueue;
+
+    if (sessionItemsToShow.length === 0 && !(activeTab === 'completed' && savedCount > 0)) {
+        const empty = document.createElement('p');
+        empty.style.textAlign = 'center';
+        empty.style.color = '#94a3b8';
+        empty.style.marginTop = '20px';
+        empty.textContent = 'No items in this category.';
+        list.appendChild(empty);
+    } else if (activeTab !== 'completed') {
+        filteredQueue.forEach((item) => {
+            list.appendChild(createQueueItem(item));
+        });
     } else {
-        filteredQueue.forEach(item => {
-            const itemEl = createQueueItem(item);
-            list.appendChild(itemEl);
+        sessionItemsToShow.forEach((item) => {
+            list.appendChild(createQueueItem(item));
         });
     }
 
@@ -131,6 +172,99 @@ export const QueueView = (state) => {
 
     return container;
 };
+
+/** Server-stored preview (same shape as GET /api/widget/generations). */
+function createSavedHistoryRow(entry) {
+    const itemEl = document.createElement('div');
+    itemEl.style.padding = '12px';
+    itemEl.style.background = '#ffffff';
+    itemEl.style.borderRadius = '12px';
+    itemEl.style.border = '1px solid #e2e8f0';
+    itemEl.style.display = 'flex';
+    itemEl.style.gap = '12px';
+    itemEl.style.alignItems = 'center';
+    itemEl.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+
+    const thumbnail = document.createElement('div');
+    thumbnail.style.width = '56px';
+    thumbnail.style.height = '56px';
+    thumbnail.style.borderRadius = '8px';
+    thumbnail.style.background = '#f1f5f9';
+    thumbnail.style.flexShrink = '0';
+    thumbnail.style.overflow = 'hidden';
+
+    const img = document.createElement('img');
+    img.src = entry.previewImageUrl;
+    img.alt = '';
+    img.style.width = '100%';
+    img.style.height = '100%';
+    img.style.objectFit = 'cover';
+    img.loading = 'lazy';
+    thumbnail.appendChild(img);
+
+    const content = document.createElement('div');
+    content.style.flex = '1';
+    content.style.minWidth = '0';
+
+    const productName = document.createElement('div');
+    productName.style.fontWeight = '600';
+    productName.style.fontSize = '13px';
+    productName.style.color = '#1e293b';
+    let pathLabel = 'Preview';
+    try {
+        if (entry.productUrl) {
+            pathLabel =
+                new URL(entry.productUrl).pathname.split('/').filter(Boolean).pop() || pathLabel;
+        }
+    } catch {
+        /* ignore */
+    }
+    productName.textContent = (entry.productName && entry.productName.slice(0, 60)) || pathLabel;
+
+    const meta = document.createElement('div');
+    meta.style.fontSize = '11px';
+    meta.style.color = '#64748b';
+    meta.style.marginTop = '2px';
+    try {
+        meta.textContent = entry.createdAt
+            ? `Saved · ${new Date(entry.createdAt).toLocaleString()}`
+            : 'Saved';
+    } catch {
+        meta.textContent = 'Saved';
+    }
+
+    content.appendChild(productName);
+    content.appendChild(meta);
+
+    const viewBtn = document.createElement('button');
+    viewBtn.textContent = 'View';
+    viewBtn.style.padding = '8px 14px';
+    viewBtn.style.background = '#059669';
+    viewBtn.style.color = 'white';
+    viewBtn.style.border = 'none';
+    viewBtn.style.borderRadius = '8px';
+    viewBtn.style.cursor = 'pointer';
+    viewBtn.style.fontSize = '12px';
+    viewBtn.style.fontWeight = '600';
+    viewBtn.style.flexShrink = '0';
+    viewBtn.onclick = () => {
+        actions.setGenerationResults([
+            {
+                url: entry.previewImageUrl,
+                originalImageUrl: entry.originalImageUrl || '',
+                originalAspectRatio: entry.metadata?.originalAspectRatio,
+                originalWidth: entry.metadata?.originalWidth,
+                originalHeight: entry.metadata?.originalHeight
+            }
+        ]);
+    };
+
+    itemEl.appendChild(thumbnail);
+    itemEl.appendChild(content);
+    itemEl.appendChild(viewBtn);
+
+    return itemEl;
+}
 
 function createQueueItem(item) {
     const itemEl = document.createElement('div');
@@ -199,14 +333,14 @@ function createQueueItem(item) {
         const remaining = Math.max(0, estimated - elapsed);
 
         statusEl.innerHTML = `
-            <span style="color:#3b82f6; display:flex; align-items:center; gap:4px;">
-                <span class="spinner" style="width:12px; height:12px; border:2px solid #3b82f6; border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite;"></span>
+            <span style="color:#475569; display:flex; align-items:center; gap:4px;">
+                <span class="spinner" style="width:12px; height:12px; border:2px solid #475569; border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite;"></span>
                 Processing... ${elapsed}s elapsed • ~${remaining}s remaining
             </span>
         `;
     } else if (item.status === QUEUE_STATUS.COMPLETED) {
         const duration = item.result?.generationTime || 'N/A';
-        statusEl.innerHTML = `<span style="color:#22c55e;">✅ Completed in ${duration}s</span>`;
+        statusEl.innerHTML = `<span style="color:#059669;">✅ Completed in ${duration}s</span>`;
     } else if (item.status === QUEUE_STATUS.ERROR) {
         statusEl.innerHTML = `<span style="color:#ef4444;">❌ ${item.error || 'Failed'}</span>`;
     }
@@ -225,7 +359,7 @@ function createQueueItem(item) {
         const viewBtn = document.createElement('button');
         viewBtn.textContent = 'View';
         viewBtn.style.padding = '8px 16px';
-        viewBtn.style.background = '#3b82f6';
+        viewBtn.style.background = '#059669';
         viewBtn.style.color = 'white';
         viewBtn.style.border = 'none';
         viewBtn.style.borderRadius = '6px';
