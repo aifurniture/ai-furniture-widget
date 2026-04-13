@@ -26,8 +26,6 @@ export function WidgetFooter() {
     hint.className = 'aif-widget-footer__hint';
     hint.textContent = 'Save your previews for this store across visits.';
 
-    let localEdit = '';
-
     const commit = () => {
         const v = (input.value || '').trim().toLowerCase();
         if (v && !EMAIL_OK.test(v)) {
@@ -47,21 +45,21 @@ export function WidgetFooter() {
         }
     });
 
-    input.addEventListener('blur', () => {
+    /** Blur / change: persist when value differs from what is already saved (do not compare to live typing — that always matched and skipped save). */
+    const maybeCommit = () => {
         const v = (input.value || '').trim().toLowerCase();
-        if (v === localEdit) return;
+        const saved = (store.getState().userEmail || '').trim().toLowerCase();
+        if (v === saved) return;
         commit();
-    });
+    };
 
-    input.addEventListener('input', () => {
-        localEdit = (input.value || '').trim().toLowerCase();
-    });
+    input.addEventListener('blur', maybeCommit);
+    input.addEventListener('change', maybeCommit);
 
     store.subscribe((state) => {
         const e = state.userEmail || '';
         if (document.activeElement !== input && e !== input.value.trim().toLowerCase()) {
             input.value = e;
-            localEdit = e;
         }
     });
 
@@ -71,7 +69,6 @@ export function WidgetFooter() {
 
     const initial = store.getState();
     input.value = initial.userEmail || '';
-    localEdit = (input.value || '').trim().toLowerCase();
 
     return wrap;
 }
