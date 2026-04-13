@@ -488,15 +488,20 @@ export const styles = `
     gap: 8px;
   }
 
+  /* Override width:100% below — otherwise the input steals the full row and the Save button collapses to 0 width. */
   .aif-widget-footer__row .aif-widget-footer__input {
-    flex: 1;
+    flex: 1 1 0;
     min-width: 0;
+    width: auto;
+    max-width: 100%;
   }
 
   .aif-widget-footer__submit {
-    flex-shrink: 0;
-    padding: 0 12px;
-    font-size: 12px;
+    flex: 0 0 auto;
+    align-self: stretch;
+    min-height: 42px;
+    padding: 0 14px;
+    font-size: 13px;
     font-weight: 600;
     color: #fff;
     background: #059669;
@@ -506,6 +511,7 @@ export const styles = `
     font-family: var(--aif-font);
     line-height: 1.2;
     white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
   }
 
   .aif-widget-footer__submit:hover:not(:disabled) {
