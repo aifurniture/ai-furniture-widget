@@ -465,10 +465,107 @@ export const styles = `
     animation: aif-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
+  .aif-widget-footer {
+    flex-shrink: 0;
+    padding: 12px 24px 16px;
+    border-top: 1px solid var(--aif-border);
+    background: linear-gradient(180deg, #fafbfc 0%, #f1f5f9 100%);
+  }
+
+  .aif-widget-footer__label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--aif-text-muted);
+    margin-bottom: 6px;
+  }
+
+  .aif-widget-footer__input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    font-size: 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    color: var(--aif-text-main);
+    font-family: var(--aif-font);
+  }
+
+  .aif-widget-footer__input:focus {
+    outline: none;
+    border-color: #059669;
+    box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15);
+  }
+
+  .aif-widget-footer__hint {
+    margin: 8px 0 0;
+    font-size: 11px;
+    color: #64748b;
+    line-height: 1.4;
+  }
+
+  .aif-history {
+    margin-bottom: 16px;
+  }
+
+  .aif-history__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    margin: 0 0 10px 0;
+  }
+
+  .aif-history__row {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .aif-history__card {
+    flex: 0 0 auto;
+    width: 88px;
+    cursor: pointer;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .aif-history__card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  .aif-history__card img {
+    width: 100%;
+    height: 64px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .aif-history__meta {
+    padding: 4px 6px;
+    font-size: 9px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   /* Mobile Optimizations */
   @media (max-width: 768px) {
     .aif-content {
       padding: 24px 20px 20px;
+    }
+
+    .aif-widget-footer {
+      padding: 12px 20px 16px;
     }
 
     .aif-header h2 {

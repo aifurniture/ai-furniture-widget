@@ -5,6 +5,7 @@ import { store, actions, VIEWS } from '../../state/store.js';
 import { UploadView } from './UploadView.js';
 import { ResultsView } from './ResultsView.js';
 import { QueueView } from './QueueView.js';
+import { WidgetFooter } from './WidgetFooter.js';
 
 export const Modal = () => {
     const modalOverlay = document.createElement('div');
@@ -25,6 +26,9 @@ export const Modal = () => {
     const contentArea = document.createElement('div');
     contentArea.className = 'aif-content';
     container.appendChild(contentArea);
+
+    const footer = WidgetFooter();
+    container.appendChild(footer);
 
     modalOverlay.appendChild(container);
 

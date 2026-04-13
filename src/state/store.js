@@ -3,9 +3,16 @@
  * Uses sessionStorage for cross-page persistence within the same session
  */
 import { createConfig } from '../config.js';
+import { getPersistedString, setPersistedString } from '../utils/persistStorage.js';
+import {
+    fetchWidgetGenerations,
+    getStorefrontDomain,
+    postWidgetShopper
+} from '../utils/widgetShopperApi.js';
 
 const STORAGE_KEY = 'ai_furniture_widget_state';
 const MODAL_STATE_KEY = 'ai_furniture_modal_state';
+const USER_EMAIL_KEY = 'aif_widget_user_email';
 
 function ensureApiEndpoint(config) {
     const c = { ...(config || {}) };
@@ -149,9 +156,38 @@ const loadModalState = () => {
     }
 };
 
+function loadPersistedEmail() {
+    if (typeof window === 'undefined') return '';
+    try {
+        const e = (getPersistedString(USER_EMAIL_KEY) || '').trim().toLowerCase();
+        return e;
+    } catch {
+        return '';
+    }
+}
+
+async function syncShopperGenerationsFromServer() {
+    if (typeof window === 'undefined') return;
+    const { config, userEmail } = store.getState();
+    if (!userEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
+        store.setState({ remoteGenerations: [] });
+        return;
+    }
+    const api = ensureApiEndpoint(config || {});
+    const domain = getStorefrontDomain();
+    if (!domain) return;
+    try {
+        const data = await fetchWidgetGenerations(api.apiEndpoint, userEmail, domain);
+        store.setState({ remoteGenerations: data.generations || [] });
+    } catch (e) {
+        console.warn('[AI Furniture] Could not load preview history:', e?.message || e);
+    }
+}
+
 export const createStore = (initialState) => {
     const loaded = loadState();
     const modalState = loadModalState();
+    const persistedEmail = loadPersistedEmail();
     
     // Restore queue items with image data
     let restoredQueue = [];
@@ -169,6 +205,8 @@ export const createStore = (initialState) => {
     let state = {
         ...initialState,
         ...loaded,
+        userEmail: persistedEmail || loaded?.userEmail || initialState.userEmail,
+        remoteGenerations: loaded?.remoteGenerations || initialState.remoteGenerations,
         config: ensureApiEndpoint({
             ...initialState.config,
             ...(loaded?.config || {})
@@ -227,6 +265,8 @@ export const initialState = {
     isMobile: typeof window !== 'undefined' ? window.innerWidth <= 768 : false,
     selectedModel: 'slow', // Always use high quality model
     queueTab: 'all', // Active tab in queue view
+    userEmail: '', // optional shopper email; persisted in localStorage
+    remoteGenerations: [] // from GET /api/widget/generations
 };
 
 export const store = createStore(initialState);
@@ -257,7 +297,36 @@ export const actions = {
             isOpen: true,
             config: ensureApiEndpoint(mergedConfig)
         });
+        if (typeof queueMicrotask === 'function') {
+            queueMicrotask(() => {
+                if (store.getState().userEmail) {
+                    syncShopperGenerationsFromServer();
+                }
+            });
+        }
     },
+    /** Optional shopper email (saved on this device + synced to backend for history). */
+    setUserEmail: (raw) => {
+        const trimmed = (raw || '').trim().toLowerCase();
+        try {
+            setPersistedString(USER_EMAIL_KEY, trimmed);
+        } catch (e) {
+            console.warn('[AI Furniture] Could not persist email', e);
+        }
+        store.setState({ userEmail: trimmed });
+        if (trimmed) {
+            const api = ensureApiEndpoint(store.getState().config || {});
+            const domain = getStorefrontDomain();
+            postWidgetShopper(api.apiEndpoint, trimmed, domain).catch((e) =>
+                console.warn('[AI Furniture] shopper register:', e?.message || e)
+            );
+            syncShopperGenerationsFromServer();
+        } else {
+            store.setState({ remoteGenerations: [] });
+        }
+    },
+    /** Refresh “My previews” from the server (same email + storefront domain). */
+    syncShopperGenerations: () => syncShopperGenerationsFromServer(),
     closeModal: () => {
         store.setState({ isOpen: false });
     },

@@ -1,5 +1,6 @@
 import { store, actions, QUEUE_STATUS } from '../state/store.js';
 import { trackEvent } from '../tracking.js';
+import { postWidgetGeneration, getStorefrontDomain } from '../utils/widgetShopperApi.js';
 
 // Track items currently being processed
 const processingItems = new Set();
@@ -303,6 +304,37 @@ async function processQueueItem(item) {
             hasResult: !!generatedImageUrl,
             generatedImageUrl: generatedImageUrl
         });
+
+        const userEmail = (store.getState().userEmail || '').trim().toLowerCase();
+        if (userEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail) && generatedImageUrl) {
+            const domainForApi = mergedConfig?.domain || getStorefrontDomain();
+            postWidgetGeneration(apiEndpoint, {
+                email: userEmail,
+                domain: domainForApi,
+                productUrl,
+                productName: (item.productName || document.title || '').slice(0, 500),
+                previewImageUrl: generatedImageUrl,
+                originalImageUrl: originalImageUrl || null,
+                metadata: {
+                    queueId: id,
+                    originalAspectRatio:
+                        result.originalImageDimensions?.aspectRatio ||
+                        result.generatedImages?.[0]?.originalAspectRatio,
+                    originalWidth:
+                        result.originalImageDimensions?.width ||
+                        result.generatedImages?.[0]?.originalWidth,
+                    originalHeight:
+                        result.originalImageDimensions?.height ||
+                        result.generatedImages?.[0]?.originalHeight
+                }
+            })
+                .then(() => {
+                    actions.syncShopperGenerations();
+                })
+                .catch((e) =>
+                    console.warn('[AI Furniture] Could not save preview to history:', e?.message || e)
+                );
+        }
 
         processingItems.delete(id);
 
