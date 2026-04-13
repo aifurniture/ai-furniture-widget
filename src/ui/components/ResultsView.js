@@ -4,7 +4,7 @@
 import { actions } from '../../state/store.js';
 import { Slider } from './Slider.js';
 import { Button } from './Button.js';
-import { downloadUrlAsFile, getFilenameFromUrl } from '../../utils/downloadImage.js';
+import { downloadUrlAsFile, fetchImageBlob, getFilenameFromUrl } from '../../utils/downloadImage.js';
 
 export const ResultsView = (state) => {
     const uploadedBlobUrl = state.uploadedImage ? URL.createObjectURL(state.uploadedImage) : '';
@@ -26,26 +26,82 @@ export const ResultsView = (state) => {
         return pairs;
     };
 
-    const shareImage = async (url) => {
-        if (!url) return;
-        try {
-            if (navigator.share) {
-                await navigator.share({
-                    title: 'AI Furniture Result',
-                    text: 'Check out my room preview',
-                    url
-                });
-                return;
+    /**
+     * Web Share Level 2: share before/after as image files when the target supports it.
+     */
+    const shareBeforeAfter = async (beforeUrl, afterUrl) => {
+        if (!afterUrl) return;
+
+        const roomBase = `room-${getFilenameFromUrl(beforeUrl || 'room', 'room.jpg')}`;
+        const previewBase = `preview-${getFilenameFromUrl(afterUrl, 'preview.png')}`;
+
+        const files = [];
+
+        if (beforeUrl) {
+            const blob = await fetchImageBlob(beforeUrl, roomBase, dlOpts);
+            if (blob) {
+                const type = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/jpeg';
+                const name = /\.[a-z0-9]+$/i.test(roomBase) ? roomBase : `${roomBase}.jpg`;
+                files.push(new File([blob], name, { type }));
             }
-        } catch (_) {
-            // Fall back to clipboard below.
+        }
+
+        const afterBlob = await fetchImageBlob(afterUrl, previewBase, dlOpts);
+        if (afterBlob) {
+            const type =
+                afterBlob.type && afterBlob.type.startsWith('image/') ? afterBlob.type : 'image/png';
+            const name = /\.[a-z0-9]+$/i.test(previewBase) ? previewBase : `${previewBase}.png`;
+            files.push(new File([afterBlob], name, { type }));
+        }
+
+        const sharePayload = (fileList) => ({
+            title: 'AI Furniture — room & preview',
+            text: fileList.length > 1 ? 'Before and after images' : 'AI room preview',
+            files: fileList
+        });
+
+        if (typeof navigator.share === 'function' && files.length > 0) {
+            const shareFiles = async (list) => {
+                await navigator.share(sharePayload(list));
+            };
+
+            try {
+                await shareFiles(files);
+                return;
+            } catch (e) {
+                if (e && e.name === 'AbortError') return;
+            }
+
+            if (files.length > 1) {
+                try {
+                    await shareFiles([files[files.length - 1]]);
+                    return;
+                } catch (e) {
+                    if (e && e.name === 'AbortError') return;
+                }
+            }
         }
 
         try {
-            await navigator.clipboard.writeText(url);
-            alert('Share link copied to clipboard');
+            if (typeof navigator.share === 'function') {
+                await navigator.share({
+                    title: 'AI Furniture Result',
+                    text: 'Check out my room preview',
+                    url: afterUrl
+                });
+                return;
+            }
+        } catch (e) {
+            if (e && e.name === 'AbortError') return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(afterUrl);
+            alert('Link copied to clipboard');
         } catch (_) {
-            alert('Unable to share automatically. Please copy this URL:\n' + url);
+            alert(
+                'Unable to share images automatically. Use Save room photo / Save AI preview, then share from your gallery.'
+            );
         }
     };
 
@@ -102,7 +158,7 @@ export const ResultsView = (state) => {
             () => downloadUrlAsFile(afterUrl, `preview-${getFilenameFromUrl(afterUrl)}`, dlOpts),
             true
         );
-        const shareBtn = makeBtn('Share', () => shareImage(afterUrl));
+        const shareBtn = makeBtn('Share', () => shareBeforeAfter(beforeUrl, afterUrl));
 
         row.appendChild(saveRoomBtn);
         row.appendChild(savePreviewBtn);

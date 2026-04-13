@@ -28,14 +28,59 @@ function triggerBlobDownload(blob, filename) {
 }
 
 /**
+ * Fetch image bytes (same proxy / CORS strategy as download). For share, Web Share API, etc.
+ * @param {string} url
+ * @param {string} filename - used for proxy request name=
+ * @param {{ apiEndpoint?: string }} [options]
+ * @returns {Promise<Blob|null>}
+ */
+export async function fetchImageBlob(url, filename, options = {}) {
+    if (!url) return null;
+
+    const { apiEndpoint } = options;
+
+    if (url.startsWith('blob:') || url.startsWith('data:')) {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) return null;
+            return await res.blob();
+        } catch (e) {
+            console.warn('[AI Furniture] fetchImageBlob local failed:', e);
+            return null;
+        }
+    }
+
+    const isHttp = /^https?:\/\//i.test(url);
+
+    if (apiEndpoint && isHttp) {
+        try {
+            const base = apiEndpoint.replace(/\/$/, '');
+            const proxyUrl = `${base}/download-image?${new URLSearchParams({ url, name: filename })}`;
+            const res = await fetch(proxyUrl, { mode: 'cors', credentials: 'omit' });
+            if (res.ok) return await res.blob();
+            console.warn('[AI Furniture] fetchImageBlob proxy HTTP', res.status);
+        } catch (e) {
+            console.warn('[AI Furniture] fetchImageBlob proxy failed:', e);
+        }
+    }
+
+    try {
+        const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.blob();
+    } catch (err) {
+        console.warn('[AI Furniture] fetchImageBlob direct failed:', err);
+        return null;
+    }
+}
+
+/**
  * @param {string} url
  * @param {string} filename
  * @param {{ apiEndpoint?: string }} [options] - e.g. `https://ai-furniture-backend.vercel.app/api` (uses /download-image proxy)
  */
 export async function downloadUrlAsFile(url, filename, options = {}) {
     if (!url) return;
-
-    const { apiEndpoint } = options;
 
     if (url.startsWith('blob:') || url.startsWith('data:')) {
         const a = document.createElement('a');
@@ -48,37 +93,14 @@ export async function downloadUrlAsFile(url, filename, options = {}) {
         return;
     }
 
-    const isHttp = /^https?:\/\//i.test(url);
-
-    // 1) Backend proxy — server fetches image with Content-Disposition; browser gets a same-origin blob via fetch
-    if (apiEndpoint && isHttp) {
-        try {
-            const base = apiEndpoint.replace(/\/$/, '');
-            const proxyUrl = `${base}/download-image?${new URLSearchParams({ url, name: filename })}`;
-            const res = await fetch(proxyUrl, { mode: 'cors', credentials: 'omit' });
-            if (res.ok) {
-                const blob = await res.blob();
-                triggerBlobDownload(blob, filename);
-                return;
-            }
-            console.warn('[AI Furniture] Download proxy HTTP', res.status);
-        } catch (e) {
-            console.warn('[AI Furniture] Download proxy failed:', e);
-        }
-    }
-
-    // 2) Direct fetch (only if image sends Access-Control-Allow-Origin)
-    try {
-        const res = await fetch(url, { mode: 'cors', credentials: 'omit' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const blob = await res.blob();
+    const blob = await fetchImageBlob(url, filename, options);
+    if (blob) {
         triggerBlobDownload(blob, filename);
         return;
-    } catch (err) {
-        console.warn('[AI Furniture] Direct download failed:', err);
     }
 
-    // 3) Open proxy URL — navigation often triggers file download from Content-Disposition
+    const { apiEndpoint } = options;
+    const isHttp = /^https?:\/\//i.test(url);
     if (apiEndpoint && isHttp) {
         const base = apiEndpoint.replace(/\/$/, '');
         const proxyUrl = `${base}/download-image?${new URLSearchParams({ url, name: filename })}`;
