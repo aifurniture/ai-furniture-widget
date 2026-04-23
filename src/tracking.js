@@ -70,27 +70,36 @@ export function trackEvent(eventType, data = {}) {
         }
     }
 
-    // Ensure apiEndpoint is defined - use fallback if missing
-    let apiEndpoint = config.apiEndpoint;
-    if (!apiEndpoint) {
-        // Fallback to default production endpoint if config is missing
-        const isLocalMode = typeof window !== 'undefined' && 
-                           (window.location.hostname === 'localhost' || 
-                            window.location.hostname === '127.0.0.1' || 
-                            window.location.hostname === '0.0.0.0');
-        apiEndpoint = isLocalMode 
-            ? 'http://localhost:3000/api' 
-            : 'https://ai-furniture-backend.vercel.app/api';
-        console.warn('⚠️ apiEndpoint was undefined in tracking, using fallback:', apiEndpoint);
+    // Prefer dedicated trackingEndpoint. Fallback: derive from apiEndpoint.
+    let trackingEndpoint = config.trackingEndpoint;
+    if (!trackingEndpoint) {
+        const apiEndpoint = config.apiEndpoint;
+        if (typeof apiEndpoint === 'string' && apiEndpoint.length > 0) {
+            trackingEndpoint = apiEndpoint.replace(/\/$/, '') + '/tracking/pixel';
+            console.warn(
+                '⚠️ trackingEndpoint was undefined in tracking, derived from apiEndpoint:',
+                trackingEndpoint
+            );
+        } else {
+            // Final fallback to default production/local endpoints
+            const isLocalMode =
+                typeof window !== 'undefined' &&
+                (window.location.hostname === 'localhost' ||
+                    window.location.hostname === '127.0.0.1' ||
+                    window.location.hostname === '0.0.0.0');
+            trackingEndpoint = isLocalMode
+                ? 'http://localhost:3000/api/tracking/pixel'
+                : 'https://ai-furniture-backend.vercel.app/api/tracking/pixel';
+            console.warn('⚠️ trackingEndpoint was undefined in config, using fallback:', trackingEndpoint);
+        }
     }
 
-    // Validate apiEndpoint is a valid URL
-    if (!apiEndpoint || typeof apiEndpoint !== 'string') {
-        console.error('❌ Invalid API endpoint, cannot send tracking event');
+    if (typeof trackingEndpoint !== 'string' || trackingEndpoint.length === 0) {
+        console.error('❌ Invalid tracking endpoint, cannot send tracking event');
         return;
     }
 
-    const pixelUrl = `${apiEndpoint}?${params.toString()}`;
+    const pixelUrl = `${trackingEndpoint}?${params.toString()}`;
 
     console.log('📤 SENDING PIXEL REQUEST TO BACKEND:', {
         url: pixelUrl,
