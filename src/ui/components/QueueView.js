@@ -193,14 +193,7 @@ function createSavedHistoryRow(entry) {
     thumbnail.style.flexShrink = '0';
     thumbnail.style.overflow = 'hidden';
 
-    const img = document.createElement('img');
-    img.src = entry.previewImageUrl;
-    img.alt = '';
-    img.style.width = '100%';
-    img.style.height = '100%';
-    img.style.objectFit = 'cover';
-    img.loading = 'lazy';
-    img.onerror = () => {
+    const setExpiredState = () => {
         thumbnail.innerHTML = '';
         thumbnail.style.display = 'flex';
         thumbnail.style.alignItems = 'center';
@@ -218,6 +211,49 @@ function createSavedHistoryRow(entry) {
         viewBtn.disabled = true;
         viewBtn.style.opacity = '0.6';
         viewBtn.style.cursor = 'not-allowed';
+    };
+
+    const isSignedUrlExpired = (url) => {
+        try {
+            if (!url || typeof url !== 'string') return false;
+            if (!url.includes('X-Amz-Expires=') || !url.includes('X-Amz-Date=')) return false;
+            const u = new URL(url);
+            const amzDate = u.searchParams.get('X-Amz-Date');
+            const amzExpires = u.searchParams.get('X-Amz-Expires');
+            if (!amzDate || !amzExpires) return false;
+            const expiresSec = Number(amzExpires);
+            if (!Number.isFinite(expiresSec) || expiresSec <= 0) return false;
+
+            // X-Amz-Date format: YYYYMMDDTHHMMSSZ
+            const m = amzDate.match(
+                /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/
+            );
+            if (!m) return false;
+            const issuedAt = Date.UTC(
+                Number(m[1]),
+                Number(m[2]) - 1,
+                Number(m[3]),
+                Number(m[4]),
+                Number(m[5]),
+                Number(m[6])
+            );
+            if (!Number.isFinite(issuedAt)) return false;
+            const expiresAt = issuedAt + expiresSec * 1000;
+            return Date.now() > expiresAt;
+        } catch {
+            return false;
+        }
+    };
+
+    const img = document.createElement('img');
+    img.src = entry.previewImageUrl;
+    img.alt = '';
+    img.style.width = '100%';
+    img.style.height = '100%';
+    img.style.objectFit = 'cover';
+    img.loading = 'lazy';
+    img.onerror = () => {
+        setExpiredState();
     };
     thumbnail.appendChild(img);
 
@@ -267,6 +303,7 @@ function createSavedHistoryRow(entry) {
     viewBtn.style.fontWeight = '600';
     viewBtn.style.flexShrink = '0';
     viewBtn.onclick = () => {
+        if (viewBtn.disabled) return;
         actions.setGenerationResults([
             {
                 url: entry.previewImageUrl,
@@ -281,6 +318,11 @@ function createSavedHistoryRow(entry) {
     itemEl.appendChild(thumbnail);
     itemEl.appendChild(content);
     itemEl.appendChild(viewBtn);
+
+    // If the backend returned a signed URL and it's already expired, don't show a broken image.
+    if (isSignedUrlExpired(entry.previewImageUrl)) {
+        setExpiredState();
+    }
 
     return itemEl;
 }
