@@ -201,14 +201,23 @@ function createSavedHistoryRow(entry) {
     img.style.objectFit = 'cover';
     img.loading = 'lazy';
     img.onerror = () => {
-        // If the saved preview URL is expired/broken, don't show a broken card in the UI.
-        itemEl.remove();
-        try {
-            // Best-effort refresh (backend may return a fresh URL / remove expired records)
-            actions.syncShopperGenerations();
-        } catch {
-            /* ignore */
-        }
+        thumbnail.innerHTML = '';
+        thumbnail.style.display = 'flex';
+        thumbnail.style.alignItems = 'center';
+        thumbnail.style.justifyContent = 'center';
+        thumbnail.style.background = '#fff7ed';
+        thumbnail.style.border = '1px solid #fed7aa';
+        thumbnail.style.color = '#9a3412';
+        thumbnail.style.fontSize = '10px';
+        thumbnail.style.fontWeight = '700';
+        thumbnail.style.letterSpacing = '0.04em';
+        thumbnail.style.textTransform = 'uppercase';
+        thumbnail.textContent = 'Expired';
+
+        meta.textContent = 'Expired';
+        viewBtn.disabled = true;
+        viewBtn.style.opacity = '0.6';
+        viewBtn.style.cursor = 'not-allowed';
     };
     thumbnail.appendChild(img);
 
