@@ -14,6 +14,50 @@ function pickStablePreviewUrl(savedResponse, fallbackUrl) {
     return candidate;
 }
 
+function getSessionIdForApi(mergedConfig) {
+    try {
+        return (
+            mergedConfig?.sessionId ||
+            (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('ai_furniture_session_id')) ||
+            null
+        );
+    } catch {
+        return mergedConfig?.sessionId || null;
+    }
+}
+
+async function uploadImageToS3ViaBackend({ apiEndpoint, domain, sessionId, fileOrBlob }) {
+    if (!fileOrBlob) throw new Error('Missing image');
+    const contentType = fileOrBlob.type || 'image/jpeg';
+
+    const r = await fetch(`${apiEndpoint}/upload-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+            domain,
+            ...(sessionId ? { sessionId } : {}),
+            contentType
+        }),
+        credentials: 'omit'
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || `upload-url HTTP ${r.status}`);
+    if (!data.uploadUrl || !data.s3Key) throw new Error('upload-url missing uploadUrl/s3Key');
+
+    const putRes = await fetch(data.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': contentType },
+        body: fileOrBlob
+    });
+    if (!putRes.ok) throw new Error(`S3 PUT HTTP ${putRes.status}`);
+
+    return {
+        s3Key: data.s3Key,
+        // stable URL (per your backend contract); may be undefined if backend didn't include it
+        imageUrl: data.imageUrl || null
+    };
+}
+
 // Track items currently being processed
 const processingItems = new Set();
 
@@ -252,15 +296,34 @@ async function processQueueItem(item) {
 
         debugLog(`Starting generation for ${id.slice(0, 8)} with ${selectedModel} model`);
 
-        // Create form data
+        const domainForApi = mergedConfig?.domain || window.location.hostname;
+        const sessionIdForApi = getSessionIdForApi(mergedConfig);
+
+        // New flow: get presigned PUT, upload directly to S3, then call /generate with imageS3Key.
+        // Fallback: old flow (send image file directly) if anything fails.
+        let uploaded = null;
+        try {
+            uploaded = await uploadImageToS3ViaBackend({
+                apiEndpoint,
+                domain: domainForApi,
+                sessionId: sessionIdForApi,
+                fileOrBlob: imageToUse
+            });
+        } catch (e) {
+            debugLog('Direct-to-S3 upload failed; falling back to direct image upload', e?.message || e);
+        }
+
+        // Create form data for /generate
         const formData = new FormData();
-        formData.append('image', imageToUse);
         formData.append('productUrl', productUrl);
         formData.append('model', 'slow'); // Always use high quality model
-        formData.append('domain', mergedConfig?.domain || window.location.hostname);
+        formData.append('domain', domainForApi);
+        if (sessionIdForApi) formData.append('sessionId', sessionIdForApi);
 
-        if (mergedConfig?.sessionId) {
-            formData.append('sessionId', mergedConfig.sessionId);
+        if (uploaded?.s3Key) {
+            formData.append('imageS3Key', uploaded.s3Key);
+        } else {
+            formData.append('image', imageToUse);
         }
 
         // Call API - direct generation (not job-based)
@@ -285,7 +348,7 @@ async function processQueueItem(item) {
 
         // Update queue item with result
         // Store S3 URLs for both generated and original images
-        const originalImageUrl = result.generatedImages?.[0]?.originalImageUrl;
+        const originalImageUrl = result.generatedImages?.[0]?.originalImageUrl || uploaded?.imageUrl || null;
         const generatedImageUrl = result.generatedImages?.[0]?.url;
         
         actions.updateQueueItem(id, {
@@ -323,16 +386,17 @@ async function processQueueItem(item) {
 
         const userEmail = (store.getState().userEmail || '').trim().toLowerCase();
         if (userEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail) && generatedImageUrl) {
-            const domainForApi = mergedConfig?.domain || getStorefrontDomain();
+            const domainForHistory = mergedConfig?.domain || getStorefrontDomain();
             postWidgetGeneration(apiEndpoint, {
                 email: userEmail,
-                domain: domainForApi,
+                domain: domainForHistory,
                 productUrl,
                 productName: (item.productName || document.title || '').slice(0, 500),
                 previewImageUrl: generatedImageUrl,
                 originalImageUrl: originalImageUrl || null,
                 metadata: {
                     queueId: id,
+                    imageS3Key: uploaded?.s3Key || null,
                     originalAspectRatio:
                         result.originalImageDimensions?.aspectRatio ||
                         result.generatedImages?.[0]?.originalAspectRatio,
@@ -358,9 +422,7 @@ async function processQueueItem(item) {
                     }
                     actions.syncShopperGenerations();
                 })
-                .catch((e) =>
-                    console.warn('[AI Furniture] Could not save preview to history:', e?.message || e)
-                );
+                .catch((e) => debugLog('Could not save preview to history', e?.message || e));
         }
 
         processingItems.delete(id);
