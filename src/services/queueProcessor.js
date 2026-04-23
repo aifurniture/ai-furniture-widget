@@ -3,6 +3,17 @@ import { trackEvent } from '../tracking.js';
 import { postWidgetGeneration, getStorefrontDomain } from '../utils/widgetShopperApi.js';
 import { debugLog } from '../debug.js';
 
+function pickStablePreviewUrl(savedResponse, fallbackUrl) {
+    const candidate =
+        savedResponse?.generation?.previewImageUrl ||
+        savedResponse?.previewImageUrl ||
+        savedResponse?.generation?.url ||
+        savedResponse?.url ||
+        fallbackUrl;
+    if (typeof candidate !== 'string') return fallbackUrl;
+    return candidate;
+}
+
 // Track items currently being processed
 const processingItems = new Set();
 
@@ -333,7 +344,18 @@ async function processQueueItem(item) {
                         result.generatedImages?.[0]?.originalHeight
                 }
             })
-                .then(() => {
+                .then((saved) => {
+                    // Important: generatedImageUrl may be a short-lived signed URL.
+                    // If the backend returns a durable URL, update the queue item to use it.
+                    const stablePreviewUrl = pickStablePreviewUrl(saved, generatedImageUrl);
+                    if (stablePreviewUrl && stablePreviewUrl !== generatedImageUrl) {
+                        actions.updateQueueItem(id, {
+                            result: {
+                                ...(store.getState().queue.find((q) => q.id === id)?.result || {}),
+                                generatedImageUrl: stablePreviewUrl
+                            }
+                        });
+                    }
                     actions.syncShopperGenerations();
                 })
                 .catch((e) =>
