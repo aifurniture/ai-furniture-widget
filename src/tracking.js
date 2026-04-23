@@ -3,6 +3,21 @@ import { getConfig, getSessionId, setSessionId } from './state.js';
 import { debugLog } from './debug.js';
 import { isFurnitureProductPage } from './detection.js';
 
+function truncateString(v, maxLen) {
+    if (v === null || v === undefined) return '';
+    const s = typeof v === 'string' ? v : String(v);
+    if (s.length <= maxLen) return s;
+    return s.slice(0, maxLen);
+}
+
+function safeJsonStringify(v, maxLen) {
+    try {
+        return truncateString(JSON.stringify(v), maxLen);
+    } catch {
+        return '';
+    }
+}
+
 // This will be set from init so tracking can recreate the widget
 let recreateWidgetButtonFn = null;
 
@@ -29,43 +44,31 @@ export function trackEvent(eventType, data = {}) {
     const config = getConfig();
     const sessionId = getSessionId();
 
-    console.log('📡 TRACK EVENT CALLED:', {
-        eventType,
-        currentUrl: window.location.href,
-        currentPage: window.location.pathname + window.location.search
-    });
-
     const trackingDisconnected = sessionStorage.getItem('tracking_disconnected') === 'true';
 
-    console.log('🔍 TRACKING STATUS CHECK:', {
-        trackingDisconnected,
-        eventType,
-        willSendEvent: !trackingDisconnected
-    });
-
     if (trackingDisconnected) {
-        console.log('❌ Tracking already disconnected - skipping event:', eventType);
         debugLog('Skipping tracking - session has timed out and tracking disconnected');
         return;
     }
 
     const params = new URLSearchParams({
-        sessionId,
-        domain: config.domain,
-        eventType,
-        page: window.location.pathname + window.location.search,
+        sessionId: truncateString(sessionId, 120),
+        domain: truncateString(config.domain, 200),
+        ...(config.domainId ? { domainId: truncateString(config.domainId, 64) } : {}),
+        eventType: truncateString(eventType, 80),
+        page: truncateString(window.location.pathname + window.location.search, 500),
         timestamp: new Date().toISOString(),
-        userAgent: navigator.userAgent,
-        referrer: document.referrer,
-        title: document.title,
-        url: window.location.href
+        userAgent: truncateString(navigator.userAgent, 300),
+        referrer: truncateString(document.referrer, 500),
+        title: truncateString(document.title, 300),
+        url: truncateString(window.location.href, 800)
     });
 
     for (const [key, value] of Object.entries(data)) {
         if (value !== null && value !== undefined) {
             params.append(
-                `data_${key}`,
-                typeof value === 'object' ? JSON.stringify(value) : String(value)
+                `data_${truncateString(key, 60)}`,
+                typeof value === 'object' ? safeJsonStringify(value, 800) : truncateString(value, 800)
             );
         }
     }
@@ -101,25 +104,17 @@ export function trackEvent(eventType, data = {}) {
 
     const pixelUrl = `${trackingEndpoint}?${params.toString()}`;
 
-    console.log('📤 SENDING PIXEL REQUEST TO BACKEND:', {
-        url: pixelUrl,
-        eventType,
-        paramsCount: params.toString().split('&').length
-    });
-
     debugLog('Pixel tracking URL', pixelUrl);
 
     const img = new Image();
 
     img.onload = function () {
         debugLog('Pixel loaded successfully', { eventType });
-        console.log('Pixel tracking successful:', eventType);
         // (keep your special order-confirmation logic here if you want – you can paste it from your original img.onload)
     };
 
     img.onerror = function () {
         debugLog('Pixel failed to load', { eventType });
-        console.error('Pixel tracking failed:', eventType);
     };
 
     img.src = pixelUrl;
@@ -133,7 +128,6 @@ export function trackOrderCompletion(orderData) {
     const sessionId = getSessionId();
     const isAIFurnitureUser = sessionStorage.getItem('ai_furniture_user') === 'true';
     if (!isAIFurnitureUser) {
-        console.log('❌ Skipping order completion tracking - user has not used AI Furniture');
         debugLog('Skipping order completion tracking - user has not used AI Furniture');
         return;
     }
@@ -157,21 +151,17 @@ export function trackOrderCompletion(orderData) {
 }
 
 export function disconnectAllTracking() {
-    console.log('🔌 DISCONNECTING ALL TRACKING - ORDER COMPLETED!');
     debugLog('Disconnecting all tracking - order completed');
 
     sessionStorage.setItem('tracking_disconnected', 'true');
     sessionStorage.setItem('order_completed_at', new Date().toISOString());
     sessionStorage.setItem('order_completion_reason', 'order_placed');
-    console.log('✅ Tracking marked as disconnected in sessionStorage');
-
     setTimeout(() => {
         resetWidget();
     }, 2000);
 }
 
 export function resetWidget() {
-    console.log('🔄 RESETTING WIDGET - CLEARING ALL TRACKING STATE!');
     debugLog('Resetting widget - clearing all tracking state');
 
     sessionStorage.removeItem('ai_furniture_user');
@@ -186,7 +176,6 @@ export function resetWidget() {
     const existingWidget = document.querySelector('#ai-furniture-widget');
     if (existingWidget) {
         existingWidget.remove();
-        console.log('🗑️ Removed existing widget button');
     }
 
     const newSessionId = generateSessionId();
@@ -202,7 +191,6 @@ export function resetWidget() {
     if (typeof recreateWidgetButtonFn === 'function' && isFurnitureProductPage()) {
         setTimeout(() => {
             recreateWidgetButtonFn();
-            console.log('🔄 Widget button recreated for new session');
         }, 1000);
     }
 }
@@ -246,7 +234,6 @@ export function showResetMessage() {
 
 // called by backend
 export function onOrderAddedToDatabase(orderData) {
-    console.log('🎉 ORDER CONFIRMED IN DATABASE - disconnecting tracking immediately', orderData);
     debugLog('Order successfully added to database - disconnecting tracking immediately', orderData);
     disconnectAllTracking();
 }
