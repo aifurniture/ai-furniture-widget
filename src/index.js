@@ -14,7 +14,6 @@ export function initAIFurnitureWidget(userConfig = {}) {
 
     // 1. Read config from window.FURNITURE_AI_CONFIG if not provided
     if (!userConfig.domain && window.FURNITURE_AI_CONFIG) {
-        console.log('📦 Using config from window.FURNITURE_AI_CONFIG');
         userConfig = { ...window.FURNITURE_AI_CONFIG, ...userConfig };
     }
 
@@ -28,7 +27,6 @@ export function initAIFurnitureWidget(userConfig = {}) {
     // Prevent multiple initializations - only check window object (same script execution)
     // Don't check sessionStorage here as it may have stale data and block first-time init
     if (window.__AIFurnitureInitialized) {
-        console.log('AI Furniture Widget already initialized in this script execution, skipping...');
         // Restore API if it was lost
         if (!window.AIFurniture) {
             window.AIFurniture = {
@@ -40,7 +38,7 @@ export function initAIFurnitureWidget(userConfig = {}) {
         try {
             actions.syncThemeConfig();
         } catch (e) {
-            console.warn('syncThemeConfig failed', e);
+            // no-op (avoid noisy console in production)
         }
         // Still attach listeners in case they were lost
         attachDomListeners();
@@ -84,7 +82,6 @@ export function initAIFurnitureWidget(userConfig = {}) {
     const currentState = store.getState();
     if (currentState.isOpen) {
         // Modal will be shown by the store subscription in Modal component
-        console.log('🔄 Restoring modal state:', { isOpen: currentState.isOpen, view: currentState.view });
     }
 
     // 8. Attach DOM listeners for navigation
@@ -100,5 +97,4 @@ export function initAIFurnitureWidget(userConfig = {}) {
         }
     });
 
-    console.log('AI Furniture Widget Initialized 🚀');
 }

@@ -3,6 +3,22 @@ import { getConfig, getSessionId, setSessionId } from './state.js';
 import { debugLog } from './debug.js';
 import { isFurnitureProductPage } from './detection.js';
 
+function isTrackingDebugEnabled(config) {
+    try {
+        if (config?.debugTracking === true) return true;
+        if (typeof window !== 'undefined' && window.__AIFurnitureDebugTracking === true) return true;
+    } catch {
+        // ignore
+    }
+    return false;
+}
+
+function trackingLog(config, ...args) {
+    if (!isTrackingDebugEnabled(config)) return;
+    // eslint-disable-next-line no-console
+    console.log('[AI Furniture Tracking]', ...args);
+}
+
 function truncateString(v, maxLen) {
     if (v === null || v === undefined) return '';
     const s = typeof v === 'string' ? v : String(v);
@@ -50,6 +66,8 @@ export function trackEvent(eventType, data = {}) {
         debugLog('Skipping tracking - session has timed out and tracking disconnected');
         return;
     }
+
+    trackingLog(config, 'trackEvent()', { eventType, page: window.location.pathname + window.location.search });
 
     const params = new URLSearchParams({
         sessionId: truncateString(sessionId, 120),
@@ -105,6 +123,7 @@ export function trackEvent(eventType, data = {}) {
     const pixelUrl = `${trackingEndpoint}?${params.toString()}`;
 
     debugLog('Pixel tracking URL', pixelUrl);
+    trackingLog(config, 'pixel', pixelUrl);
 
     const img = new Image();
 
@@ -115,6 +134,7 @@ export function trackEvent(eventType, data = {}) {
 
     img.onerror = function () {
         debugLog('Pixel failed to load', { eventType });
+        trackingLog(config, 'pixel failed', { eventType });
     };
 
     img.src = pixelUrl;

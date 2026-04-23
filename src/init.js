@@ -38,12 +38,12 @@ function setWidgetInitialized(value) {
             sessionStorage.removeItem(getWidgetInitKey());
         }
     } catch (e) {
-        console.warn('Failed to update widget init state in sessionStorage', e);
+        debugLog('Failed to update widget init state in sessionStorage', e);
     }
 }
 
 export async function initializeWidget(isInitialLoad = false) {
-    console.log('🚀 INITIALIZING WIDGET:', {
+    debugLog('Initializing widget', {
         isInitialLoad,
         currentUrl: window.location.href,
         currentPage: window.location.pathname + window.location.search,
@@ -54,7 +54,7 @@ export async function initializeWidget(isInitialLoad = false) {
     // If widget button already exists and not initial load, just update page tracking
     const existingButton = document.getElementById('ai-furniture-trigger-btn');
     if (existingButton && !isInitialLoad) {
-        console.log('✅ Widget button already exists, updating page tracking only');
+        debugLog('Widget button already exists, updating page tracking only');
         updatePageTracking();
         return;
     }
@@ -73,7 +73,10 @@ export async function initializeWidget(isInitialLoad = false) {
 
         const serverVerification = await verifyDomainWithServer();
         if (!serverVerification) {
-            console.error('🚫 AI Furniture Widget: Domain "' + currentHostname + '" is not authorized in backend database. Widget will not initialize.');
+            debugLog(
+                'Domain not authorized in backend database; widget will not initialize',
+                currentHostname
+            );
             return;
         }
         
@@ -82,17 +85,16 @@ export async function initializeWidget(isInitialLoad = false) {
             sessionStorage.setItem(domainVerifiedKey, 'true');
             domainVerified = true;
         } catch (e) {
-            console.warn('Failed to save domain verification state', e);
+            debugLog('Failed to save domain verification state', e);
         }
     } else {
-        console.log('✅ Domain already verified with backend database, skipping verification');
+        debugLog('Domain already verified with backend database, skipping verification');
     }
     
-    console.log('init widget');
     try {
         actions.syncThemeConfig();
     } catch (e) {
-        console.warn('syncThemeConfig failed', e);
+        debugLog('syncThemeConfig failed', e);
     }
     initSession();
 
@@ -100,20 +102,17 @@ export async function initializeWidget(isInitialLoad = false) {
     const orderCompletedAt = sessionStorage.getItem('order_completed_at');
 
     if (trackingDisconnected && orderCompletedAt) {
-        console.log('🔌 Tracking disconnected due to completed order - checking if should re-enable');
+        debugLog('Tracking disconnected due to completed order - checking if should re-enable');
         const isFurniturePage = isFurnitureProductPage();
         if (isFurniturePage) {
-            console.log('🔄 PRODUCT PAGE DETECTED - re-enabling tracking for new session');
             debugLog('Product page detected after order completion - re-enabling tracking');
             resetWidget();
             setWidgetInitialized(false); // Allow reinitialization
         } else {
-            console.log('❌ Non-product page after order completion - keeping tracking disabled');
             debugLog('Non-product page after order completion - keeping tracking disabled');
             return;
         }
     } else if (trackingDisconnected) {
-        console.log('🔌 Tracking already disconnected - skipping widget initialization');
         debugLog('Tracking already disconnected - skipping widget initialization');
         return;
     }
@@ -121,20 +120,13 @@ export async function initializeWidget(isInitialLoad = false) {
     const isAIFurnitureUser = sessionStorage.getItem('ai_furniture_user') === 'true';
 
     if (isAIFurnitureUser) {
-        console.log('🔍 CALLING trackOrderConfirmationPage()...');
         const orderConfirmed = trackOrderConfirmationPage();
 
-        console.log('🔍 trackOrderConfirmationPage() RESULT:', {
-            orderConfirmed,
-            willStopWidget: orderConfirmed
-        });
-
         if (orderConfirmed) {
-            console.log('🎯 Order confirmed - stopping widget initialization');
+            debugLog('Order confirmed - stopping widget initialization');
             return;
         }
     } else {
-        console.log('❌ Skipping order confirmation check - user has not used AI Furniture');
         debugLog('Skipping order confirmation check - user has not used AI Furniture');
     }
 
@@ -161,7 +153,7 @@ export async function initializeWidget(isInitialLoad = false) {
 
     // Mark as initialized (persist in sessionStorage)
     setWidgetInitialized(true);
-    console.log('✅ Widget fully initialized');
+    debugLog('Widget fully initialized');
 }
 
 /**
@@ -177,7 +169,7 @@ function updatePageTracking() {
     const isAIFurnitureUser = sessionStorage.getItem('ai_furniture_user') === 'true';
 
     if (isAIFurnitureUser) {
-        console.log('📄 Updating page tracking for new URL');
+        debugLog('Updating page tracking for new URL');
         trackEvent('page_view', {
             title: document.title,
             url: window.location.href,
@@ -192,7 +184,7 @@ function updatePageTracking() {
 export function attachDomListeners() {
     // Prevent duplicate listeners if script reloads
     if (window.__AIFurnitureListenersAttached) {
-        console.log('🔄 Listeners already attached, skipping...');
+        debugLog('Listeners already attached, skipping...');
         // Still initialize widget if needed
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => initializeWidget(true));
@@ -219,7 +211,7 @@ export function attachDomListeners() {
         if (currentUrl !== lastUrl) {
             const previousUrl = lastUrl;
             lastUrl = currentUrl;
-            console.log('🔄 URL changed, updating widget...', { from: previousUrl, to: currentUrl });
+            debugLog('URL changed, updating widget...', { from: previousUrl, to: currentUrl });
             // Only update page tracking, don't reinitialize
             setTimeout(() => initializeWidget(false), 100);
         }
