@@ -107,39 +107,23 @@ export const ResultsView = (state) => {
 
     const createActionsRow = (beforeUrl, afterUrl) => {
         const wrap = document.createElement('div');
-        wrap.style.flexShrink = '0';
-        wrap.style.marginTop = '4px';
-        wrap.style.padding = '12px 0 4px';
-        wrap.style.borderTop = '1px solid #e2e8f0';
+        wrap.className = 'aif-result-actions';
         wrap.setAttribute('data-aif-actions', 'download-share');
 
         const hint = document.createElement('p');
-        hint.style.margin = '0 0 10px 0';
-        hint.style.fontSize = '12px';
-        hint.style.fontWeight = '600';
-        hint.style.color = '#334155';
+        hint.className = 'aif-result-actions__hint';
         hint.textContent = beforeUrl
             ? 'Save both images — tap each button:'
             : 'Save your preview:';
 
         const row = document.createElement('div');
-        row.style.display = 'flex';
-        row.style.gap = '8px';
-        row.style.flexWrap = 'wrap';
-        row.style.alignItems = 'center';
+        row.className = 'aif-result-actions__row';
 
         const makeBtn = (text, onClick, primary = false) => {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.textContent = text;
-            btn.style.padding = '10px 12px';
-            btn.style.fontSize = '12px';
-            btn.style.fontWeight = '600';
-            btn.style.borderRadius = '8px';
-            btn.style.cursor = 'pointer';
-            btn.style.border = primary ? '1px solid #047857' : '1px solid #cbd5e1';
-            btn.style.background = primary ? '#059669' : '#ffffff';
-            btn.style.color = primary ? '#ffffff' : '#334155';
+            btn.className = primary ? 'aif-result-actions__btn aif-result-actions__btn--primary' : 'aif-result-actions__btn';
             btn.onclick = onClick;
             return btn;
         };
@@ -149,8 +133,6 @@ export const ResultsView = (state) => {
         });
         if (!beforeUrl) {
             saveRoomBtn.disabled = true;
-            saveRoomBtn.style.opacity = '0.5';
-            saveRoomBtn.style.cursor = 'not-allowed';
         }
 
         const savePreviewBtn = makeBtn(
@@ -164,6 +146,7 @@ export const ResultsView = (state) => {
         row.appendChild(savePreviewBtn);
         row.appendChild(shareBtn);
 
+        // Keep the hint for accessibility, but let CSS collapse it on desktop to save space.
         wrap.appendChild(hint);
         wrap.appendChild(row);
         return wrap;

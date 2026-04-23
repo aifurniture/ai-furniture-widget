@@ -548,6 +548,53 @@ export const styles = `
     line-height: 1.4;
   }
 
+  /* Results actions (Save / Share) */
+  .aif-result-actions {
+    flex-shrink: 0;
+    margin-top: 4px;
+    padding: 10px 0 4px;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  .aif-result-actions__hint {
+    margin: 0 0 8px 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  .aif-result-actions__row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .aif-result-actions__btn {
+    padding: 10px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #334155;
+    font-family: var(--aif-font);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .aif-result-actions__btn--primary {
+    border: 1px solid #047857;
+    background: #059669;
+    color: #ffffff;
+  }
+
+  .aif-result-actions__btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
   .aif-history {
     margin-bottom: 16px;
   }
@@ -621,6 +668,33 @@ export const styles = `
 
     .aif-dropzone {
       padding: 40px 20px;
+    }
+  }
+
+  /* Desktop: reclaim vertical space for results */
+  @media (min-width: 769px) {
+    /* Hide the email footer on the RESULTS screen to give images more height. */
+    .aif-container[data-aif-view="RESULTS"] .aif-widget-footer {
+      display: none;
+    }
+
+    /* Compact the per-result action block. */
+    .aif-result-actions {
+      padding: 6px 0 2px;
+    }
+
+    .aif-result-actions__hint {
+      display: none;
+    }
+
+    .aif-result-actions__row {
+      gap: 6px;
+    }
+
+    .aif-result-actions__btn {
+      padding: 7px 10px;
+      font-size: 12px;
+      border-radius: 999px;
     }
   }
 `;

@@ -42,6 +42,7 @@ export const Modal = () => {
     // Render content based on view
     const renderContent = (state) => {
         contentArea.innerHTML = '';
+        container.setAttribute('data-aif-view', state.view || '');
 
         if (state.view === VIEWS.UPLOAD) {
             contentArea.appendChild(UploadView(state));
