@@ -9,6 +9,7 @@ import {
     getStorefrontDomain,
     postWidgetShopper
 } from '../utils/widgetShopperApi.js';
+import { debugLog } from '../debug.js';
 
 const STORAGE_KEY = 'ai_furniture_widget_state';
 const MODAL_STATE_KEY = 'ai_furniture_modal_state';
@@ -57,12 +58,17 @@ const loadState = () => {
         const serialized = sessionStorage.getItem(STORAGE_KEY);
         return serialized ? JSON.parse(serialized) : undefined;
     } catch (e) {
-        console.warn('Failed to load state', e);
+        debugLog('Failed to load state', e);
         return undefined;
     }
 };
 
 let isPageUnloading = false;
+
+// Dedupe + rate-limit remote history calls (prevents 429 spam)
+let remoteGenerationsInFlight = null;
+let nextRemoteGenerationsAllowedAt = 0;
+let nextShopperRegisterAllowedAt = 0;
 
 const saveState = async (state) => {
     // Don't let a pending async write overwrite the synchronous pagehide snapshot
@@ -83,7 +89,7 @@ const saveState = async (state) => {
                     try {
                         cleanItem.userImageDataUrl = await fileToDataURL(item.userImage);
                     } catch (e) {
-                        console.warn('Failed to convert image to data URL', e);
+                        debugLog('Failed to convert image to data URL', e);
                     }
                 }
             }
@@ -105,7 +111,7 @@ const saveState = async (state) => {
             })
         );
     } catch (e) {
-        console.warn('Failed to save state', e);
+        debugLog('Failed to save state', e);
     }
 };
 
@@ -133,7 +139,7 @@ const dataURLToBlob = (dataURL) => {
         }
         return new Blob([u8arr], { type: mime });
     } catch (e) {
-        console.warn('Failed to convert data URL to blob', e);
+        debugLog('Failed to convert data URL to blob', e);
         return null;
     }
 };
@@ -143,7 +149,7 @@ const saveModalState = (isOpen, view) => {
     try {
         sessionStorage.setItem(MODAL_STATE_KEY, JSON.stringify({ isOpen, view }));
     } catch (e) {
-        console.warn('Failed to save modal state', e);
+        debugLog('Failed to save modal state', e);
     }
 };
 
@@ -177,10 +183,33 @@ async function syncShopperGenerationsFromServer() {
     const domain = getStorefrontDomain();
     if (!domain) return;
     try {
-        const data = await fetchWidgetGenerations(api.apiEndpoint, userEmail, domain);
-        store.setState({ remoteGenerations: data.generations || [] });
+        const now = Date.now();
+        if (now < nextRemoteGenerationsAllowedAt) {
+            return remoteGenerationsInFlight || Promise.resolve();
+        }
+        if (remoteGenerationsInFlight) return remoteGenerationsInFlight;
+
+        remoteGenerationsInFlight = fetchWidgetGenerations(api.apiEndpoint, userEmail, domain)
+            .then((data) => {
+                store.setState({ remoteGenerations: data.generations || [] });
+                // Normal cadence: don't hammer; allow refresh every 15s.
+                nextRemoteGenerationsAllowedAt = Date.now() + 15_000;
+            })
+            .catch((e) => {
+                // On rate-limit, back off for a minute.
+                if (e && e.status === 429) {
+                    nextRemoteGenerationsAllowedAt = Date.now() + 60_000;
+                } else {
+                    nextRemoteGenerationsAllowedAt = Date.now() + 15_000;
+                }
+                debugLog('Could not load preview history', e?.message || e);
+            })
+            .finally(() => {
+                remoteGenerationsInFlight = null;
+            });
+        await remoteGenerationsInFlight;
     } catch (e) {
-        console.warn('[AI Furniture] Could not load preview history:', e?.message || e);
+        debugLog('Could not load preview history', e?.message || e);
     }
 }
 
@@ -222,7 +251,7 @@ export const createStore = (initialState) => {
         setState: (newState) => {
             state = { ...state, ...newState };
             // Save state asynchronously to avoid blocking
-            saveState(state).catch(e => console.warn('Failed to save state', e));
+            saveState(state).catch((e) => debugLog('Failed to save state', e));
             
             // Save modal state separately for quick access
             if ('isOpen' in newState || 'view' in newState) {
@@ -278,7 +307,7 @@ if (typeof window !== 'undefined') {
         try {
             writeSessionSnapshot(store.getState());
         } catch (e) {
-            console.warn('Session snapshot on pagehide failed', e);
+            debugLog('Session snapshot on pagehide failed', e);
         }
     });
 }
@@ -311,15 +340,23 @@ export const actions = {
         try {
             setPersistedString(USER_EMAIL_KEY, trimmed);
         } catch (e) {
-            console.warn('[AI Furniture] Could not persist email', e);
+            debugLog('Could not persist email', e);
         }
         store.setState({ userEmail: trimmed });
         if (trimmed) {
             const api = ensureApiEndpoint(store.getState().config || {});
             const domain = getStorefrontDomain();
-            postWidgetShopper(api.apiEndpoint, trimmed, domain).catch((e) =>
-                console.warn('[AI Furniture] shopper register:', e?.message || e)
-            );
+            const now = Date.now();
+            if (now >= nextShopperRegisterAllowedAt) {
+                postWidgetShopper(api.apiEndpoint, trimmed, domain).catch((e) => {
+                    if (e && e.status === 429) {
+                        nextShopperRegisterAllowedAt = Date.now() + 60_000;
+                    } else {
+                        nextShopperRegisterAllowedAt = Date.now() + 15_000;
+                    }
+                    debugLog('shopper register failed', e?.message || e);
+                });
+            }
             return syncShopperGenerationsFromServer();
         }
         store.setState({ remoteGenerations: [] });
