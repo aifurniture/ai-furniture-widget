@@ -245,18 +245,6 @@ function createSavedHistoryRow(entry) {
         }
     };
 
-    const img = document.createElement('img');
-    img.src = entry.previewImageUrl;
-    img.alt = '';
-    img.style.width = '100%';
-    img.style.height = '100%';
-    img.style.objectFit = 'cover';
-    img.loading = 'lazy';
-    img.onerror = () => {
-        setExpiredState();
-    };
-    thumbnail.appendChild(img);
-
     const content = document.createElement('div');
     content.style.flex = '1';
     content.style.minWidth = '0';
@@ -302,6 +290,10 @@ function createSavedHistoryRow(entry) {
     viewBtn.style.fontSize = '12px';
     viewBtn.style.fontWeight = '600';
     viewBtn.style.flexShrink = '0';
+    // Default disabled until we confirm the thumbnail loads.
+    viewBtn.disabled = true;
+    viewBtn.style.opacity = '0.6';
+    viewBtn.style.cursor = 'not-allowed';
     viewBtn.onclick = () => {
         if (viewBtn.disabled) return;
         actions.setGenerationResults([
@@ -314,6 +306,23 @@ function createSavedHistoryRow(entry) {
             }
         ]);
     };
+
+    const img = document.createElement('img');
+    img.src = entry.previewImageUrl;
+    img.alt = '';
+    img.style.width = '100%';
+    img.style.height = '100%';
+    img.style.objectFit = 'cover';
+    img.loading = 'lazy';
+    img.onload = () => {
+        viewBtn.disabled = false;
+        viewBtn.style.opacity = '';
+        viewBtn.style.cursor = 'pointer';
+    };
+    img.onerror = () => {
+        setExpiredState();
+    };
+    thumbnail.appendChild(img);
 
     itemEl.appendChild(thumbnail);
     itemEl.appendChild(content);
