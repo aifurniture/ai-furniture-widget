@@ -200,6 +200,16 @@ function createSavedHistoryRow(entry) {
     img.style.height = '100%';
     img.style.objectFit = 'cover';
     img.loading = 'lazy';
+    img.onerror = () => {
+        // If the saved preview URL is expired/broken, don't show a broken card in the UI.
+        itemEl.remove();
+        try {
+            // Best-effort refresh (backend may return a fresh URL / remove expired records)
+            actions.syncShopperGenerations();
+        } catch {
+            /* ignore */
+        }
+    };
     thumbnail.appendChild(img);
 
     const content = document.createElement('div');
@@ -295,6 +305,10 @@ function createQueueItem(item) {
         img.style.width = '100%';
         img.style.height = '100%';
         img.style.objectFit = 'cover';
+        img.onerror = () => {
+            // Hide broken thumb (expired signed URLs) rather than showing a broken image icon.
+            thumbnail.innerHTML = '<span style="font-size:24px;">🖼️</span>';
+        };
         thumbnail.appendChild(img);
     } else {
         thumbnail.innerHTML = '<span style="font-size:24px;">🖼️</span>';
@@ -367,6 +381,7 @@ function createQueueItem(item) {
         viewBtn.style.fontSize = '12px';
         viewBtn.style.fontWeight = '600';
         viewBtn.onclick = () => {
+            if (!item.result?.generatedImageUrl) return;
             // Track results viewed
             trackEvent('results_viewed', {
                 queueId: item.id,
