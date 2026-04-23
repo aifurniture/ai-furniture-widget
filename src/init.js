@@ -163,7 +163,7 @@ function updatePageTracking() {
     try {
         actions.syncThemeConfig();
     } catch (e) {
-        console.warn('syncThemeConfig failed', e);
+        debugLog('syncThemeConfig failed', e);
     }
 
     const isAIFurnitureUser = sessionStorage.getItem('ai_furniture_user') === 'true';

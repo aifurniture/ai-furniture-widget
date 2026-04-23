@@ -97,4 +97,7 @@ export function initAIFurnitureWidget(userConfig = {}) {
         }
     });
 
+    // Only visible console message in normal operation.
+    // eslint-disable-next-line no-console
+    console.log('AI Furniture Widget Initialized 🚀');
 }

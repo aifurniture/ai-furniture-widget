@@ -5,6 +5,6 @@ export function debugLog(message, data) {
     const config = getConfig();
     if (config.debug) {
         // eslint-disable-next-line no-console
-        console.log('[AI Furniture Widget]', message, data || '');
+        console.log('[AI Furniture Debug]', message, data || '');
     }
 }

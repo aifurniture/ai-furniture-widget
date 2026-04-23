@@ -1,6 +1,7 @@
 import { store, actions, QUEUE_STATUS } from '../state/store.js';
 import { trackEvent } from '../tracking.js';
 import { postWidgetGeneration, getStorefrontDomain } from '../utils/widgetShopperApi.js';
+import { debugLog } from '../debug.js';
 
 // Track items currently being processed
 const processingItems = new Set();
@@ -30,11 +31,11 @@ const dataURLToBlob = (dataURL) => {
 export function initQueueProcessor() {
     // Prevent multiple initializations (script might reload on page navigation)
     if (queueProcessorInitialized) {
-        console.log('🔄 Queue Processor already initialized, skipping...');
+        debugLog('Queue Processor already initialized, skipping...');
         // Still check for pending items in case script was reloaded
         const currentState = store.getState();
         if (currentState.queue && currentState.queue.length > 0) {
-            console.log('🔄 Checking queue after script reload...');
+            debugLog('Checking queue after script reload...');
             resumePendingItems(currentState);
         }
         return;
@@ -49,7 +50,7 @@ export function initQueueProcessor() {
 
     // Initial check - resume any pending/processing items
     const initialState = store.getState();
-    console.log('🔄 Queue Processor initialized. Checking for pending items...', {
+    debugLog('Queue Processor initialized. Checking for pending items...', {
         queueLength: initialState.queue.length,
         pending: initialState.queue.filter(i => i.status === QUEUE_STATUS.PENDING).length,
         processing: initialState.queue.filter(i => i.status === QUEUE_STATUS.PROCESSING).length
@@ -67,7 +68,7 @@ function checkQueue(state) {
     );
 
     if (pendingItems.length > 0) {
-        console.log(`🔄 Found ${pendingItems.length} pending items, processing...`);
+        debugLog(`Found ${pendingItems.length} pending items, processing...`);
         pendingItems.forEach(item => {
             processQueueItem(item);
         });
@@ -83,7 +84,7 @@ function resumePendingItems(state) {
     );
 
     if (pendingItems.length > 0) {
-        console.log(`🔄 Found ${pendingItems.length} pending items...`);
+        debugLog(`Found ${pendingItems.length} pending items...`);
         pendingItems.forEach(item => {
             // Check if item has valid userImage (File/Blob) or data URL
             if (!item.userImage && !item.userImageDataUrl) {
@@ -99,7 +100,7 @@ function resumePendingItems(state) {
                     const blob = dataURLToBlob(item.userImageDataUrl);
                     if (blob) {
                         item.userImage = blob;
-                        console.log(`🔄 Restored image from data URL for item ${item.id.slice(0, 8)}`);
+                        debugLog(`Restored image from data URL for item ${item.id.slice(0, 8)}`);
                     } else {
                         console.warn(`⚠️ Failed to restore image from data URL for item ${item.id.slice(0, 8)}`);
                         actions.updateQueueItem(item.id, {
@@ -110,7 +111,7 @@ function resumePendingItems(state) {
                         return;
                     }
                 }
-                console.log(`🚀 Resuming item ${item.id.slice(0, 8)}...`);
+                debugLog(`Resuming item ${item.id.slice(0, 8)}...`);
                 processQueueItem(item);
             }
         });
@@ -123,7 +124,9 @@ function resumePendingItems(state) {
     );
 
     if (processingItemsList.length > 0) {
-        console.log(`🔄 Found ${processingItemsList.length} processing items from previous page, resetting to PENDING to resume...`);
+        debugLog(
+            `Found ${processingItemsList.length} processing items from previous page, resetting to PENDING to resume...`
+        );
         processingItemsList.forEach(item => {
             // Check if the item has been processing for too long (more than 5 minutes)
             // If so, mark as error. Otherwise, reset to PENDING to resume
@@ -147,11 +150,11 @@ function resumePendingItems(state) {
                     if (blob) {
                         item.userImage = blob;
                         imageRestored = true;
-                        console.log(`🔄 Restored image from data URL for item ${item.id.slice(0, 8)}`);
+                        debugLog(`Restored image from data URL for item ${item.id.slice(0, 8)}`);
                     }
                 }
                 
-                console.log(`🔄 Resetting item ${item.id.slice(0, 8)} to PENDING to resume processing`);
+                debugLog(`Resetting item ${item.id.slice(0, 8)} to PENDING to resume processing`);
                 const updates = {
                     status: QUEUE_STATUS.PENDING,
                     startedAt: null // Clear startedAt so it gets a fresh start
@@ -180,7 +183,7 @@ async function processQueueItem(item) {
     };
 
     if (processingItems.has(id)) {
-        console.log(`⏭️ Item ${id.slice(0, 8)} already being processed, skipping...`);
+        debugLog(`Item ${id.slice(0, 8)} already being processed, skipping...`);
         return;
     }
 
@@ -194,7 +197,7 @@ async function processQueueItem(item) {
                 imageToUse = restoredBlob;
                 // Update the item with restored blob
                 actions.updateQueueItem(id, { userImage: restoredBlob });
-                console.log(`🔄 Restored image from data URL for processing ${id.slice(0, 8)}`);
+                debugLog(`Restored image from data URL for processing ${id.slice(0, 8)}`);
             } else {
                 console.error(`❌ Item ${id.slice(0, 8)} has invalid userImage and failed to restore from data URL, marking as error`);
                 actions.updateQueueItem(id, {
@@ -236,7 +239,7 @@ async function processQueueItem(item) {
                 : 'https://ai-furniture-backend.vercel.app/api';
         }
 
-        console.log(`🚀 Starting generation for ${id.slice(0, 8)} with ${selectedModel} model`);
+        debugLog(`Starting generation for ${id.slice(0, 8)} with ${selectedModel} model`);
 
         // Create form data
         const formData = new FormData();
@@ -265,7 +268,9 @@ async function processQueueItem(item) {
         }
 
         const result = await response.json();
-        console.log(`✅ Generation complete for ${id.slice(0, 8)}:`, result);
+        debugLog(`Generation complete for ${id.slice(0, 8)}`, {
+            ok: true
+        });
 
         // Update queue item with result
         // Store S3 URLs for both generated and original images

@@ -19,7 +19,6 @@ export function verifyDomain() {
 
     if (isLocalDevelopment) {
         debugLog('Domain verification skipped for local development', { currentHostname });
-        console.log('🔧 AI Furniture Widget: Running in local development mode');
         return true;
     }
 
@@ -63,7 +62,7 @@ export async function verifyDomainWithServer() {
             apiEndpoint = isLocalMode 
                 ? 'http://localhost:3000/api' 
                 : 'https://ai-furniture-backend.vercel.app/api';
-            console.warn('⚠️ apiEndpoint was undefined in domainVerification, using fallback:', apiEndpoint);
+            debugLog('apiEndpoint undefined in domainVerification, using fallback', apiEndpoint);
         }
 
         // Validate apiEndpoint is a valid URL
@@ -80,7 +79,10 @@ export async function verifyDomainWithServer() {
         // Backend should check its database for both "domain.com" and "www.domain.com" variations
         // and return 200 if either is found, 403 if neither is found
         const healthUrl = `${apiEndpoint}/health?domain=${encodeURIComponent(normalizedDomain)}`;
-        console.log('🔍 Checking backend database for domain:', normalizedDomain, '(normalized from:', currentHostname + ')');
+        debugLog('Checking backend database for domain', {
+            normalizedDomain,
+            currentHostname
+        });
         
         const response = await fetch(healthUrl, {
             method: 'GET',
@@ -105,7 +107,6 @@ export async function verifyDomainWithServer() {
         }
 
         const responseData = await response.json().catch(() => ({}));
-        console.log('✅ AI Furniture Widget: Domain verified by backend database:', normalizedDomain, '(from:', currentHostname + ')');
         debugLog('Domain verified by server database', { currentHostname, normalizedDomain, responseData });
         return true;
     } catch (error) {

@@ -309,7 +309,6 @@ export const UploadView = (state) => {
 
                 // Add to queue - this will trigger the queue processor
                 actions.addToQueue(queueItem);
-                console.log(`✅ Added to queue: ${queueId}`);
 
                 // Switch to queue view to show progress
                 actions.setView(VIEWS.QUEUE);
