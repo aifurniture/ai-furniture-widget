@@ -230,7 +230,7 @@ function resumePendingItems(state) {
  * Process a queue item - upload image and start generation
  */
 async function processQueueItem(item) {
-    const { id, userImage, productUrl, selectedModel, config, userImageDataUrl } = item;
+    const { id, userImage, productUrl, selectedModel, config, userImageDataUrl, imageS3Key } = item;
     // Merge store config (restored after navigation) with per-item config from when queued
     const mergedConfig = {
         ...(store.getState().config || {}),
@@ -242,19 +242,36 @@ async function processQueueItem(item) {
         return;
     }
 
-    // Check if userImage is valid - try to restore from data URL if needed
-    let imageToUse = userImage;
-    if (!imageToUse || !(imageToUse instanceof File || imageToUse instanceof Blob)) {
-        // Try to restore from data URL
-        if (userImageDataUrl) {
-            const restoredBlob = dataURLToBlob(userImageDataUrl);
-            if (restoredBlob) {
-                imageToUse = restoredBlob;
-                // Update the item with restored blob
-                actions.updateQueueItem(id, { userImage: restoredBlob });
-                debugLog(`Restored image from data URL for processing ${id.slice(0, 8)}`);
+    // Image source:
+    // - Preferred: imageS3Key (already uploaded / durable)
+    // - Fallback: userImage (File/Blob) or userImageDataUrl restored to Blob
+    let imageToUse = null;
+    if (!imageS3Key) {
+        imageToUse = userImage;
+        if (!imageToUse || !(imageToUse instanceof File || imageToUse instanceof Blob)) {
+            // Try to restore from data URL
+            if (userImageDataUrl) {
+                const restoredBlob = dataURLToBlob(userImageDataUrl);
+                if (restoredBlob) {
+                    imageToUse = restoredBlob;
+                    // Update the item with restored blob
+                    actions.updateQueueItem(id, { userImage: restoredBlob });
+                    debugLog(`Restored image from data URL for processing ${id.slice(0, 8)}`);
+                } else {
+                    console.error(
+                        `❌ Item ${id.slice(0, 8)} has invalid userImage and failed to restore from data URL, marking as error`
+                    );
+                    actions.updateQueueItem(id, {
+                        status: QUEUE_STATUS.ERROR,
+                        completedAt: Date.now(),
+                        error: 'Image data lost - please re-upload and try again'
+                    });
+                    return;
+                }
             } else {
-                console.error(`❌ Item ${id.slice(0, 8)} has invalid userImage and failed to restore from data URL, marking as error`);
+                console.error(
+                    `❌ Item ${id.slice(0, 8)} has invalid userImage (lost after page reload), marking as error`
+                );
                 actions.updateQueueItem(id, {
                     status: QUEUE_STATUS.ERROR,
                     completedAt: Date.now(),
@@ -262,14 +279,6 @@ async function processQueueItem(item) {
                 });
                 return;
             }
-        } else {
-            console.error(`❌ Item ${id.slice(0, 8)} has invalid userImage (lost after page reload), marking as error`);
-            actions.updateQueueItem(id, {
-                status: QUEUE_STATUS.ERROR,
-                completedAt: Date.now(),
-                error: 'Image data lost - please re-upload and try again'
-            });
-            return;
         }
     }
 
@@ -301,16 +310,18 @@ async function processQueueItem(item) {
 
         // New flow: get presigned PUT, upload directly to S3, then call /generate with imageS3Key.
         // Fallback: old flow (send image file directly) if anything fails.
-        let uploaded = null;
-        try {
-            uploaded = await uploadImageToS3ViaBackend({
-                apiEndpoint,
-                domain: domainForApi,
-                sessionId: sessionIdForApi,
-                fileOrBlob: imageToUse
-            });
-        } catch (e) {
-            debugLog('Direct-to-S3 upload failed; falling back to direct image upload', e?.message || e);
+        let uploaded = imageS3Key ? { s3Key: imageS3Key, imageUrl: item.userImageUrl || null } : null;
+        if (!uploaded?.s3Key) {
+            try {
+                uploaded = await uploadImageToS3ViaBackend({
+                    apiEndpoint,
+                    domain: domainForApi,
+                    sessionId: sessionIdForApi,
+                    fileOrBlob: imageToUse
+                });
+            } catch (e) {
+                debugLog('Direct-to-S3 upload failed; falling back to direct image upload', e?.message || e);
+            }
         }
 
         // Create form data for /generate
@@ -354,11 +365,13 @@ async function processQueueItem(item) {
         actions.updateQueueItem(id, {
             status: QUEUE_STATUS.COMPLETED,
             completedAt: Date.now(),
+            imageS3Key: uploaded?.s3Key || item.imageS3Key || null,
             // Store the S3 URL of the user's uploaded image for display
             userImageUrl: originalImageUrl || item.userImageUrl,
             result: {
                 generatedImageUrl: generatedImageUrl,
                 originalImageUrl: originalImageUrl, // S3 URL for original image
+                imageS3Key: uploaded?.s3Key || item.imageS3Key || null,
                 model: selectedModel,
                 generationTime: result.timings?.total?.durationSeconds,
                 timestamp: new Date().toISOString(),

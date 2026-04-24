@@ -1,7 +1,7 @@
 /**
  * Results View Component
  */
-import { actions } from '../../state/store.js';
+import { store, actions, VIEWS } from '../../state/store.js';
 import { Slider } from './Slider.js';
 import { Button } from './Button.js';
 import { downloadUrlAsFile, fetchImageBlob, getFilenameFromUrl } from '../../utils/downloadImage.js';
@@ -21,7 +21,8 @@ export const ResultsView = (state) => {
         state.generatedImages.forEach((imgData, index) => {
             const afterUrl = imgData.url || imgData;
             const beforeUrl = imgData.originalImageUrl || uploadedBlobUrl || '';
-            if (afterUrl) pairs.push({ beforeUrl, afterUrl, index });
+            const s3Key = imgData.imageS3Key || imgData?.metadata?.imageS3Key || null;
+            if (afterUrl) pairs.push({ beforeUrl, afterUrl, index, s3Key });
         });
         return pairs;
     };
@@ -105,7 +106,7 @@ export const ResultsView = (state) => {
         }
     };
 
-    const createActionsRow = (beforeUrl, afterUrl) => {
+    const createActionsRow = (beforeUrl, afterUrl, s3Key = null) => {
         const wrap = document.createElement('div');
         wrap.className = 'aif-result-actions';
         wrap.setAttribute('data-aif-actions', 'download-share');
@@ -141,10 +142,31 @@ export const ResultsView = (state) => {
             true
         );
         const shareBtn = makeBtn('Share', () => shareBeforeAfter(beforeUrl, afterUrl));
+        const retryBtn = makeBtn('Retry', () => {
+            const cur = store.getState();
+            const config = cur.config || {};
+            const queueId = `queue_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+            actions.addToQueue({
+                id: queueId,
+                productUrl: config.productUrl || window.location.href,
+                productName: config.productTitle || document.title || '',
+                selectedModel: 'slow',
+                config,
+                queuedAt: Date.now(),
+                ...(s3Key ? { imageS3Key: s3Key } : {})
+            });
+            actions.setView(VIEWS.QUEUE);
+            actions.setQueueTab('processing');
+        });
+        if (!s3Key) {
+            retryBtn.disabled = true;
+            retryBtn.title = 'Retry is unavailable for this preview. Try another photo instead.';
+        }
 
         row.appendChild(saveRoomBtn);
         row.appendChild(savePreviewBtn);
         row.appendChild(shareBtn);
+        row.appendChild(retryBtn);
 
         // Keep the hint for accessibility, but let CSS collapse it on desktop to save space.
         wrap.appendChild(hint);
@@ -164,6 +186,9 @@ export const ResultsView = (state) => {
     header.innerHTML = `
     <h3 style="margin:0; font-size:16px; font-weight:600;">✨ Your room preview</h3>
     <p style="margin:4px 0 0; font-size:12px; color:#64748b;">Drag the slider to compare, then save your photos below.</p>
+    <p style="margin:6px 0 0; font-size:11px; color:#64748b; line-height:1.4;">
+      Sizes are AI-estimated and may vary. Please measure your space and check product dimensions before purchasing.
+    </p>
   `;
     container.appendChild(header);
 
@@ -179,7 +204,7 @@ export const ResultsView = (state) => {
     grid.style.minHeight = '0';
     grid.style.paddingRight = '4px'; // Space for scrollbar
 
-    pairs.forEach(({ beforeUrl, afterUrl, index: i }) => {
+    pairs.forEach(({ beforeUrl, afterUrl, index: i, s3Key }) => {
         const imgData = state.generatedImages[i];
         const generatedUrl = imgData.url || imgData;
         const aspectRatio =
@@ -196,14 +221,14 @@ export const ResultsView = (state) => {
                     aspectRatio: aspectRatio
                 });
                 grid.appendChild(slider);
-                grid.appendChild(createActionsRow(beforeUrl, generatedUrl));
+                grid.appendChild(createActionsRow(beforeUrl, generatedUrl, s3Key));
             } else {
                 const img = document.createElement('img');
                 img.src = generatedUrl;
                 img.style.maxWidth = '100%';
                 img.style.borderRadius = '8px';
                 grid.appendChild(img);
-                grid.appendChild(createActionsRow('', generatedUrl));
+                grid.appendChild(createActionsRow('', generatedUrl, s3Key));
             }
         }
     });
