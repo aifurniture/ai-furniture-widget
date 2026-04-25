@@ -242,18 +242,23 @@ export const ResultsView = (state) => {
     actionsDiv.style.gap = '8px';
     actionsDiv.style.marginTop = 'auto';
 
-    const closeBtn = Button({
-        text: 'Close',
+    const backBtn = Button({
+        text: 'Back',
         variant: 'secondary',
-        onClick: actions.closeModal,
-        className: 'aif-btn-secondary' // We need to define this style or inline it
+        onClick: () => {
+            const { userEmail } = store.getState();
+            if ((userEmail || '').trim()) {
+                actions.setQueueTab('completed');
+            }
+            actions.setView(VIEWS.QUEUE);
+        },
+        className: 'aif-btn-secondary'
     });
-    // Quick inline style fix for secondary button since we didn't define it in styles.js yet
-    closeBtn.style.background = 'white';
-    closeBtn.style.border = '1px solid #cbd5e1';
-    closeBtn.style.color = '#475569';
-    closeBtn.onmouseover = () => (closeBtn.style.background = '#f8fafc');
-    closeBtn.onmouseout = () => (closeBtn.style.background = 'white');
+    backBtn.style.background = 'white';
+    backBtn.style.border = '1px solid #cbd5e1';
+    backBtn.style.color = '#475569';
+    backBtn.onmouseover = () => (backBtn.style.background = '#f8fafc');
+    backBtn.onmouseout = () => (backBtn.style.background = 'white');
 
     const tryAgainBtn = document.createElement('button');
     tryAgainBtn.textContent = 'Try another photo';
@@ -265,7 +270,7 @@ export const ResultsView = (state) => {
     tryAgainBtn.style.textDecoration = 'underline';
     tryAgainBtn.onclick = actions.reset;
 
-    actionsDiv.appendChild(closeBtn);
+    actionsDiv.appendChild(backBtn);
     actionsDiv.appendChild(tryAgainBtn);
 
     container.appendChild(actionsDiv);

@@ -5,9 +5,37 @@ import { store, actions, VIEWS } from '../../state/store.js';
 
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function goToCompleted() {
+    actions.setView(VIEWS.QUEUE);
+    actions.setQueueTab('completed');
+    actions.syncShopperGenerations();
+}
+
 export function WidgetFooter() {
     const wrap = document.createElement('div');
     wrap.className = 'aif-widget-footer';
+
+    // Shown when shopper has saved an email — no need to re-enter
+    const savedWrap = document.createElement('div');
+    savedWrap.className = 'aif-widget-footer__saved';
+    savedWrap.style.display = 'none';
+
+    const savedLabel = document.createElement('div');
+    savedLabel.className = 'aif-widget-footer__saved-label';
+
+    const savedLink = document.createElement('button');
+    savedLink.type = 'button';
+    savedLink.className = 'aif-widget-footer__saved-link';
+    savedLink.textContent = 'Open Completed previews →';
+    savedLink.title = 'Go to Queue → Completed tab';
+    savedLink.addEventListener('click', () => goToCompleted());
+
+    savedWrap.appendChild(savedLabel);
+    savedWrap.appendChild(savedLink);
+
+    // Email form (optional)
+    const formWrap = document.createElement('div');
+    formWrap.className = 'aif-widget-footer__form';
 
     const label = document.createElement('label');
     label.className = 'aif-widget-footer__label';
@@ -60,8 +88,7 @@ export function WidgetFooter() {
         try {
             await actions.setUserEmail(v);
             if (v) {
-                actions.setView(VIEWS.QUEUE);
-                actions.setQueueTab('completed');
+                goToCompleted();
                 hint.textContent =
                     'Saved for this session. Your previews from this store appear under Queue → Completed.';
             } else {
@@ -83,7 +110,6 @@ export function WidgetFooter() {
         }
     });
 
-    /** Blur / change: persist when value differs from what is already saved (do not compare to live typing — that always matched and skipped save). */
     const maybeCommit = () => {
         const v = (input.value || '').trim().toLowerCase();
         const saved = (store.getState().userEmail || '').trim().toLowerCase();
@@ -94,22 +120,41 @@ export function WidgetFooter() {
     input.addEventListener('blur', maybeCommit);
     input.addEventListener('change', maybeCommit);
 
-    store.subscribe((state) => {
-        const e = state.userEmail || '';
-        if (document.activeElement !== input && e !== input.value.trim().toLowerCase()) {
-            input.value = e;
-        }
-    });
-
     row.appendChild(input);
     row.appendChild(submitBtn);
 
-    wrap.appendChild(label);
-    wrap.appendChild(row);
-    wrap.appendChild(hint);
+    formWrap.appendChild(label);
+    formWrap.appendChild(row);
+    formWrap.appendChild(hint);
+
+    wrap.appendChild(savedWrap);
+    wrap.appendChild(formWrap);
+
+    const updateMode = (state) => {
+        const e = (state.userEmail || '').trim();
+        const hasEmail = e.length > 0 && EMAIL_OK.test(e.toLowerCase());
+        wrap.classList.toggle('aif-widget-footer--has-email', hasEmail);
+        if (hasEmail) {
+            savedWrap.style.display = '';
+            formWrap.style.display = 'none';
+            savedLabel.textContent = `Saved as ${e}`;
+            if (document.activeElement !== input) {
+                input.value = e;
+            }
+        } else {
+            savedWrap.style.display = 'none';
+            formWrap.style.display = '';
+            if (document.activeElement !== input) {
+                input.value = e;
+            }
+        }
+    };
+
+    store.subscribe(updateMode);
 
     const initial = store.getState();
     input.value = initial.userEmail || '';
+    updateMode(initial);
 
     return wrap;
 }

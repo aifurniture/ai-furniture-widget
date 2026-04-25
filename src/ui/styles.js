@@ -548,6 +548,40 @@ export const styles = `
     line-height: 1.4;
   }
 
+  .aif-widget-footer__saved {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .aif-widget-footer__saved-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--aif-text-muted);
+  }
+
+  .aif-widget-footer__saved-link {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    background: #059669;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: var(--aif-font);
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  }
+
+  .aif-widget-footer__saved-link:hover {
+    background: #047857;
+  }
+
   /* Results actions (Save / Share) */
   .aif-result-actions {
     flex-shrink: 0;
@@ -673,9 +707,14 @@ export const styles = `
 
   /* Desktop: reclaim vertical space for results */
   @media (min-width: 769px) {
-    /* Hide the email footer on the RESULTS screen to give images more height. */
-    .aif-container[data-aif-view="RESULTS"] .aif-widget-footer {
+    /* Hide email form on RESULTS; show compact footer when email is saved (link to Completed). */
+    .aif-container[data-aif-view="RESULTS"] .aif-widget-footer:not(.aif-widget-footer--has-email) {
       display: none;
+    }
+
+    .aif-container[data-aif-view="RESULTS"] .aif-widget-footer.aif-widget-footer--has-email {
+      display: block;
+      padding: 8px 24px 12px;
     }
 
     /* Compact the per-result action block. */
