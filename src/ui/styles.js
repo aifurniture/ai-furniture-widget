@@ -731,6 +731,26 @@ export const styles = `
       padding: 24px 20px 20px;
     }
 
+    /* Results: edge-to-edge preview + taller default — “image too small” on phones */
+    .aif-container[data-aif-view="RESULTS"] .aif-content {
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+
+    .aif-container[data-aif-view="RESULTS"] .aif-result-preview-shell {
+      margin-left: -12px;
+      margin-right: -12px;
+      width: calc(100% + 24px);
+    }
+
+    .aif-container[data-aif-view="RESULTS"] .aif-slider {
+      min-height: min(54vh, 520px);
+    }
+
+    .aif-container[data-aif-view="RESULTS"] .aif-result-preview-shell--expanded > *:first-child {
+      min-height: min(68vh, 640px) !important;
+    }
+
     .aif-widget-footer {
       padding: 12px 20px 16px;
     }

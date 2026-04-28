@@ -3,11 +3,36 @@
  */
 export const Slider = ({ beforeImage, afterImage, aspectRatio }) => {
     const container = document.createElement('div');
+    container.className = 'aif-slider';
 
     // Start with provided aspect ratio or sensible default; will update on image load
     const numericRatio = typeof aspectRatio === 'number' ? aspectRatio : null;
-    const initialAspectRatio = numericRatio != null ? String(numericRatio) : '4/3';
-    
+    // Default closer to portrait room photos so first paint isn’t a short wide strip on phones
+    const initialAspectRatio = numericRatio != null ? String(numericRatio) : '3/4';
+
+    const applyAspectFromNatural = (w, h) => {
+        if (w > 0 && h > 0) {
+            container.style.aspectRatio = String(w / h);
+        }
+    };
+
+    const syncAspectFromImages = () => {
+        const wb = imgBefore.naturalWidth;
+        const hb = imgBefore.naturalHeight;
+        const wa = imgAfter.naturalWidth;
+        const ha = imgAfter.naturalHeight;
+        if (wb > 0 && hb > 0 && wa > 0 && ha > 0) {
+            const rb = wb / hb;
+            const ra = wa / ha;
+            // Narrower box (more portrait) reduces side letterboxing when one image is taller
+            container.style.aspectRatio = String(Math.min(rb, ra));
+        } else if (wb > 0 && hb > 0) {
+            applyAspectFromNatural(wb, hb);
+        } else if (wa > 0 && ha > 0) {
+            applyAspectFromNatural(wa, ha);
+        }
+    };
+
     Object.assign(container.style, {
         position: 'relative',
         width: '100%',
@@ -34,15 +59,7 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio }) => {
         pointerEvents: 'none'
     });
 
-    // Always set aspect ratio from actual image dimensions on load (most reliable)
-    imgBefore.onload = () => {
-        const w = imgBefore.naturalWidth;
-        const h = imgBefore.naturalHeight;
-        if (w > 0 && h > 0) {
-            const ratio = w / h;
-            container.style.aspectRatio = String(ratio);
-        }
-    };
+    imgBefore.onload = syncAspectFromImages;
 
     // After Image (Left side - clipped)
     const imgAfter = document.createElement('img');
@@ -56,6 +73,8 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio }) => {
         clipPath: 'inset(0 50% 0 0)',
         pointerEvents: 'none'
     });
+
+    imgAfter.onload = syncAspectFromImages;
 
     // Labels
     const labelBefore = document.createElement('div');
@@ -246,6 +265,9 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio }) => {
     container.appendChild(labelBefore);
     container.appendChild(labelAfter);
     container.appendChild(dividerWrapper);
+
+    if (imgBefore.complete) syncAspectFromImages();
+    if (imgAfter.complete) syncAspectFromImages();
 
     return container;
 };

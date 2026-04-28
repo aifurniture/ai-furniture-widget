@@ -253,6 +253,7 @@ export const ResultsView = (state) => {
 
     // Results Grid
     const grid = document.createElement('div');
+    grid.className = 'aif-results-grid';
     grid.style.display = 'flex';
     grid.style.flexDirection = 'column';
     grid.style.gap = '16px';
