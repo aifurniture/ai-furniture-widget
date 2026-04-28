@@ -629,6 +629,51 @@ export const styles = `
     cursor: not-allowed;
   }
 
+  /* Results: larger preview toggle (in-panel, not browser fullscreen) */
+  .aif-result-preview-shell {
+    position: relative;
+    width: 100%;
+  }
+
+  .aif-result-preview-larger-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 25;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    background: rgba(15, 23, 42, 0.72);
+    color: #fff;
+    cursor: pointer;
+    font-family: var(--aif-font);
+    line-height: 1.2;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .aif-result-preview-larger-btn:hover {
+    background: rgba(15, 23, 42, 0.88);
+  }
+
+  .aif-result-preview-shell--expanded > *:first-child {
+    min-height: min(62vh, 620px) !important;
+    width: 100% !important;
+    max-height: min(78vh, 720px) !important;
+  }
+
+  .aif-result-preview-shell--expanded > img:first-child {
+    display: block;
+    width: 100% !important;
+    min-height: min(55vh, 520px) !important;
+    max-height: min(78vh, 720px) !important;
+    object-fit: contain;
+    border-radius: 12px;
+  }
+
   .aif-history {
     margin-bottom: 16px;
   }
@@ -707,6 +752,12 @@ export const styles = `
 
   /* Desktop: reclaim vertical space for results */
   @media (min-width: 769px) {
+    /* Widen drawer when user chooses "Larger view" on a result preview */
+    .aif-container.aif-results-expanded {
+      width: min(92vw, 760px) !important;
+      max-width: 92vw;
+    }
+
     /* Hide email form on RESULTS; show compact footer when email is saved (link to Completed). */
     .aif-container[data-aif-view="RESULTS"] .aif-widget-footer:not(.aif-widget-footer--has-email) {
       display: none;

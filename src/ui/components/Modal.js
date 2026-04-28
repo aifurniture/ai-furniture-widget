@@ -43,6 +43,9 @@ export const Modal = () => {
     const renderContent = (state) => {
         contentArea.innerHTML = '';
         container.setAttribute('data-aif-view', state.view || '');
+        if (state.view !== VIEWS.RESULTS) {
+            container.classList.remove('aif-results-expanded');
+        }
 
         if (state.view === VIEWS.UPLOAD) {
             contentArea.appendChild(UploadView(state));
