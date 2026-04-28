@@ -6,6 +6,120 @@ import { Slider } from './Slider.js';
 import { Button } from './Button.js';
 import { downloadUrlAsFile, fetchImageBlob, getFilenameFromUrl } from '../../utils/downloadImage.js';
 
+function getFullscreenElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+async function requestFullscreenEl(el) {
+    const req =
+        el.requestFullscreen ||
+        el.webkitRequestFullscreen ||
+        el.webkitRequestFullScreen ||
+        null;
+    if (req) await req.call(el);
+    else throw new Error('Fullscreen not supported');
+}
+
+async function exitFullscreenDoc() {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen || null;
+    if (exit) await exit.call(document);
+}
+
+/**
+ * Wraps a slider or static preview image with a fullscreen control (keeps drag slider usable in fullscreen).
+ */
+function wrapPreviewWithFullscreen(previewEl) {
+    const shell = document.createElement('div');
+    shell.className = 'aif-result-preview-shell';
+    shell.style.cssText = 'position:relative;width:100%;';
+
+    const fsBtn = document.createElement('button');
+    fsBtn.type = 'button';
+    fsBtn.className = 'aif-result-preview-fs-btn';
+    fsBtn.textContent = 'Fullscreen';
+    fsBtn.setAttribute('aria-label', 'View preview full screen');
+    fsBtn.style.cssText = [
+        'position:absolute',
+        'top:10px',
+        'right:10px',
+        'z-index:25',
+        'padding:8px 12px',
+        'font-size:12px',
+        'font-weight:600',
+        'border-radius:8px',
+        'border:1px solid rgba(255,255,255,0.45)',
+        'background:rgba(15,23,42,0.72)',
+        'color:#fff',
+        'cursor:pointer',
+        'font-family:inherit',
+        'line-height:1.2',
+        'backdrop-filter:blur(8px)',
+        '-webkit-backdrop-filter:blur(8px)',
+        'box-shadow:0 2px 8px rgba(0,0,0,0.2)'
+    ].join(';');
+
+    const applyFullscreenLayout = () => {
+        const isFs = getFullscreenElement() === shell;
+        if (isFs) {
+            shell.style.width = '100%';
+            shell.style.height = '100%';
+            shell.style.minHeight = '100%';
+            shell.style.display = 'flex';
+            shell.style.alignItems = 'center';
+            shell.style.justifyContent = 'center';
+            shell.style.background = '#0f172a';
+            shell.style.padding = '12px';
+            shell.style.boxSizing = 'border-box';
+            previewEl.style.maxWidth = '100%';
+            previewEl.style.maxHeight = '100%';
+            previewEl.style.width = 'auto';
+            previewEl.style.height = 'auto';
+            previewEl.style.flexShrink = '0';
+            fsBtn.textContent = 'Exit';
+            fsBtn.setAttribute('aria-label', 'Exit full screen');
+        } else {
+            shell.style.width = '100%';
+            shell.style.height = '';
+            shell.style.minHeight = '';
+            shell.style.display = '';
+            shell.style.alignItems = '';
+            shell.style.justifyContent = '';
+            shell.style.background = '';
+            shell.style.padding = '';
+            previewEl.style.maxWidth = '';
+            previewEl.style.maxHeight = '';
+            previewEl.style.width = '';
+            previewEl.style.height = '';
+            previewEl.style.flexShrink = '';
+            fsBtn.textContent = 'Fullscreen';
+            fsBtn.setAttribute('aria-label', 'View preview full screen');
+        }
+    };
+
+    const onFsChange = () => applyFullscreenLayout();
+    document.addEventListener('fullscreenchange', onFsChange);
+    document.addEventListener('webkitfullscreenchange', onFsChange);
+
+    fsBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+            if (getFullscreenElement() === shell) {
+                await exitFullscreenDoc();
+            } else {
+                await requestFullscreenEl(shell);
+            }
+        } catch {
+            /* unsupported or denied */
+        }
+        applyFullscreenLayout();
+    });
+
+    shell.appendChild(previewEl);
+    shell.appendChild(fsBtn);
+    return shell;
+}
+
 export const ResultsView = (state) => {
     const uploadedBlobUrl = state.uploadedImage ? URL.createObjectURL(state.uploadedImage) : '';
 
@@ -22,7 +136,11 @@ export const ResultsView = (state) => {
             const afterUrl = imgData.url || imgData;
             const beforeUrl = imgData.originalImageUrl || uploadedBlobUrl || '';
             const s3Key = imgData.imageS3Key || imgData?.metadata?.imageS3Key || null;
-            if (afterUrl) pairs.push({ beforeUrl, afterUrl, index, s3Key });
+            const furnitureWidthCm =
+                typeof imgData.furnitureWidthCm === 'number' && Number.isFinite(imgData.furnitureWidthCm)
+                    ? imgData.furnitureWidthCm
+                    : null;
+            if (afterUrl) pairs.push({ beforeUrl, afterUrl, index, s3Key, furnitureWidthCm });
         });
         return pairs;
     };
@@ -106,7 +224,7 @@ export const ResultsView = (state) => {
         }
     };
 
-    const createActionsRow = (beforeUrl, afterUrl, s3Key = null) => {
+    const createActionsRow = (beforeUrl, afterUrl, s3Key = null, furnitureWidthCm = null) => {
         const wrap = document.createElement('div');
         wrap.className = 'aif-result-actions';
         wrap.setAttribute('data-aif-actions', 'download-share');
@@ -153,7 +271,12 @@ export const ResultsView = (state) => {
                 selectedModel: 'slow',
                 config,
                 queuedAt: Date.now(),
-                ...(s3Key ? { imageS3Key: s3Key } : {})
+                ...(s3Key ? { imageS3Key: s3Key } : {}),
+                ...(typeof furnitureWidthCm === 'number' &&
+                Number.isFinite(furnitureWidthCm) &&
+                furnitureWidthCm > 0
+                    ? { furnitureWidthCm }
+                    : {})
             });
             actions.setView(VIEWS.QUEUE);
             actions.setQueueTab('processing');
@@ -204,7 +327,7 @@ export const ResultsView = (state) => {
     grid.style.minHeight = '0';
     grid.style.paddingRight = '4px'; // Space for scrollbar
 
-    pairs.forEach(({ beforeUrl, afterUrl, index: i, s3Key }) => {
+    pairs.forEach(({ beforeUrl, afterUrl, index: i, s3Key, furnitureWidthCm }) => {
         const imgData = state.generatedImages[i];
         const generatedUrl = imgData.url || imgData;
         const aspectRatio =
@@ -220,15 +343,15 @@ export const ResultsView = (state) => {
                     afterImage: generatedUrl,
                     aspectRatio: aspectRatio
                 });
-                grid.appendChild(slider);
-                grid.appendChild(createActionsRow(beforeUrl, generatedUrl, s3Key));
+                grid.appendChild(wrapPreviewWithFullscreen(slider));
+                grid.appendChild(createActionsRow(beforeUrl, generatedUrl, s3Key, furnitureWidthCm));
             } else {
                 const img = document.createElement('img');
                 img.src = generatedUrl;
                 img.style.maxWidth = '100%';
                 img.style.borderRadius = '8px';
-                grid.appendChild(img);
-                grid.appendChild(createActionsRow('', generatedUrl, s3Key));
+                grid.appendChild(wrapPreviewWithFullscreen(img));
+                grid.appendChild(createActionsRow('', generatedUrl, s3Key, furnitureWidthCm));
             }
         }
     });

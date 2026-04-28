@@ -72,6 +72,9 @@ export const UploadView = (state) => {
     uploadArea.style.display = 'flex';
     uploadArea.style.flexDirection = 'column';
 
+    /** Optional width (cm) of the product being placed — passed to /generate; blank = skip */
+    let furnitureWidthInput = null;
+
     if (state.uploadedImage) {
         // Preview Mode
         const previewContainer = document.createElement('div');
@@ -105,6 +108,70 @@ export const UploadView = (state) => {
         previewContainer.appendChild(img);
         previewContainer.appendChild(changeBtn);
         uploadArea.appendChild(previewContainer);
+
+        const dimWrap = document.createElement('div');
+        dimWrap.style.marginTop = '12px';
+        dimWrap.style.padding = '12px';
+        dimWrap.style.background = '#f8fafc';
+        dimWrap.style.borderRadius = '10px';
+        dimWrap.style.border = '1px solid #e2e8f0';
+
+        const dimLabel = document.createElement('div');
+        dimLabel.textContent = 'Furniture width (optional)';
+        dimLabel.style.fontSize = '12px';
+        dimLabel.style.fontWeight = '600';
+        dimLabel.style.color = '#334155';
+        dimLabel.style.marginBottom = '6px';
+
+        const dimRow = document.createElement('div');
+        dimRow.style.display = 'flex';
+        dimRow.style.alignItems = 'center';
+        dimRow.style.gap = '8px';
+
+        furnitureWidthInput = document.createElement('input');
+        furnitureWidthInput.type = 'number';
+        furnitureWidthInput.min = '0.1';
+        furnitureWidthInput.step = 'any';
+        furnitureWidthInput.placeholder = 'e.g. 180';
+        furnitureWidthInput.setAttribute('inputmode', 'decimal');
+        furnitureWidthInput.setAttribute('autocomplete', 'off');
+        Object.assign(furnitureWidthInput.style, {
+            flex: '1',
+            minWidth: '0',
+            padding: '10px 12px',
+            fontSize: '14px',
+            border: '1px solid #cbd5e1',
+            borderRadius: '8px',
+            background: '#fff',
+            color: '#0f172a',
+            fontFamily: 'inherit',
+            boxSizing: 'border-box'
+        });
+
+        const unit = document.createElement('span');
+        unit.textContent = 'cm';
+        unit.style.fontSize = '13px';
+        unit.style.fontWeight = '600';
+        unit.style.color = '#64748b';
+        unit.style.flexShrink = '0';
+
+        dimRow.appendChild(furnitureWidthInput);
+        dimRow.appendChild(unit);
+
+        const dimHint = document.createElement('p');
+        dimHint.textContent =
+            'Approximate width of this piece in your room (the item you are replacing). Leave blank if you prefer.';
+        Object.assign(dimHint.style, {
+            margin: '8px 0 0',
+            fontSize: '11px',
+            color: '#64748b',
+            lineHeight: '1.4'
+        });
+
+        dimWrap.appendChild(dimLabel);
+        dimWrap.appendChild(dimRow);
+        dimWrap.appendChild(dimHint);
+        uploadArea.appendChild(dimWrap);
     } else {
         // Dropzone Mode - restructured for camera support
         const dropzoneContainer = document.createElement('div');
@@ -287,6 +354,15 @@ export const UploadView = (state) => {
                 // Create queue item
                 const queueId = `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+                let furnitureWidthCm = null;
+                if (furnitureWidthInput) {
+                    const raw = (furnitureWidthInput.value || '').trim().replace(',', '.');
+                    if (raw !== '') {
+                        const n = parseFloat(raw);
+                        if (Number.isFinite(n) && n > 0) furnitureWidthCm = n;
+                    }
+                }
+
                 const queueItem = {
                     id: queueId,
                     productUrl: productUrl,
@@ -295,7 +371,8 @@ export const UploadView = (state) => {
                     userImageDataUrl,
                     selectedModel: 'slow', // Always use high quality model
                     config: currentState.config || {},
-                    queuedAt: Date.now()
+                    queuedAt: Date.now(),
+                    ...(furnitureWidthCm != null ? { furnitureWidthCm } : {})
                 };
 
                 // Track AI generation started
@@ -304,7 +381,8 @@ export const UploadView = (state) => {
                     productUrl: productUrl,
                     productName: productName,
                     model: 'slow', // Always use high quality model
-                    imageSize: state.uploadedImage?.size || 0
+                    imageSize: state.uploadedImage?.size || 0,
+                    ...(furnitureWidthCm != null ? { furnitureWidthCm } : {})
                 });
 
                 // Add to queue - this will trigger the queue processor

@@ -230,7 +230,8 @@ function resumePendingItems(state) {
  * Process a queue item - upload image and start generation
  */
 async function processQueueItem(item) {
-    const { id, userImage, productUrl, selectedModel, config, userImageDataUrl, imageS3Key } = item;
+    const { id, userImage, productUrl, selectedModel, config, userImageDataUrl, imageS3Key, furnitureWidthCm } =
+        item;
     // Merge store config (restored after navigation) with per-item config from when queued
     const mergedConfig = {
         ...(store.getState().config || {}),
@@ -337,6 +338,10 @@ async function processQueueItem(item) {
             formData.append('image', imageToUse);
         }
 
+        if (typeof furnitureWidthCm === 'number' && Number.isFinite(furnitureWidthCm) && furnitureWidthCm > 0) {
+            formData.append('furnitureWidthCm', String(furnitureWidthCm));
+        }
+
         // Call API - direct generation (not job-based)
         const response = await fetch(`${apiEndpoint}/generate`, {
             method: 'POST',
@@ -372,6 +377,10 @@ async function processQueueItem(item) {
                 generatedImageUrl: generatedImageUrl,
                 originalImageUrl: originalImageUrl, // S3 URL for original image
                 imageS3Key: uploaded?.s3Key || item.imageS3Key || null,
+                furnitureWidthCm:
+                    typeof furnitureWidthCm === 'number' && Number.isFinite(furnitureWidthCm) && furnitureWidthCm > 0
+                        ? furnitureWidthCm
+                        : null,
                 model: selectedModel,
                 generationTime: result.timings?.total?.durationSeconds,
                 timestamp: new Date().toISOString(),
@@ -410,6 +419,11 @@ async function processQueueItem(item) {
                 metadata: {
                     queueId: id,
                     imageS3Key: uploaded?.s3Key || null,
+                    ...(typeof furnitureWidthCm === 'number' &&
+                    Number.isFinite(furnitureWidthCm) &&
+                    furnitureWidthCm > 0
+                        ? { furnitureWidthCm }
+                        : {}),
                     originalAspectRatio:
                         result.originalImageDimensions?.aspectRatio ||
                         result.generatedImages?.[0]?.originalAspectRatio,

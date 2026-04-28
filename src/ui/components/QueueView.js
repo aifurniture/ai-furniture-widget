@@ -302,7 +302,13 @@ function createSavedHistoryRow(entry) {
                 originalImageUrl: entry.originalImageUrl || '',
                 originalAspectRatio: entry.metadata?.originalAspectRatio,
                 originalWidth: entry.metadata?.originalWidth,
-                originalHeight: entry.metadata?.originalHeight
+                originalHeight: entry.metadata?.originalHeight,
+                imageS3Key: entry.metadata?.imageS3Key || null,
+                furnitureWidthCm:
+                    typeof entry.metadata?.furnitureWidthCm === 'number' &&
+                    Number.isFinite(entry.metadata.furnitureWidthCm)
+                        ? entry.metadata.furnitureWidthCm
+                        : null
             }
         ]);
     };
@@ -458,7 +464,15 @@ function createQueueItem(item) {
                 originalImageUrl: item.result?.originalImageUrl || item.userImageUrl, // S3 URL for original image
                 originalAspectRatio: item.result?.originalAspectRatio,
                 originalWidth: item.result?.originalWidth,
-                originalHeight: item.result?.originalHeight
+                originalHeight: item.result?.originalHeight,
+                imageS3Key: item.result?.imageS3Key || item.imageS3Key || null,
+                furnitureWidthCm:
+                    typeof item.furnitureWidthCm === 'number' && Number.isFinite(item.furnitureWidthCm)
+                        ? item.furnitureWidthCm
+                        : typeof item.result?.furnitureWidthCm === 'number' &&
+                            Number.isFinite(item.result.furnitureWidthCm)
+                          ? item.result.furnitureWidthCm
+                          : null
             };
             actions.setGenerationResults([resultForView]);
         };
