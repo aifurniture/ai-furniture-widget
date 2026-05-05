@@ -7,6 +7,22 @@ import { trackEvent } from '../../tracking.js';
 
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function newestFirstTimestamp(item) {
+    return item.completedAt || item.timestamp || item.queuedAt || 0;
+}
+
+function sortCompletedQueueItems(items) {
+    return [...items].sort((a, b) => newestFirstTimestamp(b) - newestFirstTimestamp(a));
+}
+
+function sortRemoteGenerationsNewestFirst(entries) {
+    return [...entries].sort((a, b) => {
+        const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return tb - ta;
+    });
+}
+
 export const QueueView = (state) => {
     const container = document.createElement('div');
     container.style.display = 'flex';
@@ -105,7 +121,7 @@ export const QueueView = (state) => {
         savedTitle.className = 'aif-queue-saved__title';
         savedTitle.textContent = emailLinked ? 'Saved with your email' : 'Saved on this browser';
         savedSection.appendChild(savedTitle);
-        remoteGenerations.forEach((entry) => {
+        sortRemoteGenerationsNewestFirst(remoteGenerations).forEach((entry) => {
             savedSection.appendChild(createSavedHistoryRow(entry));
         });
         list.appendChild(savedSection);
@@ -121,7 +137,9 @@ export const QueueView = (state) => {
 
     const sessionItemsToShow =
         activeTab === 'completed'
-            ? state.queue.filter((i) => i.status === QUEUE_STATUS.COMPLETED)
+            ? sortCompletedQueueItems(
+                  state.queue.filter((i) => i.status === QUEUE_STATUS.COMPLETED)
+              )
             : filteredQueue;
 
     if (sessionItemsToShow.length === 0 && !(activeTab === 'completed' && savedCount > 0)) {

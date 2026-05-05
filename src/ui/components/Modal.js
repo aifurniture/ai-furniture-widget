@@ -11,6 +11,11 @@ export const Modal = () => {
     const modalOverlay = document.createElement('div');
     modalOverlay.id = 'ai-furniture-modal';
 
+    const dismissStrip = document.createElement('div');
+    dismissStrip.className = 'aif-modal-dismiss-strip';
+    dismissStrip.setAttribute('aria-hidden', 'true');
+    dismissStrip.addEventListener('click', () => actions.closeModal());
+
     const container = document.createElement('div');
     container.className = 'aif-container';
 
@@ -30,14 +35,8 @@ export const Modal = () => {
     const footer = WidgetFooter();
     container.appendChild(footer);
 
+    modalOverlay.appendChild(dismissStrip);
     modalOverlay.appendChild(container);
-
-    // Click outside to close
-    modalOverlay.addEventListener('click', (e) => {
-        if (e.target === modalOverlay) {
-            actions.closeModal();
-        }
-    });
 
     // Render content based on view
     const renderContent = (state) => {
