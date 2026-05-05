@@ -114,47 +114,39 @@ export const QueueView = (state) => {
     list.style.flexDirection = 'column';
     list.style.gap = '12px';
 
-    if (activeTab === 'completed' && savedCount > 0) {
-        const savedSection = document.createElement('div');
-        savedSection.className = 'aif-queue-saved';
-        const savedTitle = document.createElement('h4');
-        savedTitle.className = 'aif-queue-saved__title';
-        savedTitle.textContent = emailLinked ? 'Saved with your email' : 'Saved on this browser';
-        savedSection.appendChild(savedTitle);
-        sortRemoteGenerationsNewestFirst(remoteGenerations).forEach((entry) => {
-            savedSection.appendChild(createSavedHistoryRow(entry));
-        });
-        list.appendChild(savedSection);
-    }
+    if (activeTab === 'completed') {
+        // Merge session + server-saved items so newest always appears at the top.
+        const sessionCompleted = sortCompletedQueueItems(
+            state.queue.filter((i) => i.status === QUEUE_STATUS.COMPLETED)
+        ).map((item) => ({
+            kind: 'session',
+            ts: newestFirstTimestamp(item),
+            item
+        }));
 
-    if (activeTab === 'completed' && completedCount > 0) {
-        const sessionLabel = document.createElement('h4');
-        sessionLabel.className = 'aif-queue-saved__title';
-        sessionLabel.style.marginTop = savedCount > 0 ? '8px' : '0';
-        sessionLabel.textContent = 'This session';
-        list.appendChild(sessionLabel);
-    }
+        const savedCompleted = sortRemoteGenerationsNewestFirst(remoteGenerations).map((entry) => ({
+            kind: 'saved',
+            ts: entry?.createdAt ? new Date(entry.createdAt).getTime() : 0,
+            entry
+        }));
 
-    const sessionItemsToShow =
-        activeTab === 'completed'
-            ? sortCompletedQueueItems(
-                  state.queue.filter((i) => i.status === QUEUE_STATUS.COMPLETED)
-              )
-            : filteredQueue;
+        const combined = [...savedCompleted, ...sessionCompleted].sort((a, b) => b.ts - a.ts);
 
-    if (sessionItemsToShow.length === 0 && !(activeTab === 'completed' && savedCount > 0)) {
-        const empty = document.createElement('p');
-        empty.style.textAlign = 'center';
-        empty.style.color = '#94a3b8';
-        empty.style.marginTop = '20px';
-        empty.textContent = 'Nothing here yet.';
-        list.appendChild(empty);
+        if (combined.length === 0) {
+            const empty = document.createElement('p');
+            empty.style.textAlign = 'center';
+            empty.style.color = '#94a3b8';
+            empty.style.marginTop = '20px';
+            empty.textContent = 'Nothing here yet.';
+            list.appendChild(empty);
+        } else {
+            combined.forEach((x) => {
+                if (x.kind === 'saved') list.appendChild(createSavedHistoryRow(x.entry));
+                else list.appendChild(createQueueItem(x.item));
+            });
+        }
     } else if (activeTab !== 'completed') {
         filteredQueue.forEach((item) => {
-            list.appendChild(createQueueItem(item));
-        });
-    } else {
-        sessionItemsToShow.forEach((item) => {
             list.appendChild(createQueueItem(item));
         });
     }

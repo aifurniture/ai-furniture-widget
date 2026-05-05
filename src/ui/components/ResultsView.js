@@ -6,52 +6,11 @@ import { Slider } from './Slider.js';
 import { Button } from './Button.js';
 import { downloadUrlAsFile, fetchImageBlob, getFilenameFromUrl } from '../../utils/downloadImage.js';
 
-function syncResultsDrawerExpandedClass() {
-    const modal = document.querySelector('#ai-furniture-modal');
-    const container = modal?.querySelector('.aif-container');
-    if (!container) return;
-    const any = modal.querySelector('.aif-result-preview-shell--expanded');
-    container.classList.toggle('aif-results-expanded', !!any);
-}
-
-/**
- * Larger in-modal preview (no browser fullscreen — works on all devices).
- */
-function wrapPreviewWithLargerToggle(previewEl) {
-    const shell = document.createElement('div');
-    shell.className = 'aif-result-preview-shell';
-    shell.style.cssText = 'position:relative;width:100%;';
-
-    const toggleBtn = document.createElement('button');
-    toggleBtn.type = 'button';
-    toggleBtn.className = 'aif-result-preview-larger-btn';
-    toggleBtn.textContent = 'Larger view';
-    toggleBtn.setAttribute('aria-expanded', 'false');
-    toggleBtn.setAttribute('aria-label', 'Show larger preview');
-
-    toggleBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const on = shell.classList.toggle('aif-result-preview-shell--expanded');
-        toggleBtn.textContent = on ? 'Smaller view' : 'Larger view';
-        toggleBtn.setAttribute('aria-expanded', on ? 'true' : 'false');
-        toggleBtn.setAttribute(
-            'aria-label',
-            on ? 'Show smaller preview' : 'Show larger preview'
-        );
-        syncResultsDrawerExpandedClass();
-        if (on) {
-            try {
-                shell.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            } catch {
-                /* ignore */
-            }
-        }
-    });
-
-    shell.appendChild(previewEl);
-    shell.appendChild(toggleBtn);
-    return shell;
+function previewBlock(el) {
+    const wrap = document.createElement('div');
+    wrap.className = 'aif-result-preview-block';
+    wrap.appendChild(el);
+    return wrap;
 }
 
 export const ResultsView = (state) => {
@@ -278,14 +237,14 @@ export const ResultsView = (state) => {
                     afterImage: generatedUrl,
                     aspectRatio: aspectRatio
                 });
-                grid.appendChild(wrapPreviewWithLargerToggle(slider));
+                grid.appendChild(previewBlock(slider));
                 grid.appendChild(createActionsRow(beforeUrl, generatedUrl, s3Key, furnitureWidthCm));
             } else {
                 const img = document.createElement('img');
                 img.src = generatedUrl;
                 img.style.maxWidth = '100%';
                 img.style.borderRadius = '8px';
-                grid.appendChild(wrapPreviewWithLargerToggle(img));
+                grid.appendChild(previewBlock(img));
                 grid.appendChild(createActionsRow('', generatedUrl, s3Key, furnitureWidthCm));
             }
         }
