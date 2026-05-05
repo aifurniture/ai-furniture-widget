@@ -61,8 +61,9 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.6);
-      backdrop-filter: blur(8px);
+      background: transparent;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
       z-index: 999999;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
@@ -156,7 +157,10 @@
   
   // Click outside to close
   modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeModal();
+    // Close when clicking the backdrop (not the inner panel).
+    // `closest` keeps this robust even if the user clicks nested elements.
+    if (!(e.target instanceof Element)) return;
+    if (!e.target.closest('.aif-panel')) closeModal();
   });
   
   // File upload handling
