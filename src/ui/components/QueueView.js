@@ -5,6 +5,8 @@ import { actions, QUEUE_STATUS, VIEWS } from '../../state/store.js';
 import { Button } from './Button.js';
 import { trackEvent } from '../../tracking.js';
 
+const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export const QueueView = (state) => {
     const container = document.createElement('div');
     container.style.display = 'flex';
@@ -23,10 +25,10 @@ export const QueueView = (state) => {
     header.innerHTML = `
     <div class="aif-badge">
       <span style="width:6px; height:6px; border-radius:50%; background:${processingCount > 0 ? '#475569' : '#059669'};"></span>
-      Your Visualizations
+      Previews
     </div>
-    <h2>Queue & Results</h2>
-    <p>${processingCount} processing • ${completedCount} completed ${failedCount > 0 ? `• ${failedCount} failed` : ''}</p>
+    <h2>Your previews</h2>
+    <p>${processingCount > 0 ? `Processing ${processingCount}…` : 'When a preview finishes, open Ready to view it.'}</p>
   `;
     container.appendChild(header);
 
@@ -39,13 +41,14 @@ export const QueueView = (state) => {
     tabs.style.marginBottom = '8px';
 
     const remoteGenerations = state.remoteGenerations || [];
-    const savedCount = state.userEmail ? remoteGenerations.length : 0;
+    const emailLinked = EMAIL_OK.test((state.userEmail || '').trim().toLowerCase());
+    const savedCount = remoteGenerations.length;
     const completedTabCount = completedCount + savedCount;
 
     const tabOptions = [
         { id: 'all', label: 'All', count: state.queue.length },
-        { id: 'processing', label: 'Processing', count: processingCount },
-        { id: 'completed', label: 'Completed', count: completedTabCount }
+        { id: 'processing', label: 'In progress', count: processingCount },
+        { id: 'completed', label: 'Ready', count: completedTabCount }
     ];
 
     if (failedCount > 0) {
@@ -67,7 +70,7 @@ export const QueueView = (state) => {
 
         tabBtn.onclick = () => {
             actions.setQueueTab(tab.id);
-            if (tab.id === 'completed' && state.userEmail) {
+            if (tab.id === 'completed') {
                 actions.syncShopperGenerations();
             }
         };
@@ -95,12 +98,12 @@ export const QueueView = (state) => {
     list.style.flexDirection = 'column';
     list.style.gap = '12px';
 
-    if (activeTab === 'completed' && state.userEmail && remoteGenerations.length > 0) {
+    if (activeTab === 'completed' && savedCount > 0) {
         const savedSection = document.createElement('div');
         savedSection.className = 'aif-queue-saved';
         const savedTitle = document.createElement('h4');
         savedTitle.className = 'aif-queue-saved__title';
-        savedTitle.textContent = 'Saved with your email';
+        savedTitle.textContent = emailLinked ? 'Saved with your email' : 'Saved on this browser';
         savedSection.appendChild(savedTitle);
         remoteGenerations.forEach((entry) => {
             savedSection.appendChild(createSavedHistoryRow(entry));
@@ -126,7 +129,7 @@ export const QueueView = (state) => {
         empty.style.textAlign = 'center';
         empty.style.color = '#94a3b8';
         empty.style.marginTop = '20px';
-        empty.textContent = 'No items in this category.';
+        empty.textContent = 'Nothing here yet.';
         list.appendChild(empty);
     } else if (activeTab !== 'completed') {
         filteredQueue.forEach((item) => {
@@ -147,7 +150,7 @@ export const QueueView = (state) => {
     footer.style.gap = '8px';
 
     const backBtn = Button({
-        text: 'Back to Upload',
+        text: 'New photo',
         variant: 'secondary',
         onClick: () => actions.setView(VIEWS.UPLOAD)
     });

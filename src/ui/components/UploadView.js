@@ -19,10 +19,10 @@ export const UploadView = (state) => {
     header.innerHTML = `
     <div class="aif-badge">
       <span style="width:6px; height:6px; border-radius:50%; background:#22c55e;"></span>
-      Room Visualiser
+      Room preview
     </div>
-    <h2>See this in your own room</h2>
-    <p>Upload a photo of your room. We'll swap your current furniture for this one, matching the angle and lighting.</p>
+    <h2>See it in your room</h2>
+    <p>Upload one photo of your room. We place this product in your space for you.</p>
   `;
     container.appendChild(header);
 
@@ -48,8 +48,8 @@ export const UploadView = (state) => {
         if (processingCount > 0) statusText += ` • ${processingCount} processing`;
 
         queueBanner.innerHTML = `
-            <span style="color:#1e40af; font-size:13px; font-weight:500;">📋 ${statusText}</span>
-            <span style="color:#3b82f6; font-size:12px;">View →</span>
+            <span style="color:#1e40af; font-size:13px; font-weight:500;">${statusText}</span>
+            <span style="color:#3b82f6; font-size:12px;">Open</span>
         `;
         container.appendChild(queueBanner);
     }
@@ -321,7 +321,7 @@ export const UploadView = (state) => {
     footer.style.marginTop = 'auto';
 
     const generateBtn = Button({
-        text: 'Generate Preview',
+        text: 'Start preview',
         disabled: !state.uploadedImage,
         onClick: async () => {
             if (!state.uploadedImage) return;
@@ -332,7 +332,7 @@ export const UploadView = (state) => {
             const spinner = document.createElement('div');
             spinner.className = 'aif-spinner';
             const loadingText = document.createElement('span');
-            loadingText.textContent = ' Generating...';
+            loadingText.textContent = ' Working…';
             generateBtn.appendChild(spinner);
             generateBtn.appendChild(loadingText);
             generateBtn.style.display = 'flex';
@@ -395,7 +395,7 @@ export const UploadView = (state) => {
                 // Reset button
                 generateBtn.disabled = false;
                 generateBtn.innerHTML = '';
-                generateBtn.textContent = 'Generate Preview';
+                generateBtn.textContent = 'Start preview';
                 generateBtn.style.display = '';
 
             } catch (error) {
@@ -404,7 +404,7 @@ export const UploadView = (state) => {
 
                 generateBtn.disabled = false;
                 generateBtn.innerHTML = '';
-                generateBtn.textContent = 'Generate Preview';
+                generateBtn.textContent = 'Start preview';
                 generateBtn.style.display = '';
             }
         }

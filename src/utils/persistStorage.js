@@ -121,3 +121,37 @@ export function setPersistedString(key, value) {
         console.warn('[AI Furniture] Could not persist state', e2);
     }
 }
+
+const WIDGET_ANON_CLIENT_KEY = 'aif_widget_anon_client_id';
+
+const UUID_V4_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function randomUUIDv4() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+    });
+}
+
+/**
+ * Stable per-browser id for server-side preview history when the shopper has not entered an email.
+ */
+export function getWidgetAnonymousClientId() {
+    if (typeof window === 'undefined') return '';
+    const existing = (getPersistedString(WIDGET_ANON_CLIENT_KEY) || '').trim();
+    if (existing && UUID_V4_RE.test(existing)) {
+        return existing.toLowerCase();
+    }
+    const fresh = randomUUIDv4();
+    try {
+        setPersistedString(WIDGET_ANON_CLIENT_KEY, fresh);
+    } catch {
+        /* ignore */
+    }
+    return fresh.toLowerCase();
+}

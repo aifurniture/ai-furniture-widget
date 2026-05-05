@@ -1,5 +1,5 @@
 /**
- * Optional email field — bottom of modal; links shopper to server-side preview history.
+ * Optional email — links shopper to server-side preview history; collapsed by default to reduce noise.
  */
 import { store, actions, VIEWS } from '../../state/store.js';
 
@@ -15,7 +15,6 @@ export function WidgetFooter() {
     const wrap = document.createElement('div');
     wrap.className = 'aif-widget-footer';
 
-    // Shown when shopper has saved an email — no need to re-enter
     const savedWrap = document.createElement('div');
     savedWrap.className = 'aif-widget-footer__saved';
     savedWrap.style.display = 'none';
@@ -26,21 +25,27 @@ export function WidgetFooter() {
     const savedLink = document.createElement('button');
     savedLink.type = 'button';
     savedLink.className = 'aif-widget-footer__saved-link';
-    savedLink.textContent = 'Open Completed previews →';
-    savedLink.title = 'Go to Queue → Completed tab';
+    savedLink.textContent = 'Open saved previews';
+    savedLink.title = 'Go to Ready tab';
     savedLink.addEventListener('click', () => goToCompleted());
 
     savedWrap.appendChild(savedLabel);
     savedWrap.appendChild(savedLink);
 
-    // Email form (optional)
+    const details = document.createElement('details');
+    details.className = 'aif-widget-footer__details';
+
+    const summary = document.createElement('summary');
+    summary.className = 'aif-widget-footer__summary';
+    summary.textContent = 'Optional: link email to see previews on any device';
+
     const formWrap = document.createElement('div');
     formWrap.className = 'aif-widget-footer__form';
 
     const label = document.createElement('label');
     label.className = 'aif-widget-footer__label';
     label.setAttribute('for', 'aif-shopper-email');
-    label.textContent = 'Email (optional)';
+    label.textContent = 'Email';
 
     const input = document.createElement('input');
     input.id = 'aif-shopper-email';
@@ -52,7 +57,8 @@ export function WidgetFooter() {
 
     const hint = document.createElement('p');
     hint.className = 'aif-widget-footer__hint';
-    hint.textContent = 'Save your previews for this store across visits.';
+    hint.textContent =
+        'Previews are already kept in this browser. Add an email only if you want them on other devices too.';
 
     const commit = () => {
         const v = (input.value || '').trim().toLowerCase();
@@ -62,7 +68,8 @@ export function WidgetFooter() {
             return false;
         }
         hint.style.color = '';
-        hint.textContent = 'Save your previews for this store across visits.';
+        hint.textContent =
+            'Previews are already kept in this browser. Add an email only if you want them on other devices too.';
         actions.setUserEmail(v);
         return true;
     };
@@ -73,8 +80,8 @@ export function WidgetFooter() {
     const submitBtn = document.createElement('button');
     submitBtn.type = 'button';
     submitBtn.className = 'aif-widget-footer__submit';
-    submitBtn.textContent = 'Save';
-    submitBtn.title = 'Save email and load saved previews in Queue → Completed';
+    submitBtn.textContent = 'Link email';
+    submitBtn.title = 'Save email and open saved server history';
 
     const applyEmail = async () => {
         const v = (input.value || '').trim().toLowerCase();
@@ -89,10 +96,9 @@ export function WidgetFooter() {
             await actions.setUserEmail(v);
             if (v) {
                 goToCompleted();
-                hint.textContent =
-                    'Saved for this session. Your previews from this store appear under Queue → Completed.';
+                hint.textContent = 'Linked. Your previews for this store also appear under Ready → Saved.';
             } else {
-                hint.textContent = 'Email cleared.';
+                hint.textContent = 'Email removed. This browser still keeps previews until you clear them.';
             }
         } finally {
             submitBtn.disabled = false;
@@ -127,8 +133,11 @@ export function WidgetFooter() {
     formWrap.appendChild(row);
     formWrap.appendChild(hint);
 
+    details.appendChild(summary);
+    details.appendChild(formWrap);
+
     wrap.appendChild(savedWrap);
-    wrap.appendChild(formWrap);
+    wrap.appendChild(details);
 
     const updateMode = (state) => {
         const e = (state.userEmail || '').trim();
@@ -136,14 +145,14 @@ export function WidgetFooter() {
         wrap.classList.toggle('aif-widget-footer--has-email', hasEmail);
         if (hasEmail) {
             savedWrap.style.display = '';
-            formWrap.style.display = 'none';
-            savedLabel.textContent = `Saved as ${e}`;
+            details.style.display = 'none';
+            savedLabel.textContent = `Linked as ${e}`;
             if (document.activeElement !== input) {
                 input.value = e;
             }
         } else {
             savedWrap.style.display = 'none';
-            formWrap.style.display = '';
+            details.style.display = '';
             if (document.activeElement !== input) {
                 input.value = e;
             }

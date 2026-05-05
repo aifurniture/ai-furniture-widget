@@ -1,6 +1,7 @@
 import { store, actions, QUEUE_STATUS } from '../state/store.js';
 import { trackEvent } from '../tracking.js';
 import { postWidgetGeneration, getStorefrontDomain } from '../utils/widgetShopperApi.js';
+import { getWidgetAnonymousClientId } from '../utils/persistStorage.js';
 import { debugLog } from '../debug.js';
 
 function pickStablePreviewUrl(savedResponse, fallbackUrl) {
@@ -407,10 +408,13 @@ async function processQueueItem(item) {
         });
 
         const userEmail = (store.getState().userEmail || '').trim().toLowerCase();
-        if (userEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail) && generatedImageUrl) {
+        const emailOk =
+            !!userEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail);
+        const anonKey = emailOk ? '' : getWidgetAnonymousClientId();
+
+        if (generatedImageUrl && (emailOk || anonKey)) {
             const domainForHistory = mergedConfig?.domain || getStorefrontDomain();
-            postWidgetGeneration(apiEndpoint, {
-                email: userEmail,
+            const payload = {
                 domain: domainForHistory,
                 productUrl,
                 productName: (item.productName || document.title || '').slice(0, 500),
@@ -434,7 +438,13 @@ async function processQueueItem(item) {
                         result.originalImageDimensions?.height ||
                         result.generatedImages?.[0]?.originalHeight
                 }
-            })
+            };
+            if (emailOk) {
+                payload.email = userEmail;
+            } else {
+                payload.anonymousClientKey = anonKey;
+            }
+            postWidgetGeneration(apiEndpoint, payload)
                 .then((saved) => {
                     // Important: generatedImageUrl may be a short-lived signed URL.
                     // If the backend returns a durable URL, update the queue item to use it.

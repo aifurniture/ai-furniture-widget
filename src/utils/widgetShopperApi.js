@@ -30,8 +30,11 @@ export async function postWidgetShopper(apiEndpoint, email, domain) {
     return data;
 }
 
-export async function fetchWidgetGenerations(apiEndpoint, email, domain) {
-    const q = new URLSearchParams({ email, domain });
+export async function fetchWidgetGenerations(apiEndpoint, { domain, email, anonymousClientKey }) {
+    const q = new URLSearchParams();
+    if (domain) q.set('domain', domain);
+    if (email) q.set('email', email);
+    if (anonymousClientKey) q.set('anonymousClientKey', anonymousClientKey);
     const res = await fetch(`${apiBase(apiEndpoint)}/widget/generations?${q}`, {
         method: 'GET',
         headers: { Accept: 'application/json' },

@@ -1,7 +1,7 @@
 /**
  * Results View Component
  */
-import { store, actions, VIEWS } from '../../state/store.js';
+import { store, actions, VIEWS, QUEUE_STATUS } from '../../state/store.js';
 import { Slider } from './Slider.js';
 import { Button } from './Button.js';
 import { downloadUrlAsFile, fetchImageBlob, getFilenameFromUrl } from '../../utils/downloadImage.js';
@@ -166,7 +166,7 @@ export const ResultsView = (state) => {
         const hint = document.createElement('p');
         hint.className = 'aif-result-actions__hint';
         hint.textContent = beforeUrl
-            ? 'Save both images — tap each button:'
+            ? 'Save images — tap each:'
             : 'Save your preview:';
 
         const row = document.createElement('div');
@@ -241,10 +241,10 @@ export const ResultsView = (state) => {
     // Header
     const header = document.createElement('div');
     header.innerHTML = `
-    <h3 style="margin:0; font-size:16px; font-weight:600;">✨ Your room preview</h3>
-    <p style="margin:4px 0 0; font-size:12px; color:#64748b;">Drag the slider to compare, then save your photos below.</p>
+    <h3 style="margin:0; font-size:16px; font-weight:600;">Your room preview</h3>
+    <p style="margin:4px 0 0; font-size:12px; color:#64748b;">Drag the slider to compare, then save or share below.</p>
     <p style="margin:6px 0 0; font-size:11px; color:#64748b; line-height:1.4;">
-      Sizes are AI-estimated and may vary. Please measure your space and check product dimensions before purchasing.
+      Sizes are estimated — always measure your space and check product dimensions before buying.
     </p>
   `;
     container.appendChild(header);
@@ -301,11 +301,12 @@ export const ResultsView = (state) => {
     actionsDiv.style.marginTop = 'auto';
 
     const backBtn = Button({
-        text: 'Back',
+        text: 'Back to previews',
         variant: 'secondary',
         onClick: () => {
-            const { userEmail } = store.getState();
-            if ((userEmail || '').trim()) {
+            const cur = store.getState();
+            const hasCompleted = cur.queue.some((i) => i.status === QUEUE_STATUS.COMPLETED);
+            if (hasCompleted) {
                 actions.setQueueTab('completed');
             }
             actions.setView(VIEWS.QUEUE);
@@ -319,7 +320,7 @@ export const ResultsView = (state) => {
     backBtn.onmouseout = () => (backBtn.style.background = 'white');
 
     const tryAgainBtn = document.createElement('button');
-    tryAgainBtn.textContent = 'Try another photo';
+    tryAgainBtn.textContent = 'Start over';
     tryAgainBtn.style.background = 'none';
     tryAgainBtn.style.border = 'none';
     tryAgainBtn.style.color = '#64748b';

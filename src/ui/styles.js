@@ -472,6 +472,32 @@ export const styles = `
     background: linear-gradient(180deg, #fafbfc 0%, #f1f5f9 100%);
   }
 
+  .aif-widget-footer__details {
+    margin: 0;
+    padding: 0;
+    border: none;
+  }
+
+  .aif-widget-footer__summary {
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--aif-text-muted);
+    list-style: none;
+    padding: 2px 0 4px;
+    user-select: none;
+    line-height: 1.4;
+  }
+
+  .aif-widget-footer__summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .aif-widget-footer__details[open] .aif-widget-footer__summary {
+    color: var(--aif-text-main);
+    margin-bottom: 2px;
+  }
+
   .aif-widget-footer__label {
     display: block;
     font-size: 11px;
@@ -778,9 +804,10 @@ export const styles = `
       max-width: 92vw;
     }
 
-    /* Hide email form on RESULTS; show compact footer when email is saved (link to Completed). */
+    /* Results: keep footer visible; email block stays a compact disclosure. */
     .aif-container[data-aif-view="RESULTS"] .aif-widget-footer:not(.aif-widget-footer--has-email) {
-      display: none;
+      display: block;
+      padding: 8px 24px 12px;
     }
 
     .aif-container[data-aif-view="RESULTS"] .aif-widget-footer.aif-widget-footer--has-email {

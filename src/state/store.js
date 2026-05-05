@@ -3,7 +3,7 @@
  * Uses sessionStorage for cross-page persistence within the same session
  */
 import { createConfig } from '../config.js';
-import { getPersistedString, setPersistedString } from '../utils/persistStorage.js';
+import { getPersistedString, setPersistedString, getWidgetAnonymousClientId } from '../utils/persistStorage.js';
 import {
     fetchWidgetGenerations,
     getStorefrontDomain,
@@ -175,7 +175,12 @@ function loadPersistedEmail() {
 async function syncShopperGenerationsFromServer() {
     if (typeof window === 'undefined') return;
     const { config, userEmail } = store.getState();
-    if (!userEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail)) {
+    const emailTrim = (userEmail || '').trim().toLowerCase();
+    const emailOk = emailTrim && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim);
+    const anonKey = getWidgetAnonymousClientId();
+    const anonOk = !!anonKey && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(anonKey);
+
+    if (!emailOk && !anonOk) {
         store.setState({ remoteGenerations: [] });
         return;
     }
@@ -189,7 +194,10 @@ async function syncShopperGenerationsFromServer() {
         }
         if (remoteGenerationsInFlight) return remoteGenerationsInFlight;
 
-        remoteGenerationsInFlight = fetchWidgetGenerations(api.apiEndpoint, userEmail, domain)
+        remoteGenerationsInFlight = fetchWidgetGenerations(api.apiEndpoint, {
+            domain,
+            ...(emailOk ? { email: emailTrim } : { anonymousClientKey: anonKey })
+        })
             .then((data) => {
                 store.setState({ remoteGenerations: data.generations || [] });
                 // Normal cadence: don't hammer; allow refresh every 15s.
@@ -328,9 +336,7 @@ export const actions = {
         });
         if (typeof queueMicrotask === 'function') {
             queueMicrotask(() => {
-                if (store.getState().userEmail) {
-                    syncShopperGenerationsFromServer();
-                }
+                syncShopperGenerationsFromServer();
             });
         }
     },
