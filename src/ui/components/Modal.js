@@ -11,12 +11,6 @@ export const Modal = () => {
     const modalOverlay = document.createElement('div');
     modalOverlay.id = 'ai-furniture-modal';
 
-    /** Full-viewport transparent layer under the drawer — click anywhere on the store to close. */
-    const backdrop = document.createElement('div');
-    backdrop.className = 'aif-modal-backdrop';
-    backdrop.setAttribute('aria-hidden', 'true');
-    backdrop.addEventListener('click', () => actions.closeModal());
-
     const container = document.createElement('div');
     container.className = 'aif-container';
 
@@ -36,8 +30,21 @@ export const Modal = () => {
     const footer = WidgetFooter();
     container.appendChild(footer);
 
-    modalOverlay.appendChild(backdrop);
     modalOverlay.appendChild(container);
+
+    // Click anywhere outside the drawer to close (desktop + mobile).
+    // We intentionally avoid a fullscreen overlay element to prevent compositing that can visually blur the page.
+    let outsideHandlerAttached = false;
+    const onDocPointerDownCapture = (e) => {
+        const state = store.getState();
+        if (!state.isOpen) return;
+        if (!(e.target instanceof Element)) return;
+        if (container.contains(e.target)) return;
+        // Close and swallow the click so the underlying page doesn't accidentally activate something.
+        e.preventDefault();
+        e.stopPropagation();
+        actions.closeModal();
+    };
 
     // Render content based on view
     const renderContent = (state) => {
@@ -65,8 +72,16 @@ export const Modal = () => {
     store.subscribe((state) => {
         if (state.isOpen) {
             modalOverlay.classList.add('open');
+            if (!outsideHandlerAttached && typeof document !== 'undefined') {
+                outsideHandlerAttached = true;
+                document.addEventListener('pointerdown', onDocPointerDownCapture, true);
+            }
         } else {
             modalOverlay.classList.remove('open');
+            if (outsideHandlerAttached && typeof document !== 'undefined') {
+                outsideHandlerAttached = false;
+                document.removeEventListener('pointerdown', onDocPointerDownCapture, true);
+            }
         }
 
         // Re-render content when view changes
@@ -78,6 +93,10 @@ export const Modal = () => {
     const initialState = store.getState();
     if (initialState.isOpen) {
         modalOverlay.classList.add('open');
+        if (!outsideHandlerAttached && typeof document !== 'undefined') {
+            outsideHandlerAttached = true;
+            document.addEventListener('pointerdown', onDocPointerDownCapture, true);
+        }
         renderContent(initialState);
     }
 

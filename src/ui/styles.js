@@ -32,20 +32,6 @@ export const styles = `
     display: contents;
   }
 
-  .aif-modal-backdrop {
-    display: none;
-  }
-
-  #ai-furniture-modal.open .aif-modal-backdrop {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 999997;
-    background: transparent;
-    pointer-events: auto;
-    cursor: default;
-  }
-
   .aif-container {
     position: fixed;
     z-index: 999999;
