@@ -19,55 +19,36 @@ export const styles = `
     --aif-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   }
 
+  /*
+   * Wrapper uses display:contents when open (no extra fullscreen box — avoids blurring the store).
+   * Backdrop covers the viewport under the drawer; clicks on the site close the widget.
+   */
   #ai-furniture-modal {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    background: var(--aif-bg-overlay);
-    z-index: 999999;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    font-family: var(--aif-font);
     display: none;
+    font-family: var(--aif-font);
   }
 
   #ai-furniture-modal.open {
-    display: block;
-    opacity: 1;
+    display: contents;
   }
 
-  /* Desktop: invisible hit region to the left of the drawer — closes without dimming/blurring the store. */
-  .aif-modal-dismiss-strip {
+  .aif-modal-backdrop {
     display: none;
   }
 
-  @media (min-width: 769px) {
-    #ai-furniture-modal.open .aif-modal-dismiss-strip {
-      display: block;
-      position: fixed;
-      top: 0;
-      left: 0;
-      bottom: 0;
-      width: max(0px, calc(100vw - clamp(360px, 34vw, 520px)));
-      pointer-events: auto;
-      z-index: 0;
-      background: transparent;
-      cursor: default;
-    }
-
-    #ai-furniture-modal.open:has(.aif-container.aif-results-expanded) .aif-modal-dismiss-strip {
-      width: max(0px, calc(100vw - min(92vw, 760px)));
-    }
-
-    #ai-furniture-modal.open .aif-container {
-      z-index: 1;
-    }
+  #ai-furniture-modal.open .aif-modal-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 999997;
+    background: transparent;
+    pointer-events: auto;
+    cursor: default;
   }
 
   .aif-container {
     position: fixed;
+    z-index: 999999;
     background: var(--aif-bg-panel);
     box-shadow: var(--aif-shadow);
     overflow: hidden;
@@ -702,8 +683,6 @@ export const styles = `
     cursor: pointer;
     font-family: var(--aif-font);
     line-height: 1.2;
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   }
 

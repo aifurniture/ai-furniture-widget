@@ -11,10 +11,11 @@ export const Modal = () => {
     const modalOverlay = document.createElement('div');
     modalOverlay.id = 'ai-furniture-modal';
 
-    const dismissStrip = document.createElement('div');
-    dismissStrip.className = 'aif-modal-dismiss-strip';
-    dismissStrip.setAttribute('aria-hidden', 'true');
-    dismissStrip.addEventListener('click', () => actions.closeModal());
+    /** Full-viewport transparent layer under the drawer — click anywhere on the store to close. */
+    const backdrop = document.createElement('div');
+    backdrop.className = 'aif-modal-backdrop';
+    backdrop.setAttribute('aria-hidden', 'true');
+    backdrop.addEventListener('click', () => actions.closeModal());
 
     const container = document.createElement('div');
     container.className = 'aif-container';
@@ -35,7 +36,7 @@ export const Modal = () => {
     const footer = WidgetFooter();
     container.appendChild(footer);
 
-    modalOverlay.appendChild(dismissStrip);
+    modalOverlay.appendChild(backdrop);
     modalOverlay.appendChild(container);
 
     // Render content based on view
