@@ -191,19 +191,21 @@ export const ResultsView = (state) => {
     };
 
     const container = document.createElement('div');
+    container.className = 'aif-results-view';
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
-    container.style.gap = '16px';
+    container.style.gap = '8px';
     container.style.height = '100%';
-    container.style.minHeight = '0'; /* flex: allow scroll area to shrink */
+    container.style.minHeight = '0';
 
     // Header
     const header = document.createElement('div');
+    header.className = 'aif-results-lede';
     header.innerHTML = `
-    <h3 style="margin:0; font-size:16px; font-weight:600;">Your room preview</h3>
-    <p style="margin:4px 0 0; font-size:12px; color:#64748b;">Drag the slider to compare, then save or share below.</p>
-    <p style="margin:6px 0 0; font-size:11px; color:#64748b; line-height:1.4;">
-      Sizes are estimated — always measure your space and check product dimensions before buying.
+    <h3 style="margin:0; font-size:15px; font-weight:600;">Your room preview</h3>
+    <p style="margin:3px 0 0; font-size:11px; color:#64748b;line-height:1.35;">
+      Drag the slider to compare — then save or share.<br/>
+      <span style="opacity:0.95;">Sizes are estimated; measure your space before buying.</span>
     </p>
   `;
     container.appendChild(header);
@@ -215,11 +217,6 @@ export const ResultsView = (state) => {
     grid.className = 'aif-results-grid';
     grid.style.display = 'flex';
     grid.style.flexDirection = 'column';
-    grid.style.gap = '16px';
-    grid.style.overflowY = 'auto';
-    grid.style.flex = '1';
-    grid.style.minHeight = '0';
-    grid.style.paddingRight = '4px'; // Space for scrollbar
 
     pairs.forEach(({ beforeUrl, afterUrl, index: i, s3Key, furnitureWidthCm }) => {
         const imgData = state.generatedImages[i];
@@ -256,8 +253,9 @@ export const ResultsView = (state) => {
     const actionsDiv = document.createElement('div');
     actionsDiv.style.display = 'flex';
     actionsDiv.style.flexDirection = 'column';
-    actionsDiv.style.gap = '8px';
+    actionsDiv.style.gap = '6px';
     actionsDiv.style.marginTop = 'auto';
+    actionsDiv.style.flexShrink = '0';
 
     const backBtn = Button({
         text: 'Back to previews',

@@ -8,10 +8,13 @@ import { trackEvent } from '../../tracking.js';
 
 export const UploadView = (state) => {
     const container = document.createElement('div');
+    container.className = 'aif-upload-view';
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
-    container.style.gap = '16px';
+    container.style.gap = '10px';
     container.style.height = '100%';
+    container.style.minHeight = '0';
+    container.style.overflow = 'hidden';
 
     // Header
     const header = document.createElement('div');
@@ -69,6 +72,8 @@ export const UploadView = (state) => {
     // Main Upload Area
     const uploadArea = document.createElement('div');
     uploadArea.style.flex = '1';
+    uploadArea.style.minHeight = '0';
+    uploadArea.style.overflow = 'hidden';
     uploadArea.style.display = 'flex';
     uploadArea.style.flexDirection = 'column';
 
@@ -78,18 +83,14 @@ export const UploadView = (state) => {
     if (state.uploadedImage) {
         // Preview Mode
         const previewContainer = document.createElement('div');
+        previewContainer.className = 'aif-upload-stage';
         previewContainer.style.position = 'relative';
         previewContainer.style.borderRadius = '12px';
         previewContainer.style.overflow = 'hidden';
         previewContainer.style.background = '#f1f5f9';
-        previewContainer.style.maxHeight = '300px';
-        previewContainer.style.display = 'flex';
-        previewContainer.style.justifyContent = 'center';
 
         const img = document.createElement('img');
         img.src = URL.createObjectURL(state.uploadedImage);
-        img.style.maxWidth = '100%';
-        img.style.maxHeight = '300px';
         img.style.objectFit = 'contain';
 
         const changeBtn = document.createElement('button');

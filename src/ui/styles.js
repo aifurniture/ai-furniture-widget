@@ -57,6 +57,9 @@ export const styles = `
     display: flex;
     flex-direction: column;
     pointer-events: auto; /* re-enable interactions inside the panel */
+    box-sizing: border-box;
+    height: 100%;
+    max-height: 100dvh;
   }
 
   /* Desktop Styles */
@@ -149,30 +152,24 @@ export const styles = `
 
   .aif-content {
     flex: 1;
-    min-height: 0; /* allow flex child to shrink so inner scroll + footer actions work */
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    padding: 32px 24px 24px;
-    gap: 24px;
-    overflow-y: auto;
+    padding: 18px 18px 12px;
+    gap: 10px;
     overflow-x: hidden;
+    overflow-y: hidden;
+    box-sizing: border-box;
   }
 
-  .aif-content::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .aif-content::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .aif-content::-webkit-scrollbar-thumb {
-    background: #e5e7eb;
-    border-radius: 10px;
-  }
-
-  .aif-content::-webkit-scrollbar-thumb:hover {
-    background: #d1d5db;
+  /* Fill the panel: one view root per screen, no outer scroll */
+  .aif-content > :first-child {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   .aif-header {
@@ -180,18 +177,24 @@ export const styles = `
   }
 
   .aif-header h2 {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 700;
-    margin: 0 0 8px 0;
+    margin: 0 0 4px 0;
     color: var(--aif-text-main);
     letter-spacing: -0.02em;
+    line-height: 1.2;
   }
 
   .aif-header p {
-    font-size: 14px;
+    font-size: 13px;
     color: var(--aif-text-muted);
     margin: 0;
-    line-height: 1.6;
+    line-height: 1.45;
+  }
+
+  .aif-results-lede {
+    flex-shrink: 0;
+    line-height: 1.35;
   }
 
   .aif-badge {
@@ -206,14 +209,45 @@ export const styles = `
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
     box-shadow: 0 2px 8px rgba(16, 185, 129, 0.15);
+  }
+
+  .aif-upload-view .aif-dropzone {
+    flex: 1 1 0;
+    min-height: 0;
+    padding: 28px 18px;
+  }
+
+  .aif-upload-view .aif-upload-stage {
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .aif-upload-view .aif-upload-stage img {
+    max-width: 100%;
+    max-height: min(36dvh, 220px);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+  }
+
+  .aif-queue-tabs {
+    flex-shrink: 0;
+  }
+
+  .aif-queue-card {
+    flex-shrink: 0;
   }
 
   .aif-dropzone {
     border: 2px dashed #d1d5db;
     border-radius: var(--aif-radius-sm);
-    padding: 48px 24px;
+    padding: 32px 20px;
     background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
     display: flex;
     flex-direction: column;
@@ -499,7 +533,7 @@ export const styles = `
 
   .aif-widget-footer {
     flex-shrink: 0;
-    padding: 12px 24px 16px;
+    padding: 8px 18px 12px;
     border-top: 1px solid var(--aif-border);
     background: linear-gradient(180deg, #fafbfc 0%, #f1f5f9 100%);
   }
@@ -643,8 +677,8 @@ export const styles = `
   /* Results actions (Save / Share) */
   .aif-result-actions {
     flex-shrink: 0;
-    margin-top: 4px;
-    padding: 10px 0 4px;
+    margin-top: 2px;
+    padding: 6px 0 2px;
     border-top: 1px solid #e2e8f0;
   }
 
@@ -687,9 +721,53 @@ export const styles = `
     cursor: not-allowed;
   }
 
+  .aif-results-grid {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+  }
+
   .aif-result-preview-block {
     position: relative;
     width: 100%;
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Slider/images fill remaining vertical space instead of forcing extra height via aspect-ratio */
+  .aif-result-preview-block .aif-slider {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: unset !important;
+  }
+
+  .aif-result-preview-block > img {
+    flex: 1 1 0;
+    min-height: 0;
+    width: 100%;
+    max-width: 100%;
+    object-fit: contain;
+  }
+
+  .aif-queue-list {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .aif-queue-view .aif-header {
+    flex-shrink: 0;
   }
 
   .aif-history {
@@ -746,10 +824,10 @@ export const styles = `
   /* Mobile Optimizations */
   @media (max-width: 768px) {
     .aif-content {
-      padding: 24px 20px 20px;
+      padding: 16px 14px 10px;
     }
 
-    /* Results: edge-to-edge preview + taller default — “image too small” on phones */
+    /* Results: edge-to-edge preview; height from flex (no fixed min-height — avoids panel scroll) */
     .aif-container[data-aif-view="RESULTS"] .aif-content {
       padding-left: 12px;
       padding-right: 12px;
@@ -761,26 +839,22 @@ export const styles = `
       width: calc(100% + 24px);
     }
 
-    .aif-container[data-aif-view="RESULTS"] .aif-slider {
-      min-height: min(54vh, 520px);
-    }
-
     .aif-widget-footer {
-      padding: 12px 20px 16px;
+      padding: 8px 14px 10px;
     }
 
     .aif-header h2 {
-      font-size: 22px;
+      font-size: 18px;
     }
 
     .aif-btn-primary,
     .aif-btn-secondary {
-      padding: 14px 20px;
+      padding: 12px 16px;
       font-size: 14px;
     }
 
     .aif-dropzone {
-      padding: 40px 20px;
+      padding: 28px 16px;
     }
   }
 
@@ -789,12 +863,12 @@ export const styles = `
     /* Results: keep footer visible; email block stays a compact disclosure. */
     .aif-container[data-aif-view="RESULTS"] .aif-widget-footer:not(.aif-widget-footer--has-email) {
       display: block;
-      padding: 8px 24px 12px;
+      padding: 6px 18px 10px;
     }
 
     .aif-container[data-aif-view="RESULTS"] .aif-widget-footer.aif-widget-footer--has-email {
       display: block;
-      padding: 8px 24px 12px;
+      padding: 6px 18px 10px;
     }
 
     /* Compact the per-result action block. */

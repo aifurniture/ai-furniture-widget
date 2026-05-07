@@ -5,8 +5,6 @@ import { actions, QUEUE_STATUS, VIEWS } from '../../state/store.js';
 import { Button } from './Button.js';
 import { trackEvent } from '../../tracking.js';
 
-const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 function newestFirstTimestamp(item) {
     return item.completedAt || item.timestamp || item.queuedAt || 0;
 }
@@ -25,10 +23,13 @@ function sortRemoteGenerationsNewestFirst(entries) {
 
 export const QueueView = (state) => {
     const container = document.createElement('div');
+    container.className = 'aif-queue-view';
     container.style.display = 'flex';
     container.style.flexDirection = 'column';
-    container.style.gap = '16px';
+    container.style.gap = '8px';
     container.style.height = '100%';
+    container.style.minHeight = '0';
+    container.style.overflow = 'hidden';
 
     // Header
     const header = document.createElement('div');
@@ -51,13 +52,13 @@ export const QueueView = (state) => {
     // Tabs
     const activeTab = state.queueTab || 'all';
     const tabs = document.createElement('div');
+    tabs.className = 'aif-queue-tabs';
     tabs.style.display = 'flex';
     tabs.style.gap = '8px';
     tabs.style.borderBottom = '1px solid #e2e8f0';
     tabs.style.marginBottom = '8px';
 
     const remoteGenerations = state.remoteGenerations || [];
-    const emailLinked = EMAIL_OK.test((state.userEmail || '').trim().toLowerCase());
     const savedCount = remoteGenerations.length;
     const completedTabCount = completedCount + savedCount;
 
@@ -108,11 +109,9 @@ export const QueueView = (state) => {
 
     // Queue List
     const list = document.createElement('div');
-    list.style.flex = '1';
-    list.style.overflowY = 'auto';
+    list.className = 'aif-queue-list';
     list.style.display = 'flex';
     list.style.flexDirection = 'column';
-    list.style.gap = '12px';
 
     if (activeTab === 'completed') {
         // Merge session + server-saved items so newest always appears at the top.
@@ -156,6 +155,7 @@ export const QueueView = (state) => {
     // Footer
     const footer = document.createElement('div');
     footer.style.marginTop = 'auto';
+    footer.style.flexShrink = '0';
     footer.style.display = 'flex';
     footer.style.gap = '8px';
 
@@ -189,7 +189,8 @@ export const QueueView = (state) => {
 /** Server-stored preview (same shape as GET /api/widget/generations). */
 function createSavedHistoryRow(entry) {
     const itemEl = document.createElement('div');
-    itemEl.style.padding = '12px';
+    itemEl.className = 'aif-queue-card';
+    itemEl.style.padding = '10px';
     itemEl.style.background = '#ffffff';
     itemEl.style.borderRadius = '12px';
     itemEl.style.border = '1px solid #e2e8f0';
@@ -199,8 +200,8 @@ function createSavedHistoryRow(entry) {
     itemEl.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
 
     const thumbnail = document.createElement('div');
-    thumbnail.style.width = '56px';
-    thumbnail.style.height = '56px';
+    thumbnail.style.width = '48px';
+    thumbnail.style.height = '48px';
     thumbnail.style.borderRadius = '8px';
     thumbnail.style.background = '#f1f5f9';
     thumbnail.style.flexShrink = '0';
@@ -357,7 +358,8 @@ function createSavedHistoryRow(entry) {
 
 function createQueueItem(item) {
     const itemEl = document.createElement('div');
-    itemEl.style.padding = '16px';
+    itemEl.className = 'aif-queue-card';
+    itemEl.style.padding = '11px';
     itemEl.style.background = '#ffffff';
     itemEl.style.borderRadius = '12px';
     itemEl.style.border = '1px solid #e2e8f0';
@@ -368,8 +370,8 @@ function createQueueItem(item) {
 
     // Thumbnail (if available)
     const thumbnail = document.createElement('div');
-    thumbnail.style.width = '60px';
-    thumbnail.style.height = '60px';
+    thumbnail.style.width = '52px';
+    thumbnail.style.height = '52px';
     thumbnail.style.borderRadius = '8px';
     thumbnail.style.background = '#f1f5f9';
     thumbnail.style.flexShrink = '0';
