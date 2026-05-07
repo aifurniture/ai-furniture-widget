@@ -7,17 +7,43 @@ import { ResultsView } from './ResultsView.js';
 import { QueueView } from './QueueView.js';
 import { WidgetFooter } from './WidgetFooter.js';
 
+const FOCUSABLE_SELECTOR = [
+    'a[href]',
+    'button:not([disabled])',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])'
+].join(',');
+
+function listFocusables(root) {
+    return Array.from(root.querySelectorAll(FOCUSABLE_SELECTOR)).filter((el) => {
+        if (!(el instanceof HTMLElement)) return false;
+        if (el.getAttribute('aria-hidden') === 'true') return false;
+        return el.offsetParent !== null || el.getClientRects().length > 0;
+    });
+}
+
 export const Modal = () => {
     const modalOverlay = document.createElement('div');
     modalOverlay.id = 'ai-furniture-modal';
 
+    const scrim = document.createElement('div');
+    scrim.className = 'aif-drawer-scrim';
+    scrim.setAttribute('aria-hidden', 'true');
+
     const container = document.createElement('div');
     container.className = 'aif-container';
+    container.setAttribute('role', 'dialog');
+    container.setAttribute('aria-modal', 'true');
+    container.setAttribute('aria-label', 'AI furniture preview');
 
     // Close button
     const closeBtn = document.createElement('button');
     closeBtn.className = 'aif-close-btn';
+    closeBtn.type = 'button';
     closeBtn.innerHTML = '×';
+    closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.onclick = actions.closeModal;
 
     container.appendChild(closeBtn);
@@ -30,11 +56,15 @@ export const Modal = () => {
     const footer = WidgetFooter();
     container.appendChild(footer);
 
+    modalOverlay.appendChild(scrim);
     modalOverlay.appendChild(container);
 
     // Click anywhere outside the drawer to close (desktop + mobile).
-    // We intentionally avoid a fullscreen overlay element to prevent compositing that can visually blur the page.
-    let outsideHandlerAttached = false;
+    // Optional desktop scrim uses a flat tint only — no backdrop-filter (avoids blurring the store).
+    let docHandlersAttached = false;
+    /** @type {HTMLElement | null} */
+    let focusReturnEl = null;
+
     const onDocPointerDownCapture = (e) => {
         const state = store.getState();
         if (!state.isOpen) return;
@@ -44,6 +74,68 @@ export const Modal = () => {
         e.preventDefault();
         e.stopPropagation();
         actions.closeModal();
+    };
+
+    const onDocKeyDown = (e) => {
+        const state = store.getState();
+        if (!state.isOpen) return;
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            actions.closeModal();
+            return;
+        }
+        if (e.key !== 'Tab') return;
+        const list = listFocusables(container);
+        if (list.length === 0) return;
+        const first = list[0];
+        const last = list[list.length - 1];
+        const active = document.activeElement;
+        if (e.shiftKey) {
+            if (active === first || !container.contains(active)) {
+                e.preventDefault();
+                last.focus();
+            }
+        } else if (active === last) {
+            e.preventDefault();
+            first.focus();
+        }
+    };
+
+    const attachDocHandlers = () => {
+        if (docHandlersAttached || typeof document === 'undefined') return;
+        docHandlersAttached = true;
+        document.addEventListener('pointerdown', onDocPointerDownCapture, true);
+        document.addEventListener('keydown', onDocKeyDown, true);
+    };
+
+    const detachDocHandlers = () => {
+        if (!docHandlersAttached || typeof document === 'undefined') return;
+        docHandlersAttached = false;
+        document.removeEventListener('pointerdown', onDocPointerDownCapture, true);
+        document.removeEventListener('keydown', onDocKeyDown, true);
+    };
+
+    const focusDrawer = () => {
+        requestAnimationFrame(() => {
+            try {
+                closeBtn.focus();
+            } catch {
+                /* ignore */
+            }
+        });
+    };
+
+    const restoreFocusIfPossible = () => {
+        if (!(focusReturnEl instanceof HTMLElement)) return;
+        try {
+            if (document.contains(focusReturnEl)) {
+                focusReturnEl.focus();
+            }
+        } catch {
+            /* ignore */
+        }
+        focusReturnEl = null;
     };
 
     // Render content based on view
@@ -68,36 +160,62 @@ export const Modal = () => {
         }
     };
 
-    // Subscribe to store changes
+    let wasOpen = false;
+
     store.subscribe((state) => {
-        if (state.isOpen) {
-            modalOverlay.classList.add('open');
-            if (!outsideHandlerAttached && typeof document !== 'undefined') {
-                outsideHandlerAttached = true;
-                document.addEventListener('pointerdown', onDocPointerDownCapture, true);
-            }
-        } else {
-            modalOverlay.classList.remove('open');
-            if (outsideHandlerAttached && typeof document !== 'undefined') {
-                outsideHandlerAttached = false;
-                document.removeEventListener('pointerdown', onDocPointerDownCapture, true);
+        const nowOpen = !!state.isOpen;
+        const opening = nowOpen && !wasOpen;
+        const closing = !nowOpen && wasOpen;
+
+        if (opening) {
+            if (
+                document.activeElement instanceof HTMLElement &&
+                !container.contains(document.activeElement)
+            ) {
+                focusReturnEl = document.activeElement;
+            } else {
+                focusReturnEl = null;
             }
         }
 
-        // Re-render content when view changes
+        if (closing) {
+            detachDocHandlers();
+            restoreFocusIfPossible();
+        }
+
+        if (nowOpen) {
+            modalOverlay.classList.add('open');
+            attachDocHandlers();
+        } else {
+            modalOverlay.classList.remove('open');
+        }
+
+        wasOpen = nowOpen;
+
         renderContent(state);
+
+        if (opening) {
+            focusDrawer();
+        }
     });
 
     // Restore modal immediately on full-page reload (subscribe only fires on changes,
     // so if isOpen:true was persisted in sessionStorage we must render the initial state here)
     const initialState = store.getState();
     if (initialState.isOpen) {
-        modalOverlay.classList.add('open');
-        if (!outsideHandlerAttached && typeof document !== 'undefined') {
-            outsideHandlerAttached = true;
-            document.addEventListener('pointerdown', onDocPointerDownCapture, true);
+        wasOpen = true;
+        if (
+            document.activeElement instanceof HTMLElement &&
+            !container.contains(document.activeElement)
+        ) {
+            focusReturnEl = document.activeElement;
+        } else {
+            focusReturnEl = null;
         }
+        modalOverlay.classList.add('open');
+        attachDocHandlers();
         renderContent(initialState);
+        focusDrawer();
     }
 
     return modalOverlay;

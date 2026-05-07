@@ -21,7 +21,7 @@ export const styles = `
 
   /*
    * Wrapper uses display:contents when open (no extra fullscreen box — avoids blurring the store).
-   * Backdrop covers the viewport under the drawer; clicks on the site close the widget.
+   * Desktop: flat tint scrim behind the drawer (no backdrop-filter). Clicks outside the panel close the widget.
    */
   #ai-furniture-modal {
     display: none;
@@ -30,6 +30,21 @@ export const styles = `
 
   #ai-furniture-modal.open {
     display: contents;
+  }
+
+  .aif-drawer-scrim {
+    display: none;
+  }
+
+  @media (min-width: 769px) {
+    #ai-furniture-modal.open .aif-drawer-scrim {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 999998;
+      pointer-events: auto;
+      background: rgba(15, 23, 42, 0.22);
+    }
   }
 
   .aif-container {
@@ -55,6 +70,11 @@ export const styles = `
       border-left: 1px solid var(--aif-border);
       transform: translateX(100%);
     }
+
+    /* Room for before/after on the results step */
+    .aif-container[data-aif-view="RESULTS"] {
+      width: min(92vw, 600px);
+    }
     
     #ai-furniture-modal.open .aif-container {
       transform: translateX(0);
@@ -73,6 +93,25 @@ export const styles = `
 
     #ai-furniture-modal.open .aif-container {
       transform: translateY(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .aif-container {
+      transition-duration: 0.01ms !important;
+      transition-delay: 0s !important;
+    }
+
+    .aif-close-btn,
+    .aif-btn-primary,
+    .aif-btn-secondary,
+    .aif-btn-text {
+      transition: none !important;
+    }
+
+    .aif-fade-in,
+    .aif-pulse {
+      animation: none !important;
     }
   }
 
