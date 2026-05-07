@@ -1,9 +1,9 @@
 /**
  * Before/After Slider Component - Premium & Smooth
  */
-export const Slider = ({ beforeImage, afterImage, aspectRatio }) => {
+export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = false }) => {
     const container = document.createElement('div');
-    container.className = 'aif-slider';
+    container.className = fillParent ? 'aif-slider aif-slider--fill' : 'aif-slider';
 
     // Start with provided aspect ratio or sensible default; will update on image load
     const numericRatio = typeof aspectRatio === 'number' ? aspectRatio : null;
@@ -11,12 +11,14 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio }) => {
     const initialAspectRatio = numericRatio != null ? String(numericRatio) : '3/4';
 
     const applyAspectFromNatural = (w, h) => {
+        if (fillParent) return;
         if (w > 0 && h > 0) {
             container.style.aspectRatio = String(w / h);
         }
     };
 
     const syncAspectFromImages = () => {
+        if (fillParent) return;
         const wb = imgBefore.naturalWidth;
         const hb = imgBefore.naturalHeight;
         const wa = imgAfter.naturalWidth;
@@ -33,19 +35,22 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio }) => {
         }
     };
 
-    Object.assign(container.style, {
+    const boxStyle = {
         position: 'relative',
         width: '100%',
         borderRadius: '12px',
         overflow: 'hidden',
         border: '1px solid #e5e7eb',
         background: '#f9fafb',
-        aspectRatio: initialAspectRatio,
         userSelect: 'none',
         WebkitUserSelect: 'none',
         touchAction: 'none',
         boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-    });
+    };
+    if (!fillParent) {
+        boxStyle.aspectRatio = initialAspectRatio;
+    }
+    Object.assign(container.style, boxStyle);
 
     // Before Image (Right side - shown fully)
     const imgBefore = document.createElement('img');
@@ -264,8 +269,10 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio }) => {
     container.appendChild(labelAfter);
     container.appendChild(dividerWrapper);
 
-    if (imgBefore.complete) syncAspectFromImages();
-    if (imgAfter.complete) syncAspectFromImages();
+    if (!fillParent) {
+        if (imgBefore.complete) syncAspectFromImages();
+        if (imgAfter.complete) syncAspectFromImages();
+    }
 
     return container;
 };

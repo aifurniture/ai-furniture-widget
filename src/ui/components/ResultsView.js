@@ -192,20 +192,14 @@ export const ResultsView = (state) => {
 
     const container = document.createElement('div');
     container.className = 'aif-results-view';
-    container.style.display = 'flex';
-    container.style.flexDirection = 'column';
-    container.style.gap = '8px';
-    container.style.height = '100%';
-    container.style.minHeight = '0';
 
     // Header
     const header = document.createElement('div');
     header.className = 'aif-results-lede';
     header.innerHTML = `
-    <h3 style="margin:0; font-size:15px; font-weight:600;">Your room preview</h3>
-    <p style="margin:3px 0 0; font-size:11px; color:#64748b;line-height:1.35;">
-      Drag the slider to compare — then save or share.<br/>
-      <span style="opacity:0.95;">Sizes are estimated; measure your space before buying.</span>
+    <h3 style="margin:0; font-size:14px; font-weight:600;">Your room preview</h3>
+    <p style="margin:2px 0 0; font-size:10px; color:#64748b;line-height:1.3;">
+      Drag the slider to compare. Sizes are estimated — measure before buying.
     </p>
   `;
     container.appendChild(header);
@@ -215,8 +209,6 @@ export const ResultsView = (state) => {
     // Results Grid
     const grid = document.createElement('div');
     grid.className = 'aif-results-grid';
-    grid.style.display = 'flex';
-    grid.style.flexDirection = 'column';
 
     pairs.forEach(({ beforeUrl, afterUrl, index: i, s3Key, furnitureWidthCm }) => {
         const imgData = state.generatedImages[i];
@@ -232,7 +224,8 @@ export const ResultsView = (state) => {
                 const slider = Slider({
                     beforeImage: beforeUrl,
                     afterImage: generatedUrl,
-                    aspectRatio: aspectRatio
+                    aspectRatio: aspectRatio,
+                    fillParent: true
                 });
                 grid.appendChild(previewBlock(slider));
                 grid.appendChild(createActionsRow(beforeUrl, generatedUrl, s3Key, furnitureWidthCm));
@@ -254,7 +247,6 @@ export const ResultsView = (state) => {
     actionsDiv.style.display = 'flex';
     actionsDiv.style.flexDirection = 'column';
     actionsDiv.style.gap = '6px';
-    actionsDiv.style.marginTop = 'auto';
     actionsDiv.style.flexShrink = '0';
 
     const backBtn = Button({

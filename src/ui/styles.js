@@ -164,7 +164,7 @@ export const styles = `
 
   /* Fill the panel: one view root per screen, no outer scroll */
   .aif-content > :first-child {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-height: 0;
     min-width: 0;
     display: flex;
@@ -721,13 +721,26 @@ export const styles = `
     cursor: not-allowed;
   }
 
-  .aif-results-grid {
+  /* Results: locked viewport — preview row gets all leftover height (no page scroll for image) */
+  .aif-results-view {
     flex: 1 1 0;
     min-height: 0;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    gap: 6px;
+    height: 100%;
+    max-height: 100%;
+  }
+
+  .aif-results-grid {
+    min-height: 0;
+    height: 100%;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
     overflow: hidden;
+    align-self: stretch;
   }
 
   .aif-result-preview-block {
@@ -738,14 +751,17 @@ export const styles = `
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    max-height: 100%;
+    overflow: hidden;
   }
 
-  /* Slider/images fill remaining vertical space instead of forcing extra height via aspect-ratio */
-  .aif-result-preview-block .aif-slider {
+  /* Results slider: hug parent cell — images stay fully visible via object-fit: contain */
+  .aif-result-preview-block .aif-slider.aif-slider--fill {
     flex: 1 1 0 !important;
     min-height: 0 !important;
     width: 100% !important;
-    height: auto !important;
+    height: 100% !important;
+    max-height: 100% !important;
     aspect-ratio: unset !important;
   }
 
@@ -753,8 +769,11 @@ export const styles = `
     flex: 1 1 0;
     min-height: 0;
     width: 100%;
+    height: 100%;
     max-width: 100%;
+    max-height: 100%;
     object-fit: contain;
+    align-self: center;
   }
 
   .aif-queue-list {
