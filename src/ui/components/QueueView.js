@@ -5,20 +5,28 @@ import { actions, QUEUE_STATUS, VIEWS } from '../../state/store.js';
 import { Button } from './Button.js';
 import { trackEvent } from '../../tracking.js';
 
-function newestFirstTimestamp(item) {
-    return item.completedAt || item.timestamp || item.queuedAt || 0;
+function toTimestampMs(value) {
+    if (value == null) return 0;
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+        const ms = new Date(value).getTime();
+        return Number.isFinite(ms) ? ms : 0;
+    }
+    return 0;
 }
 
-function sortCompletedQueueItems(items) {
-    return [...items].sort((a, b) => newestFirstTimestamp(b) - newestFirstTimestamp(a));
+function queueItemSortTimestamp(item) {
+    return toTimestampMs(
+        item.completedAt || item.startedAt || item.queuedAt || item.timestamp || 0
+    );
+}
+
+function sortQueueItemsNewestFirst(items) {
+    return [...items].sort((a, b) => queueItemSortTimestamp(b) - queueItemSortTimestamp(a));
 }
 
 function sortRemoteGenerationsNewestFirst(entries) {
-    return [...entries].sort((a, b) => {
-        const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return tb - ta;
-    });
+    return [...entries].sort((a, b) => toTimestampMs(b.createdAt) - toTimestampMs(a.createdAt));
 }
 
 export const QueueView = (state) => {
@@ -115,17 +123,17 @@ export const QueueView = (state) => {
 
     if (activeTab === 'completed') {
         // Merge session + server-saved items so newest always appears at the top.
-        const sessionCompleted = sortCompletedQueueItems(
+        const sessionCompleted = sortQueueItemsNewestFirst(
             state.queue.filter((i) => i.status === QUEUE_STATUS.COMPLETED)
         ).map((item) => ({
             kind: 'session',
-            ts: newestFirstTimestamp(item),
+            ts: queueItemSortTimestamp(item),
             item
         }));
 
         const savedCompleted = sortRemoteGenerationsNewestFirst(remoteGenerations).map((entry) => ({
             kind: 'saved',
-            ts: entry?.createdAt ? new Date(entry.createdAt).getTime() : 0,
+            ts: toTimestampMs(entry?.createdAt),
             entry
         }));
 
@@ -144,8 +152,8 @@ export const QueueView = (state) => {
                 else list.appendChild(createQueueItem(x.item));
             });
         }
-    } else if (activeTab !== 'completed') {
-        filteredQueue.forEach((item) => {
+    } else {
+        sortQueueItemsNewestFirst(filteredQueue).forEach((item) => {
             list.appendChild(createQueueItem(item));
         });
     }
