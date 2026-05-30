@@ -68,35 +68,22 @@ function getApiEndpoint(mergedConfig) {
         : 'https://ai-furniture-backend.vercel.app/api';
 }
 
-async function uploadImageToS3ViaBackend({ apiEndpoint, domain, sessionId, fileOrBlob }) {
-    if (!fileOrBlob) throw new Error('Missing image');
-    const contentType = fileOrBlob.type || 'image/jpeg';
+async function uploadImageViaBackend({ apiEndpoint, domain, sessionId, fileOrBlob }) {
+    const formData = new FormData();
+    formData.append('image', fileOrBlob, 'room.jpg');
+    formData.append('domain', domain);
+    if (sessionId) formData.append('sessionId', sessionId);
 
-    const r = await fetch(`${apiEndpoint}/upload-url`, {
+    const r = await fetch(`${apiEndpoint}/upload`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-            domain,
-            ...(sessionId ? { sessionId } : {}),
-            contentType
-        }),
+        headers: { Accept: 'application/json' },
+        body: formData,
         credentials: 'omit'
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || `upload-url HTTP ${r.status}`);
-    if (!data.uploadUrl || !data.s3Key) throw new Error('upload-url missing uploadUrl/s3Key');
-
-    const putRes = await fetch(data.uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': contentType },
-        body: fileOrBlob
-    });
-    if (!putRes.ok) throw new Error(`S3 PUT HTTP ${putRes.status}`);
-
-    return {
-        s3Key: data.s3Key,
-        imageUrl: data.imageUrl || null
-    };
+    if (!r.ok) throw new Error(data.error || `upload HTTP ${r.status}`);
+    if (!data.s3Key) throw new Error('upload missing s3Key');
+    return { s3Key: data.s3Key, imageUrl: data.imageUrl || null };
 }
 
 const processingItems = new Set();
@@ -383,22 +370,22 @@ async function processQueueItem(item) {
     if (processingItems.has(id) || pollingItems.has(id)) return;
 
     let imageToUse = null;
-    if (!imageS3Key) {
+    if (!imageS3Key || !item.userImageUrl) {
         imageToUse = userImage;
         if (!imageToUse || !(imageToUse instanceof File || imageToUse instanceof Blob)) {
             if (userImageDataUrl) {
                 imageToUse = dataURLToBlob(userImageDataUrl);
                 if (imageToUse) actions.updateQueueItem(id, { userImage: imageToUse });
             }
-            if (!imageToUse) {
-                actions.updateQueueItem(id, {
-                    status: QUEUE_STATUS.ERROR,
-                    completedAt: Date.now(),
-                    error: 'Image data lost - please re-upload'
-                });
-                return;
-            }
         }
+    }
+    if (!imageS3Key && !imageToUse) {
+        actions.updateQueueItem(id, {
+            status: QUEUE_STATUS.ERROR,
+            completedAt: Date.now(),
+            error: 'Image data lost - please re-upload'
+        });
+        return;
     }
 
     const apiEndpoint = getApiEndpoint(mergedConfig);
@@ -414,17 +401,25 @@ async function processQueueItem(item) {
         });
 
         let uploaded = imageS3Key ? { s3Key: imageS3Key, imageUrl: item.userImageUrl || null } : null;
-        if (!uploaded?.s3Key) {
-            uploaded = await uploadImageToS3ViaBackend({
-                apiEndpoint,
-                domain: domainForApi,
-                sessionId: sessionIdForApi,
-                fileOrBlob: imageToUse
-            });
-            actions.updateQueueItem(id, {
-                imageS3Key: uploaded.s3Key,
-                userImageUrl: uploaded.imageUrl || item.userImageUrl || null
-            });
+
+        // Send image to backend — never browser->S3 PUT (blocked by S3 CORS on storefronts).
+        // Prefer /api/generate with image file; backend uploads to S3 server-side.
+        if (!uploaded?.s3Key && imageToUse) {
+            debugLog(`Uploading via backend /upload for ${id.slice(0, 8)}`);
+            try {
+                uploaded = await uploadImageViaBackend({
+                    apiEndpoint,
+                    domain: domainForApi,
+                    sessionId: sessionIdForApi,
+                    fileOrBlob: imageToUse
+                });
+                actions.updateQueueItem(id, {
+                    imageS3Key: uploaded.s3Key,
+                    userImageUrl: uploaded.imageUrl || item.userImageUrl || null
+                });
+            } catch (uploadErr) {
+                debugLog('Backend /upload failed, sending image with /generate', uploadErr?.message || uploadErr);
+            }
         }
 
         // Recover result from a prior async job if one exists
