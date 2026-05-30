@@ -1,8 +1,22 @@
 import { store, actions, QUEUE_STATUS } from '../state/store.js';
 import { trackEvent } from '../tracking.js';
-import { postWidgetGeneration, getStorefrontDomain } from '../utils/widgetShopperApi.js';
+import {
+    postWidgetGeneration,
+    getStorefrontDomain,
+    startWidgetGeneration,
+    fetchWidgetGenerationStatus
+} from '../utils/widgetShopperApi.js';
 import { getWidgetAnonymousClientId } from '../utils/persistStorage.js';
 import { debugLog } from '../debug.js';
+
+const BACKEND_JOB_STATUS = {
+    PROCESSING: 'PROCESSING',
+    COMPLETED: 'COMPLETED',
+    FAILED: 'FAILED'
+};
+
+const POLL_INTERVAL_MS = 4000;
+const MAX_POLL_MS = 5 * 60 * 1000;
 
 function pickStablePreviewUrl(savedResponse, fallbackUrl) {
     const candidate =
@@ -25,6 +39,19 @@ function getSessionIdForApi(mergedConfig) {
     } catch {
         return mergedConfig?.sessionId || null;
     }
+}
+
+function isNavigationAbort(error) {
+    if (!error) return false;
+    if (error.name === 'AbortError') return true;
+    const msg = String(error.message || '').toLowerCase();
+    return (
+        msg.includes('abort') ||
+        msg.includes('failed to fetch') ||
+        msg.includes('networkerror') ||
+        msg.includes('network request failed') ||
+        msg.includes('load failed')
+    );
 }
 
 async function uploadImageToS3ViaBackend({ apiEndpoint, domain, sessionId, fileOrBlob }) {
@@ -54,18 +81,15 @@ async function uploadImageToS3ViaBackend({ apiEndpoint, domain, sessionId, fileO
 
     return {
         s3Key: data.s3Key,
-        // stable URL (per your backend contract); may be undefined if backend didn't include it
         imageUrl: data.imageUrl || null
     };
 }
 
-// Track items currently being processed
 const processingItems = new Set();
-
-// Track if queue processor has been initialized to prevent duplicates
+const pollingItems = new Set();
 let queueProcessorInitialized = false;
+let isPageUnloading = false;
 
-// Helper to convert data URL back to Blob
 const dataURLToBlob = (dataURL) => {
     if (!dataURL) return null;
     try {
@@ -84,11 +108,196 @@ const dataURLToBlob = (dataURL) => {
     }
 };
 
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
+    const result = resultPayload?.result || resultPayload;
+    const originalImageUrl =
+        result.generatedImages?.[0]?.originalImageUrl || uploaded?.imageUrl || item.userImageUrl || null;
+    const generatedImageUrl = result.generatedImages?.[0]?.url;
+
+    actions.updateQueueItem(id, {
+        status: QUEUE_STATUS.COMPLETED,
+        completedAt: Date.now(),
+        imageS3Key: uploaded?.s3Key || item.imageS3Key || null,
+        userImageUrl: originalImageUrl || item.userImageUrl,
+        backendJobSubmitted: true,
+        result: {
+            generatedImageUrl,
+            originalImageUrl,
+            imageS3Key: uploaded?.s3Key || item.imageS3Key || null,
+            furnitureWidthCm:
+                typeof item.furnitureWidthCm === 'number' &&
+                Number.isFinite(item.furnitureWidthCm) &&
+                item.furnitureWidthCm > 0
+                    ? item.furnitureWidthCm
+                    : null,
+            model: item.selectedModel,
+            generationTime: result.timings?.total?.durationSeconds,
+            timestamp: new Date().toISOString(),
+            productData: result.productData,
+            originalAspectRatio:
+                result.originalImageDimensions?.aspectRatio ||
+                result.generatedImages?.[0]?.originalAspectRatio,
+            originalWidth:
+                result.originalImageDimensions?.width || result.generatedImages?.[0]?.originalWidth,
+            originalHeight:
+                result.originalImageDimensions?.height || result.generatedImages?.[0]?.originalHeight
+        }
+    });
+
+    trackEvent('ai_generation_completed', {
+        queueId: id,
+        productUrl: item.productUrl,
+        productName: item.productName || document.title,
+        model: item.selectedModel,
+        generationTime: result.timings?.total?.durationSeconds,
+        hasResult: !!generatedImageUrl,
+        generatedImageUrl
+    });
+
+    const userEmail = (store.getState().userEmail || '').trim().toLowerCase();
+    const emailOk = !!userEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail);
+    const anonKey = emailOk ? '' : getWidgetAnonymousClientId();
+    const apiEndpoint = mergedConfig?.apiEndpoint;
+    const { productUrl } = item;
+    const { furnitureWidthCm } = item;
+
+    if (generatedImageUrl && (emailOk || anonKey) && apiEndpoint) {
+        const domainForHistory = mergedConfig?.domain || getStorefrontDomain();
+        const payload = {
+            domain: domainForHistory,
+            productUrl,
+            productName: (item.productName || document.title || '').slice(0, 500),
+            previewImageUrl: generatedImageUrl,
+            originalImageUrl: originalImageUrl || null,
+            metadata: {
+                queueId: id,
+                imageS3Key: uploaded?.s3Key || item.imageS3Key || null,
+                ...(typeof furnitureWidthCm === 'number' &&
+                Number.isFinite(furnitureWidthCm) &&
+                furnitureWidthCm > 0
+                    ? { furnitureWidthCm }
+                    : {}),
+                originalAspectRatio:
+                    result.originalImageDimensions?.aspectRatio ||
+                    result.generatedImages?.[0]?.originalAspectRatio,
+                originalWidth:
+                    result.originalImageDimensions?.width ||
+                    result.generatedImages?.[0]?.originalWidth,
+                originalHeight:
+                    result.originalImageDimensions?.height ||
+                    result.generatedImages?.[0]?.originalHeight
+            }
+        };
+        if (emailOk) {
+            payload.email = userEmail;
+        } else {
+            payload.anonymousClientKey = anonKey;
+        }
+        postWidgetGeneration(apiEndpoint, payload)
+            .then((saved) => {
+                const stablePreviewUrl = pickStablePreviewUrl(saved, generatedImageUrl);
+                if (stablePreviewUrl && stablePreviewUrl !== generatedImageUrl) {
+                    actions.updateQueueItem(id, {
+                        result: {
+                            ...(store.getState().queue.find((q) => q.id === id)?.result || {}),
+                            generatedImageUrl: stablePreviewUrl
+                        }
+                    });
+                }
+                actions.syncShopperGenerations();
+            })
+            .catch((e) => debugLog('Could not save preview to history', e?.message || e));
+    }
+}
+
+async function pollUntilComplete(id, item, apiEndpoint, domainForApi, uploaded, mergedConfig) {
+    if (pollingItems.has(id)) return false;
+    pollingItems.add(id);
+    processingItems.add(id);
+
+    const startedAt = item.startedAt || Date.now();
+    const deadline = startedAt + MAX_POLL_MS;
+    let completed = false;
+
+    try {
+        while (!isPageUnloading && Date.now() < deadline) {
+            let statusPayload;
+            try {
+                statusPayload = await fetchWidgetGenerationStatus(apiEndpoint, {
+                    queueId: id,
+                    domain: domainForApi
+                });
+            } catch (e) {
+                if (e?.status === 404) {
+                    debugLog(`Job ${id.slice(0, 8)} not found on server yet`);
+                    return false;
+                }
+                debugLog('Poll failed, retrying…', e?.message || e);
+                await sleep(POLL_INTERVAL_MS);
+                continue;
+            }
+
+            if (statusPayload.status === BACKEND_JOB_STATUS.COMPLETED && statusPayload.result) {
+                applyCompletedResult(id, item, statusPayload, uploaded, mergedConfig);
+                completed = true;
+                return true;
+            }
+
+            if (statusPayload.status === BACKEND_JOB_STATUS.FAILED) {
+                throw new Error(statusPayload.error || 'Generation failed');
+            }
+
+            await sleep(POLL_INTERVAL_MS);
+        }
+
+        if (!isPageUnloading && Date.now() >= deadline) {
+            throw new Error('Generation timed out - please retry');
+        }
+
+        return false;
+    } finally {
+        pollingItems.delete(id);
+        if (!completed) {
+            processingItems.delete(id);
+        } else {
+            processingItems.delete(id);
+        }
+    }
+}
+
+async function submitAsyncGeneration(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded) {
+    const formData = new FormData();
+    formData.append('queueId', id);
+    formData.append('productUrl', item.productUrl);
+    formData.append('model', 'slow');
+    formData.append('domain', domainForApi);
+    if (sessionIdForApi) formData.append('sessionId', sessionIdForApi);
+    if (item.productName) formData.append('productName', item.productName);
+    formData.append('imageS3Key', uploaded.s3Key);
+    if (
+        typeof item.furnitureWidthCm === 'number' &&
+        Number.isFinite(item.furnitureWidthCm) &&
+        item.furnitureWidthCm > 0
+    ) {
+        formData.append('furnitureWidthCm', String(item.furnitureWidthCm));
+    }
+
+    await startWidgetGeneration(apiEndpoint, formData);
+    actions.updateQueueItem(id, {
+        backendJobSubmitted: true,
+        generationSubmittedAt: Date.now(),
+        imageS3Key: uploaded.s3Key,
+        userImageUrl: uploaded.imageUrl || item.userImageUrl || null
+    });
+}
+
 export function initQueueProcessor() {
-    // Prevent multiple initializations (script might reload on page navigation)
     if (queueProcessorInitialized) {
         debugLog('Queue Processor already initialized, skipping...');
-        // Still check for pending items in case script was reloaded
         const currentState = store.getState();
         if (currentState.queue && currentState.queue.length > 0) {
             debugLog('Checking queue after script reload...');
@@ -96,20 +305,18 @@ export function initQueueProcessor() {
         }
         return;
     }
-    
+
     queueProcessorInitialized = true;
-    
-    // Subscribe to queue changes (only once)
+
     store.subscribe((state) => {
         checkQueue(state);
     });
 
-    // Initial check - resume any pending/processing items
     const initialState = store.getState();
     debugLog('Queue Processor initialized. Checking for pending items...', {
         queueLength: initialState.queue.length,
-        pending: initialState.queue.filter(i => i.status === QUEUE_STATUS.PENDING).length,
-        processing: initialState.queue.filter(i => i.status === QUEUE_STATUS.PROCESSING).length
+        pending: initialState.queue.filter((i) => i.status === QUEUE_STATUS.PENDING).length,
+        processing: initialState.queue.filter((i) => i.status === QUEUE_STATUS.PROCESSING).length
     });
 
     checkQueue(initialState);
@@ -117,152 +324,138 @@ export function initQueueProcessor() {
 }
 
 function checkQueue(state) {
-    // No polling needed - we do direct generation
-    // Just check if we need to resume any pending items
     const pendingItems = state.queue.filter(
-        item => item.status === QUEUE_STATUS.PENDING && !processingItems.has(item.id)
+        (item) => item.status === QUEUE_STATUS.PENDING && !processingItems.has(item.id)
     );
 
     if (pendingItems.length > 0) {
         debugLog(`Found ${pendingItems.length} pending items, processing...`);
-        pendingItems.forEach(item => {
+        pendingItems.forEach((item) => {
             processQueueItem(item);
         });
     }
 }
 
-/**
- * Resume processing for any PENDING items that aren't being processed yet
- */
 function resumePendingItems(state) {
     const pendingItems = state.queue.filter(
-        item => item.status === QUEUE_STATUS.PENDING && !processingItems.has(item.id)
+        (item) => item.status === QUEUE_STATUS.PENDING && !processingItems.has(item.id)
     );
 
-    if (pendingItems.length > 0) {
-        debugLog(`Found ${pendingItems.length} pending items...`);
-        pendingItems.forEach(item => {
-            // Check if item has valid userImage (File/Blob) or data URL
-            if (!item.userImage && !item.userImageDataUrl) {
-                console.warn(`⚠️ Item ${item.id.slice(0, 8)} lost image data (page reload), marking as error`);
+    pendingItems.forEach((item) => {
+        if (!item.userImage && !item.userImageDataUrl && !item.imageS3Key) {
+            console.warn(`⚠️ Item ${item.id.slice(0, 8)} lost image data (page reload), marking as error`);
+            actions.updateQueueItem(item.id, {
+                status: QUEUE_STATUS.ERROR,
+                completedAt: Date.now(),
+                error: 'Image data lost after page reload - please add to queue again'
+            });
+            return;
+        }
+
+        if (item.userImageDataUrl && !item.userImage && !item.imageS3Key) {
+            const blob = dataURLToBlob(item.userImageDataUrl);
+            if (blob) {
+                item.userImage = blob;
+                debugLog(`Restored image from data URL for item ${item.id.slice(0, 8)}`);
+            } else {
                 actions.updateQueueItem(item.id, {
                     status: QUEUE_STATUS.ERROR,
                     completedAt: Date.now(),
-                    error: 'Image data lost after page reload - please add to queue again'
+                    error: 'Failed to restore image data - please re-upload'
                 });
-            } else {
-                // If we have data URL but no Blob, convert it
-                if (item.userImageDataUrl && !item.userImage) {
-                    const blob = dataURLToBlob(item.userImageDataUrl);
-                    if (blob) {
-                        item.userImage = blob;
-                        debugLog(`Restored image from data URL for item ${item.id.slice(0, 8)}`);
-                    } else {
-                        console.warn(`⚠️ Failed to restore image from data URL for item ${item.id.slice(0, 8)}`);
-                        actions.updateQueueItem(item.id, {
-                            status: QUEUE_STATUS.ERROR,
-                            completedAt: Date.now(),
-                            error: 'Failed to restore image data - please re-upload'
-                        });
-                        return;
-                    }
-                }
-                debugLog(`Resuming item ${item.id.slice(0, 8)}...`);
-                processQueueItem(item);
+                return;
             }
-        });
-    }
+        }
 
-    // Also check for PROCESSING items that might have been interrupted
-    // When navigating between pages, these should be reset to PENDING to resume
-    const processingItemsList = state.queue.filter(
-        item => item.status === QUEUE_STATUS.PROCESSING && !processingItems.has(item.id)
+        debugLog(`Resuming pending item ${item.id.slice(0, 8)}...`);
+        processQueueItem(item);
+    });
+
+    const interruptedItems = state.queue.filter(
+        (item) => item.status === QUEUE_STATUS.PROCESSING && !processingItems.has(item.id)
     );
 
-    if (processingItemsList.length > 0) {
+    if (interruptedItems.length > 0) {
         debugLog(
-            `Found ${processingItemsList.length} processing items from previous page, resetting to PENDING to resume...`
+            `Found ${interruptedItems.length} in-flight items from previous page — polling backend instead of restarting…`
         );
-        processingItemsList.forEach(item => {
-            // Check if the item has been processing for too long (more than 5 minutes)
-            // If so, mark as error. Otherwise, reset to PENDING to resume
+        interruptedItems.forEach((item) => {
             const processingTime = item.startedAt ? Date.now() - item.startedAt : 0;
-            const maxProcessingTime = 5 * 60 * 1000; // 5 minutes
-            
-            if (processingTime > maxProcessingTime) {
-                // Item has been processing too long, likely failed
-                console.warn(`⚠️ Item ${item.id.slice(0, 8)} has been processing for too long (${Math.floor(processingTime / 1000)}s), marking as error`);
+            if (processingTime > MAX_POLL_MS) {
                 actions.updateQueueItem(item.id, {
                     status: QUEUE_STATUS.ERROR,
                     completedAt: Date.now(),
                     error: 'Generation timed out - please retry'
                 });
-            } else {
-                // Reset to PENDING so it can resume processing
-                // First, ensure image is restored if needed
-                let imageRestored = false;
-                if (!item.userImage && item.userImageDataUrl) {
-                    const blob = dataURLToBlob(item.userImageDataUrl);
-                    if (blob) {
-                        item.userImage = blob;
-                        imageRestored = true;
-                        debugLog(`Restored image from data URL for item ${item.id.slice(0, 8)}`);
-                    }
-                }
-                
-                debugLog(`Resetting item ${item.id.slice(0, 8)} to PENDING to resume processing`);
-                const updates = {
-                    status: QUEUE_STATUS.PENDING,
-                    startedAt: null // Clear startedAt so it gets a fresh start
-                };
-                
-                // If we restored the image, include it in the update
-                if (imageRestored) {
-                    updates.userImage = item.userImage;
-                }
-                
-                actions.updateQueueItem(item.id, updates);
+                return;
             }
+
+            resumeInterruptedItem(item);
         });
     }
 }
 
-/**
- * Process a queue item - upload image and start generation
- */
+async function resumeInterruptedItem(item) {
+    const mergedConfig = {
+        ...(store.getState().config || {}),
+        ...(item.config || {})
+    };
+    let apiEndpoint = mergedConfig?.apiEndpoint;
+    if (!apiEndpoint) {
+        const isLocalMode =
+            typeof window !== 'undefined' &&
+            (window.location.hostname === 'localhost' ||
+                window.location.hostname === '127.0.0.1' ||
+                window.location.hostname === '0.0.0.0');
+        apiEndpoint = isLocalMode
+            ? 'http://localhost:3000/api'
+            : 'https://ai-furniture-backend.vercel.app/api';
+    }
+
+    const domainForApi = mergedConfig?.domain || window.location.hostname;
+    const uploaded = item.imageS3Key
+        ? { s3Key: item.imageS3Key, imageUrl: item.userImageUrl || null }
+        : null;
+
+    if (item.backendJobSubmitted || item.generationSubmittedAt || item.imageS3Key) {
+        const done = await pollUntilComplete(item.id, item, apiEndpoint, domainForApi, uploaded, mergedConfig);
+        if (done) return;
+
+        const latest = store.getState().queue.find((q) => q.id === item.id);
+        if (latest?.status === QUEUE_STATUS.COMPLETED || latest?.status === QUEUE_STATUS.ERROR) {
+            return;
+        }
+    }
+
+    debugLog(`No backend job found for ${item.id.slice(0, 8)}, resubmitting…`);
+    actions.updateQueueItem(item.id, { status: QUEUE_STATUS.PENDING, error: null });
+    processQueueItem(item);
+}
+
 async function processQueueItem(item) {
     const { id, userImage, productUrl, selectedModel, config, userImageDataUrl, imageS3Key, furnitureWidthCm } =
         item;
-    // Merge store config (restored after navigation) with per-item config from when queued
     const mergedConfig = {
         ...(store.getState().config || {}),
         ...(config || {})
     };
 
-    if (processingItems.has(id)) {
+    if (processingItems.has(id) || pollingItems.has(id)) {
         debugLog(`Item ${id.slice(0, 8)} already being processed, skipping...`);
         return;
     }
 
-    // Image source:
-    // - Preferred: imageS3Key (already uploaded / durable)
-    // - Fallback: userImage (File/Blob) or userImageDataUrl restored to Blob
     let imageToUse = null;
     if (!imageS3Key) {
         imageToUse = userImage;
         if (!imageToUse || !(imageToUse instanceof File || imageToUse instanceof Blob)) {
-            // Try to restore from data URL
             if (userImageDataUrl) {
                 const restoredBlob = dataURLToBlob(userImageDataUrl);
                 if (restoredBlob) {
                     imageToUse = restoredBlob;
-                    // Update the item with restored blob
                     actions.updateQueueItem(id, { userImage: restoredBlob });
                     debugLog(`Restored image from data URL for processing ${id.slice(0, 8)}`);
                 } else {
-                    console.error(
-                        `❌ Item ${id.slice(0, 8)} has invalid userImage and failed to restore from data URL, marking as error`
-                    );
                     actions.updateQueueItem(id, {
                         status: QUEUE_STATUS.ERROR,
                         completedAt: Date.now(),
@@ -271,9 +464,6 @@ async function processQueueItem(item) {
                     return;
                 }
             } else {
-                console.error(
-                    `❌ Item ${id.slice(0, 8)} has invalid userImage (lost after page reload), marking as error`
-                );
                 actions.updateQueueItem(id, {
                     status: QUEUE_STATUS.ERROR,
                     completedAt: Date.now(),
@@ -287,16 +477,15 @@ async function processQueueItem(item) {
     try {
         processingItems.add(id);
 
-        // Mark as processing
         actions.updateQueueItem(id, {
             status: QUEUE_STATUS.PROCESSING,
-            startedAt: Date.now()
+            startedAt: item.startedAt || Date.now()
         });
 
-        // Get API endpoint
         let apiEndpoint = mergedConfig?.apiEndpoint;
         if (!apiEndpoint) {
-            const isLocalMode = typeof window !== 'undefined' &&
+            const isLocalMode =
+                typeof window !== 'undefined' &&
                 (window.location.hostname === 'localhost' ||
                     window.location.hostname === '127.0.0.1' ||
                     window.location.hostname === '0.0.0.0');
@@ -305,184 +494,57 @@ async function processQueueItem(item) {
                 : 'https://ai-furniture-backend.vercel.app/api';
         }
 
-        debugLog(`Starting generation for ${id.slice(0, 8)} with ${selectedModel} model`);
+        debugLog(`Starting async generation for ${id.slice(0, 8)} with ${selectedModel} model`);
 
         const domainForApi = mergedConfig?.domain || window.location.hostname;
         const sessionIdForApi = getSessionIdForApi(mergedConfig);
 
-        // New flow: get presigned PUT, upload directly to S3, then call /generate with imageS3Key.
-        // Fallback: old flow (send image file directly) if anything fails.
         let uploaded = imageS3Key ? { s3Key: imageS3Key, imageUrl: item.userImageUrl || null } : null;
         if (!uploaded?.s3Key) {
-            try {
-                uploaded = await uploadImageToS3ViaBackend({
-                    apiEndpoint,
-                    domain: domainForApi,
-                    sessionId: sessionIdForApi,
-                    fileOrBlob: imageToUse
-                });
-            } catch (e) {
-                debugLog('Direct-to-S3 upload failed; falling back to direct image upload', e?.message || e);
-            }
+            uploaded = await uploadImageToS3ViaBackend({
+                apiEndpoint,
+                domain: domainForApi,
+                sessionId: sessionIdForApi,
+                fileOrBlob: imageToUse
+            });
+            actions.updateQueueItem(id, {
+                imageS3Key: uploaded.s3Key,
+                userImageUrl: uploaded.imageUrl || item.userImageUrl || null
+            });
         }
 
-        // Create form data for /generate
-        const formData = new FormData();
-        formData.append('productUrl', productUrl);
-        formData.append('model', 'slow'); // Always use high quality model
-        formData.append('domain', domainForApi);
-        if (sessionIdForApi) formData.append('sessionId', sessionIdForApi);
-
-        if (uploaded?.s3Key) {
-            formData.append('imageS3Key', uploaded.s3Key);
-        } else {
-            formData.append('image', imageToUse);
+        if (item.backendJobSubmitted || item.generationSubmittedAt) {
+            const done = await pollUntilComplete(id, item, apiEndpoint, domainForApi, uploaded, mergedConfig);
+            if (done) return;
         }
 
-        if (typeof furnitureWidthCm === 'number' && Number.isFinite(furnitureWidthCm) && furnitureWidthCm > 0) {
-            formData.append('furnitureWidthCm', String(furnitureWidthCm));
+        await submitAsyncGeneration(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded);
+        const finished = await pollUntilComplete(id, item, apiEndpoint, domainForApi, uploaded, mergedConfig);
+        if (!finished) {
+            throw new Error('Generation did not complete - please retry');
         }
-
-        // Call API - direct generation (not job-based)
-        const response = await fetch(`${apiEndpoint}/generate`, {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-            },
-            body: formData,
-            credentials: 'omit', // Don't send cookies for CORS
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Failed to generate images');
-        }
-
-        const result = await response.json();
-        debugLog(`Generation complete for ${id.slice(0, 8)}`, {
-            ok: true
-        });
-
-        // Update queue item with result
-        // Store S3 URLs for both generated and original images
-        const originalImageUrl = result.generatedImages?.[0]?.originalImageUrl || uploaded?.imageUrl || null;
-        const generatedImageUrl = result.generatedImages?.[0]?.url;
-        
-        actions.updateQueueItem(id, {
-            status: QUEUE_STATUS.COMPLETED,
-            completedAt: Date.now(),
-            imageS3Key: uploaded?.s3Key || item.imageS3Key || null,
-            // Store the S3 URL of the user's uploaded image for display
-            userImageUrl: originalImageUrl || item.userImageUrl,
-            result: {
-                generatedImageUrl: generatedImageUrl,
-                originalImageUrl: originalImageUrl, // S3 URL for original image
-                imageS3Key: uploaded?.s3Key || item.imageS3Key || null,
-                furnitureWidthCm:
-                    typeof furnitureWidthCm === 'number' && Number.isFinite(furnitureWidthCm) && furnitureWidthCm > 0
-                        ? furnitureWidthCm
-                        : null,
-                model: selectedModel,
-                generationTime: result.timings?.total?.durationSeconds,
-                timestamp: new Date().toISOString(),
-                productData: result.productData,
-                // Store aspect ratio data for proper display
-                originalAspectRatio: result.originalImageDimensions?.aspectRatio || 
-                                    (result.generatedImages?.[0]?.originalAspectRatio),
-                originalWidth: result.originalImageDimensions?.width || 
-                              result.generatedImages?.[0]?.originalWidth,
-                originalHeight: result.originalImageDimensions?.height || 
-                               result.generatedImages?.[0]?.originalHeight
-            }
-        });
-
-        // Track AI generation completed
-        trackEvent('ai_generation_completed', {
-            queueId: id,
-            productUrl: productUrl,
-            productName: item.productName || document.title,
-            model: selectedModel,
-            generationTime: result.timings?.total?.durationSeconds,
-            hasResult: !!generatedImageUrl,
-            generatedImageUrl: generatedImageUrl
-        });
-
-        const userEmail = (store.getState().userEmail || '').trim().toLowerCase();
-        const emailOk =
-            !!userEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail);
-        const anonKey = emailOk ? '' : getWidgetAnonymousClientId();
-
-        if (generatedImageUrl && (emailOk || anonKey)) {
-            const domainForHistory = mergedConfig?.domain || getStorefrontDomain();
-            const payload = {
-                domain: domainForHistory,
-                productUrl,
-                productName: (item.productName || document.title || '').slice(0, 500),
-                previewImageUrl: generatedImageUrl,
-                originalImageUrl: originalImageUrl || null,
-                metadata: {
-                    queueId: id,
-                    imageS3Key: uploaded?.s3Key || null,
-                    ...(typeof furnitureWidthCm === 'number' &&
-                    Number.isFinite(furnitureWidthCm) &&
-                    furnitureWidthCm > 0
-                        ? { furnitureWidthCm }
-                        : {}),
-                    originalAspectRatio:
-                        result.originalImageDimensions?.aspectRatio ||
-                        result.generatedImages?.[0]?.originalAspectRatio,
-                    originalWidth:
-                        result.originalImageDimensions?.width ||
-                        result.generatedImages?.[0]?.originalWidth,
-                    originalHeight:
-                        result.originalImageDimensions?.height ||
-                        result.generatedImages?.[0]?.originalHeight
-                }
-            };
-            if (emailOk) {
-                payload.email = userEmail;
-            } else {
-                payload.anonymousClientKey = anonKey;
-            }
-            postWidgetGeneration(apiEndpoint, payload)
-                .then((saved) => {
-                    // Important: generatedImageUrl may be a short-lived signed URL.
-                    // If the backend returns a durable URL, update the queue item to use it.
-                    const stablePreviewUrl = pickStablePreviewUrl(saved, generatedImageUrl);
-                    if (stablePreviewUrl && stablePreviewUrl !== generatedImageUrl) {
-                        actions.updateQueueItem(id, {
-                            result: {
-                                ...(store.getState().queue.find((q) => q.id === id)?.result || {}),
-                                generatedImageUrl: stablePreviewUrl
-                            }
-                        });
-                    }
-                    actions.syncShopperGenerations();
-                })
-                .catch((e) => debugLog('Could not save preview to history', e?.message || e));
-        }
-
-        processingItems.delete(id);
-
     } catch (error) {
-        console.error(`❌ Generation failed for ${id.slice(0, 8)}:`, error);
+        if (isPageUnloading || isNavigationAbort(error)) {
+            debugLog(`Generation for ${id.slice(0, 8)} interrupted by navigation — will resume via polling`);
+            return;
+        }
 
+        console.error(`❌ Generation failed for ${id.slice(0, 8)}:`, error);
         actions.updateQueueItem(id, {
             status: QUEUE_STATUS.ERROR,
             completedAt: Date.now(),
             error: error.message || 'Generation failed'
         });
-
+    } finally {
         processingItems.delete(id);
     }
 }
 
-// Clean up on page unload
 if (typeof window !== 'undefined') {
-    window.addEventListener('beforeunload', () => {
+    window.addEventListener('pagehide', () => {
+        isPageUnloading = true;
         processingItems.clear();
     });
 }
 
-// Export for use in UploadView
 export { processQueueItem };

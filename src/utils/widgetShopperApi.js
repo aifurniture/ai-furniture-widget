@@ -67,3 +67,39 @@ export async function postWidgetGeneration(apiEndpoint, payload) {
     }
     return data;
 }
+
+/** Start async widget generation (returns immediately; poll with fetchWidgetGenerationStatus). */
+export async function startWidgetGeneration(apiEndpoint, formData) {
+    const res = await fetch(`${apiBase(apiEndpoint)}/widget/generate`, {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        body: formData,
+        credentials: 'omit'
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        const err = new Error(data.error || `HTTP ${res.status}`);
+        err.status = res.status;
+        throw err;
+    }
+    return data;
+}
+
+/** Poll async generation status by widget queueId. */
+export async function fetchWidgetGenerationStatus(apiEndpoint, { queueId, domain }) {
+    const q = new URLSearchParams();
+    if (queueId) q.set('queueId', queueId);
+    if (domain) q.set('domain', domain);
+    const res = await fetch(`${apiBase(apiEndpoint)}/widget/generate?${q}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        credentials: 'omit'
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+        const err = new Error(data.error || `HTTP ${res.status}`);
+        err.status = res.status;
+        throw err;
+    }
+    return data;
+}
