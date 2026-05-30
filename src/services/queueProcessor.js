@@ -53,16 +53,9 @@ function getSessionIdForApi(mergedConfig) {
 }
 
 function isNavigationAbort(error) {
-    if (!error) return false;
-    if (error.name === 'AbortError') return true;
-    const msg = String(error.message || '').toLowerCase();
-    return (
-        msg.includes('abort') ||
-        msg.includes('failed to fetch') ||
-        msg.includes('networkerror') ||
-        msg.includes('network request failed') ||
-        msg.includes('load failed')
-    );
+    // Only treat real page unload / explicit abort as navigation — NOT generic network errors.
+    if (isPageUnloading) return true;
+    return error?.name === 'AbortError';
 }
 
 async function uploadImageToS3ViaBackend({ apiEndpoint, domain, sessionId, fileOrBlob }) {
@@ -280,6 +273,39 @@ async function pollUntilComplete(id, item, apiEndpoint, domainForApi, uploaded, 
     }
 }
 
+async function submitSyncGeneration(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded, imageToUse) {
+    const formData = new FormData();
+    formData.append('productUrl', item.productUrl);
+    formData.append('model', 'slow');
+    formData.append('domain', domainForApi);
+    if (sessionIdForApi) formData.append('sessionId', sessionIdForApi);
+    if (uploaded?.s3Key) {
+        formData.append('imageS3Key', uploaded.s3Key);
+    } else if (imageToUse) {
+        formData.append('image', imageToUse);
+    }
+    if (
+        typeof item.furnitureWidthCm === 'number' &&
+        Number.isFinite(item.furnitureWidthCm) &&
+        item.furnitureWidthCm > 0
+    ) {
+        formData.append('furnitureWidthCm', String(item.furnitureWidthCm));
+    }
+
+    debugLog(`Calling sync /generate for ${id.slice(0, 8)}`);
+    const response = await fetch(`${apiEndpoint}/generate`, {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        body: formData,
+        credentials: 'omit'
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+        throw new Error(result.error || `generate HTTP ${response.status}`);
+    }
+    return result;
+}
+
 async function submitAsyncGeneration(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded) {
     const formData = new FormData();
     formData.append('queueId', id);
@@ -297,6 +323,7 @@ async function submitAsyncGeneration(id, item, apiEndpoint, domainForApi, sessio
         formData.append('furnitureWidthCm', String(item.furnitureWidthCm));
     }
 
+    debugLog(`Submitting async job to /widget/generate for ${id.slice(0, 8)}`);
     await startWidgetGeneration(apiEndpoint, formData);
     actions.updateQueueItem(id, {
         backendJobSubmitted: true,
@@ -304,6 +331,33 @@ async function submitAsyncGeneration(id, item, apiEndpoint, domainForApi, sessio
         imageS3Key: uploaded.s3Key,
         userImageUrl: uploaded.imageUrl || item.userImageUrl || null
     });
+}
+
+async function startGenerationJob(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded, imageToUse) {
+    try {
+        await submitAsyncGeneration(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded);
+        return 'async';
+    } catch (e) {
+        if (e?.status === 404) {
+            debugLog('Async /widget/generate not found — falling back to sync /generate');
+            const result = await submitSyncGeneration(
+                id,
+                item,
+                apiEndpoint,
+                domainForApi,
+                sessionIdForApi,
+                uploaded,
+                imageToUse
+            );
+            applyCompletedResult(id, item, { result }, uploaded, {
+                ...(store.getState().config || {}),
+                ...(item.config || {}),
+                apiEndpoint
+            });
+            return 'sync';
+        }
+        throw e;
+    }
 }
 
 export function initQueueProcessor() {
@@ -344,6 +398,21 @@ function checkQueue(state) {
         pendingItems.forEach((item) => {
             processQueueItem(item);
         });
+    }
+
+    // Retry items stuck in PROCESSING after upload but before generate was submitted
+    const stuckItems = state.queue.filter(
+        (item) =>
+            item.status === QUEUE_STATUS.PROCESSING &&
+            !item.backendJobSubmitted &&
+            !item.generationSubmittedAt &&
+            item.imageS3Key &&
+            !processingItems.has(item.id) &&
+            !pollingItems.has(item.id)
+    );
+    if (stuckItems.length > 0) {
+        debugLog(`Found ${stuckItems.length} stuck processing items, retrying submit…`);
+        stuckItems.forEach((item) => processQueueItem(item));
     }
 }
 
@@ -428,7 +497,7 @@ async function resumeInterruptedItem(item) {
         ? { s3Key: item.imageS3Key, imageUrl: item.userImageUrl || null }
         : null;
 
-    if (item.backendJobSubmitted || item.generationSubmittedAt || item.imageS3Key) {
+    if (item.backendJobSubmitted || item.generationSubmittedAt) {
         const done = await pollUntilComplete(item.id, item, apiEndpoint, domainForApi, uploaded, mergedConfig);
         if (done) return;
 
@@ -438,8 +507,7 @@ async function resumeInterruptedItem(item) {
         }
     }
 
-    debugLog(`No backend job found for ${item.id.slice(0, 8)}, resubmitting…`);
-    actions.updateQueueItem(item.id, { status: QUEUE_STATUS.PENDING, error: null });
+    debugLog(`Resuming submit for ${item.id.slice(0, 8)}…`);
     processQueueItem(item);
 }
 
@@ -529,7 +597,17 @@ async function processQueueItem(item) {
             if (done) return;
         }
 
-        await submitAsyncGeneration(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded);
+        const mode = await startGenerationJob(
+            id,
+            item,
+            apiEndpoint,
+            domainForApi,
+            sessionIdForApi,
+            uploaded,
+            imageToUse
+        );
+        if (mode === 'sync') return;
+
         const finished = await pollUntilComplete(id, item, apiEndpoint, domainForApi, uploaded, mergedConfig);
         if (!finished) {
             throw new Error('Generation did not complete - please retry');
