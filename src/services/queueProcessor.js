@@ -3,7 +3,6 @@ import { trackEvent } from '../tracking.js';
 import {
     postWidgetGeneration,
     getStorefrontDomain,
-    startWidgetGeneration,
     fetchWidgetGenerationStatus
 } from '../utils/widgetShopperApi.js';
 import { getWidgetAnonymousClientId } from '../utils/persistStorage.js';
@@ -53,9 +52,20 @@ function getSessionIdForApi(mergedConfig) {
 }
 
 function isNavigationAbort(error) {
-    // Only treat real page unload / explicit abort as navigation — NOT generic network errors.
     if (isPageUnloading) return true;
     return error?.name === 'AbortError';
+}
+
+function getApiEndpoint(mergedConfig) {
+    if (mergedConfig?.apiEndpoint) return mergedConfig.apiEndpoint;
+    const isLocalMode =
+        typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1' ||
+            window.location.hostname === '0.0.0.0');
+    return isLocalMode
+        ? 'http://localhost:3000/api'
+        : 'https://ai-furniture-backend.vercel.app/api';
 }
 
 async function uploadImageToS3ViaBackend({ apiEndpoint, domain, sessionId, fileOrBlob }) {
@@ -127,7 +137,7 @@ function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
         completedAt: Date.now(),
         imageS3Key: uploaded?.s3Key || item.imageS3Key || null,
         userImageUrl: originalImageUrl || item.userImageUrl,
-        backendJobSubmitted: true,
+        backendJobSubmitted: false,
         result: {
             generatedImageUrl,
             originalImageUrl,
@@ -165,12 +175,12 @@ function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
     const userEmail = (store.getState().userEmail || '').trim().toLowerCase();
     const emailOk = !!userEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail);
     const anonKey = emailOk ? '' : getWidgetAnonymousClientId();
-    const apiEndpoint = mergedConfig?.apiEndpoint;
+    const apiEndpoint = mergedConfig?.apiEndpoint || getApiEndpoint(mergedConfig);
     const { productUrl } = item;
     const { furnitureWidthCm } = item;
 
     if (generatedImageUrl && (emailOk || anonKey) && apiEndpoint) {
-        const domainForHistory = mergedConfig?.domain || getStorefrontDomain();
+        const domainForHistory = getDomainForApi(mergedConfig);
         const payload = {
             domain: domainForHistory,
             productUrl,
@@ -218,14 +228,13 @@ function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
     }
 }
 
-async function pollUntilComplete(id, item, apiEndpoint, domainForApi, uploaded, mergedConfig) {
+async function pollAsyncJobUntilComplete(id, item, apiEndpoint, domainForApi, uploaded, mergedConfig) {
     if (pollingItems.has(id)) return false;
     pollingItems.add(id);
     processingItems.add(id);
 
     const startedAt = item.startedAt || Date.now();
     const deadline = startedAt + MAX_POLL_MS;
-    let completed = false;
 
     try {
         while (!isPageUnloading && Date.now() < deadline) {
@@ -236,44 +245,28 @@ async function pollUntilComplete(id, item, apiEndpoint, domainForApi, uploaded, 
                     domain: domainForApi
                 });
             } catch (e) {
-                if (e?.status === 404) {
-                    debugLog(`Job ${id.slice(0, 8)} not found on server yet`);
-                    return false;
-                }
-                debugLog('Poll failed, retrying…', e?.message || e);
+                if (e?.status === 404) return false;
                 await sleep(POLL_INTERVAL_MS);
                 continue;
             }
 
             if (statusPayload.status === BACKEND_JOB_STATUS.COMPLETED && statusPayload.result) {
                 applyCompletedResult(id, item, statusPayload, uploaded, mergedConfig);
-                completed = true;
                 return true;
             }
-
             if (statusPayload.status === BACKEND_JOB_STATUS.FAILED) {
-                throw new Error(statusPayload.error || 'Generation failed');
+                return false;
             }
-
             await sleep(POLL_INTERVAL_MS);
         }
-
-        if (!isPageUnloading && Date.now() >= deadline) {
-            throw new Error('Generation timed out - please retry');
-        }
-
         return false;
     } finally {
         pollingItems.delete(id);
-        if (!completed) {
-            processingItems.delete(id);
-        } else {
-            processingItems.delete(id);
-        }
+        processingItems.delete(id);
     }
 }
 
-async function submitSyncGeneration(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded, imageToUse) {
+async function runSyncGenerate(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded, imageToUse) {
     const formData = new FormData();
     formData.append('productUrl', item.productUrl);
     formData.append('model', 'slow');
@@ -292,7 +285,7 @@ async function submitSyncGeneration(id, item, apiEndpoint, domainForApi, session
         formData.append('furnitureWidthCm', String(item.furnitureWidthCm));
     }
 
-    debugLog(`Calling sync /generate for ${id.slice(0, 8)}`);
+    debugLog(`POST /generate for ${id.slice(0, 8)}`);
     const response = await fetch(`${apiEndpoint}/generate`, {
         method: 'POST',
         headers: { Accept: 'application/json' },
@@ -306,162 +299,48 @@ async function submitSyncGeneration(id, item, apiEndpoint, domainForApi, session
     return result;
 }
 
-async function submitAsyncGeneration(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded) {
-    const formData = new FormData();
-    formData.append('queueId', id);
-    formData.append('productUrl', item.productUrl);
-    formData.append('model', 'slow');
-    formData.append('domain', domainForApi);
-    if (sessionIdForApi) formData.append('sessionId', sessionIdForApi);
-    if (item.productName) formData.append('productName', item.productName);
-    formData.append('imageS3Key', uploaded.s3Key);
-    if (
-        typeof item.furnitureWidthCm === 'number' &&
-        Number.isFinite(item.furnitureWidthCm) &&
-        item.furnitureWidthCm > 0
-    ) {
-        formData.append('furnitureWidthCm', String(item.furnitureWidthCm));
-    }
-
-    debugLog(`Submitting async job to /widget/generate for ${id.slice(0, 8)}`);
-    await startWidgetGeneration(apiEndpoint, formData);
-    actions.updateQueueItem(id, {
-        backendJobSubmitted: true,
-        generationSubmittedAt: Date.now(),
-        imageS3Key: uploaded.s3Key,
-        userImageUrl: uploaded.imageUrl || item.userImageUrl || null
-    });
-}
-
-async function startGenerationJob(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded, imageToUse) {
-    try {
-        await submitAsyncGeneration(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded);
-        return 'async';
-    } catch (e) {
-        if (e?.status === 404) {
-            debugLog('Async /widget/generate not found — falling back to sync /generate');
-            const result = await submitSyncGeneration(
-                id,
-                item,
-                apiEndpoint,
-                domainForApi,
-                sessionIdForApi,
-                uploaded,
-                imageToUse
-            );
-            applyCompletedResult(id, item, { result }, uploaded, {
-                ...(store.getState().config || {}),
-                ...(item.config || {}),
-                apiEndpoint
-            });
-            return 'sync';
-        }
-        throw e;
-    }
-}
-
 export function initQueueProcessor() {
     if (queueProcessorInitialized) {
-        debugLog('Queue Processor already initialized, skipping...');
         const currentState = store.getState();
-        if (currentState.queue && currentState.queue.length > 0) {
-            debugLog('Checking queue after script reload...');
-            resumePendingItems(currentState);
-        }
+        if (currentState.queue?.length > 0) resumePendingItems(currentState);
         return;
     }
 
     queueProcessorInitialized = true;
-
-    store.subscribe((state) => {
-        checkQueue(state);
-    });
+    store.subscribe((state) => checkQueue(state));
 
     const initialState = store.getState();
-    debugLog('Queue Processor initialized. Checking for pending items...', {
-        queueLength: initialState.queue.length,
-        pending: initialState.queue.filter((i) => i.status === QUEUE_STATUS.PENDING).length,
-        processing: initialState.queue.filter((i) => i.status === QUEUE_STATUS.PROCESSING).length
-    });
-
     checkQueue(initialState);
     resumePendingItems(initialState);
 }
 
 function checkQueue(state) {
-    const pendingItems = state.queue.filter(
-        (item) => item.status === QUEUE_STATUS.PENDING && !processingItems.has(item.id)
-    );
-
-    if (pendingItems.length > 0) {
-        debugLog(`Found ${pendingItems.length} pending items, processing...`);
-        pendingItems.forEach((item) => {
-            processQueueItem(item);
-        });
-    }
-
-    // Retry items stuck in PROCESSING after upload but before generate was submitted
-    const stuckItems = state.queue.filter(
-        (item) =>
-            item.status === QUEUE_STATUS.PROCESSING &&
-            !item.backendJobSubmitted &&
-            !item.generationSubmittedAt &&
-            item.imageS3Key &&
-            !processingItems.has(item.id) &&
-            !pollingItems.has(item.id)
-    );
-    if (stuckItems.length > 0) {
-        debugLog(`Found ${stuckItems.length} stuck processing items, retrying submit…`);
-        stuckItems.forEach((item) => processQueueItem(item));
-    }
+    state.queue
+        .filter(
+            (item) =>
+                (item.status === QUEUE_STATUS.PENDING ||
+                    (item.status === QUEUE_STATUS.PROCESSING &&
+                        !item.backendJobSubmitted &&
+                        !processingItems.has(item.id) &&
+                        !pollingItems.has(item.id))) &&
+                !processingItems.has(item.id)
+        )
+        .forEach((item) => processQueueItem(item));
 }
 
 function resumePendingItems(state) {
-    const pendingItems = state.queue.filter(
-        (item) => item.status === QUEUE_STATUS.PENDING && !processingItems.has(item.id)
-    );
-
-    pendingItems.forEach((item) => {
-        if (!item.userImage && !item.userImageDataUrl && !item.imageS3Key) {
-            console.warn(`⚠️ Item ${item.id.slice(0, 8)} lost image data (page reload), marking as error`);
-            actions.updateQueueItem(item.id, {
-                status: QUEUE_STATUS.ERROR,
-                completedAt: Date.now(),
-                error: 'Image data lost after page reload - please add to queue again'
-            });
-            return;
-        }
-
-        if (item.userImageDataUrl && !item.userImage && !item.imageS3Key) {
-            const blob = dataURLToBlob(item.userImageDataUrl);
-            if (blob) {
-                item.userImage = blob;
-                debugLog(`Restored image from data URL for item ${item.id.slice(0, 8)}`);
-            } else {
-                actions.updateQueueItem(item.id, {
-                    status: QUEUE_STATUS.ERROR,
-                    completedAt: Date.now(),
-                    error: 'Failed to restore image data - please re-upload'
-                });
-                return;
-            }
-        }
-
-        debugLog(`Resuming pending item ${item.id.slice(0, 8)}...`);
-        processQueueItem(item);
-    });
-
-    const interruptedItems = state.queue.filter(
-        (item) => item.status === QUEUE_STATUS.PROCESSING && !processingItems.has(item.id)
-    );
-
-    if (interruptedItems.length > 0) {
-        debugLog(
-            `Found ${interruptedItems.length} in-flight items from previous page — polling backend instead of restarting…`
-        );
-        interruptedItems.forEach((item) => {
-            const processingTime = item.startedAt ? Date.now() - item.startedAt : 0;
-            if (processingTime > MAX_POLL_MS) {
+    state.queue
+        .filter(
+            (item) =>
+                (item.status === QUEUE_STATUS.PENDING || item.status === QUEUE_STATUS.PROCESSING) &&
+                !processingItems.has(item.id)
+        )
+        .forEach((item) => {
+            if (
+                item.status !== QUEUE_STATUS.PENDING &&
+                item.startedAt &&
+                Date.now() - item.startedAt > MAX_POLL_MS
+            ) {
                 actions.updateQueueItem(item.id, {
                     status: QUEUE_STATUS.ERROR,
                     completedAt: Date.now(),
@@ -470,113 +349,69 @@ function resumePendingItems(state) {
                 return;
             }
 
-            resumeInterruptedItem(item);
+            if (!item.userImage && !item.userImageDataUrl && !item.imageS3Key) {
+                actions.updateQueueItem(item.id, {
+                    status: QUEUE_STATUS.ERROR,
+                    completedAt: Date.now(),
+                    error: 'Image data lost - please re-upload'
+                });
+                return;
+            }
+
+            if (item.userImageDataUrl && !item.userImage && !item.imageS3Key) {
+                const blob = dataURLToBlob(item.userImageDataUrl);
+                if (blob) {
+                    item.userImage = blob;
+                } else {
+                    actions.updateQueueItem(item.id, {
+                        status: QUEUE_STATUS.ERROR,
+                        completedAt: Date.now(),
+                        error: 'Failed to restore image - please re-upload'
+                    });
+                    return;
+                }
+            }
+
+            processQueueItem(item);
         });
-    }
-}
-
-async function resumeInterruptedItem(item) {
-    const mergedConfig = {
-        ...(store.getState().config || {}),
-        ...(item.config || {})
-    };
-    let apiEndpoint = mergedConfig?.apiEndpoint;
-    if (!apiEndpoint) {
-        const isLocalMode =
-            typeof window !== 'undefined' &&
-            (window.location.hostname === 'localhost' ||
-                window.location.hostname === '127.0.0.1' ||
-                window.location.hostname === '0.0.0.0');
-        apiEndpoint = isLocalMode
-            ? 'http://localhost:3000/api'
-            : 'https://ai-furniture-backend.vercel.app/api';
-    }
-
-    const domainForApi = getDomainForApi(mergedConfig);
-    const uploaded = item.imageS3Key
-        ? { s3Key: item.imageS3Key, imageUrl: item.userImageUrl || null }
-        : null;
-
-    if (item.backendJobSubmitted || item.generationSubmittedAt) {
-        const done = await pollUntilComplete(item.id, item, apiEndpoint, domainForApi, uploaded, mergedConfig);
-        if (done) return;
-
-        const latest = store.getState().queue.find((q) => q.id === item.id);
-        if (latest?.status === QUEUE_STATUS.COMPLETED || latest?.status === QUEUE_STATUS.ERROR) {
-            return;
-        }
-    }
-
-    debugLog(`Resuming submit for ${item.id.slice(0, 8)}…`);
-    processQueueItem(item);
 }
 
 async function processQueueItem(item) {
-    const { id, userImage, productUrl, selectedModel, config, userImageDataUrl, imageS3Key, furnitureWidthCm } =
-        item;
-    const mergedConfig = {
-        ...(store.getState().config || {}),
-        ...(config || {})
-    };
+    const { id, userImage, userImageDataUrl, imageS3Key } = item;
+    const mergedConfig = { ...(store.getState().config || {}), ...(item.config || {}) };
 
-    if (processingItems.has(id) || pollingItems.has(id)) {
-        debugLog(`Item ${id.slice(0, 8)} already being processed, skipping...`);
-        return;
-    }
+    if (processingItems.has(id) || pollingItems.has(id)) return;
 
     let imageToUse = null;
     if (!imageS3Key) {
         imageToUse = userImage;
         if (!imageToUse || !(imageToUse instanceof File || imageToUse instanceof Blob)) {
             if (userImageDataUrl) {
-                const restoredBlob = dataURLToBlob(userImageDataUrl);
-                if (restoredBlob) {
-                    imageToUse = restoredBlob;
-                    actions.updateQueueItem(id, { userImage: restoredBlob });
-                    debugLog(`Restored image from data URL for processing ${id.slice(0, 8)}`);
-                } else {
-                    actions.updateQueueItem(id, {
-                        status: QUEUE_STATUS.ERROR,
-                        completedAt: Date.now(),
-                        error: 'Image data lost - please re-upload and try again'
-                    });
-                    return;
-                }
-            } else {
+                imageToUse = dataURLToBlob(userImageDataUrl);
+                if (imageToUse) actions.updateQueueItem(id, { userImage: imageToUse });
+            }
+            if (!imageToUse) {
                 actions.updateQueueItem(id, {
                     status: QUEUE_STATUS.ERROR,
                     completedAt: Date.now(),
-                    error: 'Image data lost - please re-upload and try again'
+                    error: 'Image data lost - please re-upload'
                 });
                 return;
             }
         }
     }
 
+    const apiEndpoint = getApiEndpoint(mergedConfig);
+    const domainForApi = getDomainForApi(mergedConfig);
+    const sessionIdForApi = getSessionIdForApi(mergedConfig);
+
     try {
         processingItems.add(id);
-
         actions.updateQueueItem(id, {
             status: QUEUE_STATUS.PROCESSING,
-            startedAt: item.startedAt || Date.now()
+            startedAt: item.startedAt || Date.now(),
+            error: null
         });
-
-        let apiEndpoint = mergedConfig?.apiEndpoint;
-        if (!apiEndpoint) {
-            const isLocalMode =
-                typeof window !== 'undefined' &&
-                (window.location.hostname === 'localhost' ||
-                    window.location.hostname === '127.0.0.1' ||
-                    window.location.hostname === '0.0.0.0');
-            apiEndpoint = isLocalMode
-                ? 'http://localhost:3000/api'
-                : 'https://ai-furniture-backend.vercel.app/api';
-        }
-
-        debugLog(`Starting async generation for ${id.slice(0, 8)} with ${selectedModel} model`);
-
-        const domainForApi = getDomainForApi(mergedConfig);
-        const sessionIdForApi = getSessionIdForApi(mergedConfig);
 
         let uploaded = imageS3Key ? { s3Key: imageS3Key, imageUrl: item.userImageUrl || null } : null;
         if (!uploaded?.s3Key) {
@@ -592,12 +427,20 @@ async function processQueueItem(item) {
             });
         }
 
-        if (item.backendJobSubmitted || item.generationSubmittedAt) {
-            const done = await pollUntilComplete(id, item, apiEndpoint, domainForApi, uploaded, mergedConfig);
-            if (done) return;
+        // Recover result from a prior async job if one exists
+        if (item.backendJobSubmitted) {
+            const recovered = await pollAsyncJobUntilComplete(
+                id,
+                item,
+                apiEndpoint,
+                domainForApi,
+                uploaded,
+                mergedConfig
+            );
+            if (recovered) return;
         }
 
-        const mode = await startGenerationJob(
+        const result = await runSyncGenerate(
             id,
             item,
             apiEndpoint,
@@ -606,19 +449,13 @@ async function processQueueItem(item) {
             uploaded,
             imageToUse
         );
-        if (mode === 'sync') return;
-
-        const finished = await pollUntilComplete(id, item, apiEndpoint, domainForApi, uploaded, mergedConfig);
-        if (!finished) {
-            throw new Error('Generation did not complete - please retry');
-        }
+        applyCompletedResult(id, item, { result }, uploaded, mergedConfig);
     } catch (error) {
-        if (isPageUnloading || isNavigationAbort(error)) {
-            debugLog(`Generation for ${id.slice(0, 8)} interrupted by navigation — will resume via polling`);
+        if (isNavigationAbort(error)) {
+            debugLog(`Generation interrupted for ${id.slice(0, 8)} — will resume on next page`);
             return;
         }
-
-        console.error(`❌ Generation failed for ${id.slice(0, 8)}:`, error);
+        console.error(`Generation failed for ${id.slice(0, 8)}:`, error);
         actions.updateQueueItem(id, {
             status: QUEUE_STATUS.ERROR,
             completedAt: Date.now(),
