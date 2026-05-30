@@ -29,6 +29,17 @@ function pickStablePreviewUrl(savedResponse, fallbackUrl) {
     return candidate;
 }
 
+function getDomainForApi(mergedConfig) {
+    const raw = mergedConfig?.domain || getStorefrontDomain();
+    if (!raw) return getStorefrontDomain();
+    return String(raw)
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .replace(/\/$/, '')
+        .toLowerCase()
+        .trim();
+}
+
 function getSessionIdForApi(mergedConfig) {
     try {
         return (
@@ -412,7 +423,7 @@ async function resumeInterruptedItem(item) {
             : 'https://ai-furniture-backend.vercel.app/api';
     }
 
-    const domainForApi = mergedConfig?.domain || window.location.hostname;
+    const domainForApi = getDomainForApi(mergedConfig);
     const uploaded = item.imageS3Key
         ? { s3Key: item.imageS3Key, imageUrl: item.userImageUrl || null }
         : null;
@@ -496,7 +507,7 @@ async function processQueueItem(item) {
 
         debugLog(`Starting async generation for ${id.slice(0, 8)} with ${selectedModel} model`);
 
-        const domainForApi = mergedConfig?.domain || window.location.hostname;
+        const domainForApi = getDomainForApi(mergedConfig);
         const sessionIdForApi = getSessionIdForApi(mergedConfig);
 
         let uploaded = imageS3Key ? { s3Key: imageS3Key, imageUrl: item.userImageUrl || null } : null;
