@@ -30,7 +30,7 @@ function ensureApiEndpoint(config) {
     return c;
 }
 
-/** Strip non-serializable fields; keep userImageDataUrl for restore after navigation. */
+/** Strip non-serializable fields; keep queue metadata needed to resume after navigation. */
 function serializeQueueForStorage(queue) {
     return queue.map((item) => {
         const cleanItem = { ...item };

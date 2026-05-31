@@ -53,9 +53,39 @@ function getSessionIdForApi(mergedConfig) {
     }
 }
 
-function isNavigationAbort(error) {
+function isTransientFetchError(error) {
+    if (!error) return false;
     if (isPageUnloading) return true;
-    return error?.name === 'AbortError';
+    if (error.name === 'AbortError') return true;
+    const msg = String(error.message || error).toLowerCase();
+    return (
+        msg.includes('failed to fetch') ||
+        msg.includes('networkerror') ||
+        msg.includes('network request failed') ||
+        msg.includes('load failed') ||
+        msg.includes('the operation was aborted')
+    );
+}
+
+function isNavigationAbort(error) {
+    return isTransientFetchError(error);
+}
+
+let queueRetryTimer = null;
+
+function scheduleQueueRetry(delayMs = 800) {
+    if (queueRetryTimer || isPageUnloading) return;
+    queueRetryTimer = setTimeout(() => {
+        queueRetryTimer = null;
+        if (!isPageUnloading) {
+            scheduleQueueWork(store.getState());
+        }
+    }, delayMs);
+}
+
+export function resumeQueueAfterNavigation() {
+    isPageUnloading = false;
+    scheduleQueueWork(store.getState());
 }
 
 function getApiEndpoint(mergedConfig) {
@@ -273,6 +303,11 @@ async function pollAsyncJobUntilComplete(id, item, apiEndpoint, domainForApi, up
                 });
             } catch (e) {
                 if (e?.status === 404) return 'missing';
+                if (isTransientFetchError(e)) {
+                    if (isPageUnloading) return 'interrupted';
+                    await sleep(POLL_INTERVAL_MS);
+                    continue;
+                }
                 await sleep(POLL_INTERVAL_MS);
                 continue;
             }
@@ -295,6 +330,7 @@ async function fetchAsyncJobStatusOnce(id, apiEndpoint, domainForApi) {
         });
     } catch (e) {
         if (e?.status === 404) return null;
+        if (isTransientFetchError(e)) return null;
         throw e;
     }
 }
@@ -413,8 +449,34 @@ function prepareQueueItemForProcessing(item) {
     return prepared;
 }
 
+function isRecoverableNetworkErrorMessage(error) {
+    if (!error || typeof error !== 'string') return false;
+    const msg = error.toLowerCase();
+    return (
+        msg.includes('failed to fetch') ||
+        msg.includes('networkerror') ||
+        msg.includes('network request failed') ||
+        msg.includes('load failed')
+    );
+}
+
 function scheduleQueueWork(state) {
     state.queue
+        .filter(
+            (item) =>
+                item.status === QUEUE_STATUS.ERROR &&
+                isRecoverableNetworkErrorMessage(item.error) &&
+                (item.backendJobSubmitted || item.imageS3Key || item.userImageDataUrl)
+        )
+        .forEach((item) => {
+            actions.updateQueueItem(item.id, {
+                status: QUEUE_STATUS.PROCESSING,
+                error: null
+            });
+        });
+
+    const activeState = store.getState();
+    activeState.queue
         .filter(
             (item) =>
                 item.status === QUEUE_STATUS.PENDING || item.status === QUEUE_STATUS.PROCESSING
@@ -493,6 +555,11 @@ async function runQueueItemWork(item) {
                     userImageUrl: uploaded.imageUrl || item.userImageUrl || null
                 });
             } catch (uploadErr) {
+                if (isTransientFetchError(uploadErr)) {
+                    debugLog(`Upload interrupted for ${id.slice(0, 8)} — will resume`, uploadErr?.message || uploadErr);
+                    scheduleQueueRetry();
+                    return;
+                }
                 debugLog('Backend /upload failed, sending image with /generate', uploadErr?.message || uploadErr);
             }
         }
@@ -511,6 +578,10 @@ async function runQueueItemWork(item) {
             );
             if (pollOutcome === 'completed' || pollOutcome === 'failed') return;
             if (pollOutcome === 'interrupted' || pollOutcome === 'polling') return;
+            if (pollOutcome === 'missing' && latest.backendJobSubmitted) {
+                scheduleQueueRetry(1500);
+                return;
+            }
         } else if (uploaded?.s3Key || latest.imageS3Key) {
             // Another tab/page may have submitted while we were uploading — check once before creating a job.
             const existingStatus = await fetchAsyncJobStatusOnce(id, apiEndpoint, domainForApi);
@@ -569,18 +640,20 @@ async function runQueueItemWork(item) {
         );
         if (finalOutcome === 'completed' || finalOutcome === 'failed') return;
         if (finalOutcome === 'interrupted' || finalOutcome === 'polling') return;
+        if (finalOutcome === 'missing' || finalOutcome === 'timeout') {
+            scheduleQueueRetry(1500);
+            return;
+        }
 
         actions.updateQueueItem(id, {
             status: QUEUE_STATUS.ERROR,
             completedAt: Date.now(),
-            error:
-                finalOutcome === 'timeout'
-                    ? 'Generation timed out - please retry'
-                    : 'Generation failed - please retry'
+            error: 'Generation failed - please retry'
         });
     } catch (error) {
-        if (isNavigationAbort(error)) {
-            debugLog(`Generation interrupted for ${id.slice(0, 8)} — will resume on next page`);
+        if (isTransientFetchError(error)) {
+            debugLog(`Generation interrupted for ${id.slice(0, 8)} — will resume`, error?.message || error);
+            scheduleQueueRetry();
             return;
         }
         console.error(`Generation failed for ${id.slice(0, 8)}:`, error);
@@ -600,9 +673,14 @@ if (typeof window !== 'undefined') {
         inFlightById.clear();
     });
 
-    window.addEventListener('pageshow', (event) => {
+    window.addEventListener('pageshow', () => {
         isPageUnloading = false;
-        if (event.persisted || store.getState().queue?.length > 0) {
+        scheduleQueueWork(store.getState());
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            isPageUnloading = false;
             scheduleQueueWork(store.getState());
         }
     });

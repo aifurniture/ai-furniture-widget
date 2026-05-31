@@ -5,6 +5,7 @@ import { debugLog } from './debug.js';
 import { initSession, trackEvent, onOrderAddedToDatabase, resetWidget, disconnectAllTracking, setRecreateWidgetButton } from './tracking.js';
 import { createWidgetButton } from './ui/widgetButton.js';
 import { isFurnitureProductPage, detectCartAndOrderPages, checkForOrderCompletion, trackOrderConfirmationPage } from './detection.js';
+import { resumeQueueAfterNavigation } from './services/queueProcessor.js';
 
 // Track if widget has been initialized - use sessionStorage to persist across script reloads
 function getWidgetInitKey() {
@@ -164,6 +165,13 @@ function updatePageTracking() {
         actions.syncThemeConfig();
     } catch (e) {
         debugLog('syncThemeConfig failed', e);
+    }
+
+    // Resume in-flight previews after Shopify / SPA navigation (fetch may abort as "Failed to fetch").
+    try {
+        resumeQueueAfterNavigation();
+    } catch (e) {
+        debugLog('resumeQueueAfterNavigation failed', e);
     }
 
     const isAIFurnitureUser = sessionStorage.getItem('ai_furniture_user') === 'true';
