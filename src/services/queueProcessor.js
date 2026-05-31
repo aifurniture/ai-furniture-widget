@@ -7,6 +7,7 @@ import {
     startWidgetGeneration
 } from '../utils/widgetShopperApi.js';
 import { getWidgetAnonymousClientId } from '../utils/persistStorage.js';
+import { compressRoomImage } from '../utils/compressRoomImage.js';
 import { debugLog } from '../debug.js';
 
 const BACKEND_JOB_STATUS = {
@@ -70,8 +71,9 @@ function getApiEndpoint(mergedConfig) {
 }
 
 async function uploadImageViaBackend({ apiEndpoint, domain, sessionId, fileOrBlob }) {
+    const compressed = await compressRoomImage(fileOrBlob);
     const formData = new FormData();
-    formData.append('image', fileOrBlob, 'room.jpg');
+    formData.append('image', compressed, compressed.name || 'room.jpg');
     formData.append('domain', domain);
     if (sessionId) formData.append('sessionId', sessionId);
 
@@ -82,6 +84,9 @@ async function uploadImageViaBackend({ apiEndpoint, domain, sessionId, fileOrBlo
         credentials: 'omit'
     });
     const data = await r.json().catch(() => ({}));
+    if (r.status === 413) {
+        throw new Error('Photo is too large — try a smaller image or retake the photo');
+    }
     if (!r.ok) throw new Error(data.error || `upload HTTP ${r.status}`);
     if (!data.s3Key) throw new Error('upload missing s3Key');
     return { s3Key: data.s3Key, imageUrl: data.imageUrl || null };
@@ -535,6 +540,7 @@ async function runQueueItemWork(item) {
         }
 
         if (!uploaded?.s3Key) {
+            const imageForGenerate = imageToUse ? await compressRoomImage(imageToUse) : null;
             const result = await runSyncGenerate(
                 id,
                 latest,
@@ -542,7 +548,7 @@ async function runQueueItemWork(item) {
                 domainForApi,
                 sessionIdForApi,
                 uploaded,
-                imageToUse
+                imageForGenerate
             );
             applyCompletedResult(id, latest, { result }, uploaded, mergedConfig);
             return;

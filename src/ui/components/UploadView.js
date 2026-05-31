@@ -4,6 +4,26 @@
 import { actions, VIEWS, store, QUEUE_STATUS, fileToDataURL } from '../../state/store.js';
 import { Button } from './Button.js';
 import { trackEvent } from '../../tracking.js';
+import { compressRoomImage } from '../../utils/compressRoomImage.js';
+
+async function handleRoomPhotoSelected(file, source) {
+    const compressed = await compressRoomImage(file);
+    actions.setUploadedImage(compressed);
+
+    const currentState = store.getState();
+    const productUrl = currentState.config?.productUrl || window.location.href;
+    const productName = currentState.config?.productTitle || document.title;
+
+    trackEvent('image_uploaded', {
+        productUrl,
+        productName,
+        imageSize: compressed.size,
+        imageType: compressed.type,
+        fileName: file.name,
+        source,
+        originalSize: file.size
+    });
+}
 
 
 export const UploadView = (state) => {
@@ -211,7 +231,7 @@ export const UploadView = (state) => {
         note.style.fontSize = '11px';
         note.style.color = '#94a3b8';
         note.style.margin = '0';
-        note.textContent = 'JPG or PNG, up to 10 MB';
+        note.textContent = 'JPG or PNG — large photos are resized automatically';
         dropzoneContainer.appendChild(note);
 
         // Create hidden file input for gallery - use label for Android compatibility
@@ -220,24 +240,14 @@ export const UploadView = (state) => {
         fileInput.accept = 'image/*';
         fileInput.id = 'aif-file-input-' + Date.now();
         fileInput.style.display = 'none';
-        fileInput.onchange = (e) => {
+        fileInput.onchange = async (e) => {
             if (e.target.files[0]) {
-                const file = e.target.files[0];
-                actions.setUploadedImage(file);
-                
-                const currentState = store.getState();
-                const productUrl = currentState.config?.productUrl || window.location.href;
-                const productName = currentState.config?.productTitle || document.title;
-                
-                // Track image upload
-                trackEvent('image_uploaded', {
-                    productUrl: productUrl,
-                    productName: productName,
-                    imageSize: file.size,
-                    imageType: file.type,
-                    fileName: file.name,
-                    source: 'gallery'
-                });
+                try {
+                    await handleRoomPhotoSelected(e.target.files[0], 'gallery');
+                } catch (err) {
+                    console.error('Failed to process image:', err);
+                    actions.setError(err.message || 'Could not process image');
+                }
             }
         };
 
@@ -249,24 +259,14 @@ export const UploadView = (state) => {
         cameraInput.setAttribute('capture', 'environment');
         cameraInput.id = 'aif-camera-input-' + Date.now();
         cameraInput.style.display = 'none';
-        cameraInput.onchange = (e) => {
+        cameraInput.onchange = async (e) => {
             if (e.target.files[0]) {
-                const file = e.target.files[0];
-                actions.setUploadedImage(file);
-                
-                const currentState = store.getState();
-                const productUrl = currentState.config?.productUrl || window.location.href;
-                const productName = currentState.config?.productTitle || document.title;
-                
-                // Track camera capture
-                trackEvent('image_uploaded', {
-                    productUrl: productUrl,
-                    productName: productName,
-                    imageSize: file.size,
-                    imageType: file.type,
-                    fileName: file.name,
-                    source: 'camera'
-                });
+                try {
+                    await handleRoomPhotoSelected(e.target.files[0], 'camera');
+                } catch (err) {
+                    console.error('Failed to process image:', err);
+                    actions.setError(err.message || 'Could not process image');
+                }
             }
         };
 
@@ -350,7 +350,9 @@ export const UploadView = (state) => {
 
                 // Encode image before queueing so sessionStorage always has userImageDataUrl
                 // (avoids losing the job if the user navigates away before async conversion finished)
-                const userImageDataUrl = await fileToDataURL(state.uploadedImage);
+                const userImageDataUrl = await fileToDataURL(
+                    await compressRoomImage(state.uploadedImage)
+                );
 
                 // Create queue item
                 const queueId = `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

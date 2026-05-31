@@ -29,6 +29,52 @@ function sortRemoteGenerationsNewestFirst(entries) {
     return [...entries].sort((a, b) => toTimestampMs(b.createdAt) - toTimestampMs(a.createdAt));
 }
 
+function normalizePreviewUrl(url) {
+    if (!url || typeof url !== 'string') return '';
+    try {
+        const u = new URL(url);
+        return `${u.origin}${u.pathname}`;
+    } catch {
+        return url.split('?')[0] || url;
+    }
+}
+
+/** Merge session completed items with server history, skipping duplicates already in the queue. */
+function buildReadyTabEntries(queue, remoteGenerations) {
+    const sessionCompleted = sortQueueItemsNewestFirst(
+        queue.filter((item) => item.status === QUEUE_STATUS.COMPLETED)
+    );
+
+    const sessionQueueIds = new Set(sessionCompleted.map((item) => item.id));
+    const sessionPreviewUrls = new Set(
+        sessionCompleted
+            .map((item) => item.result?.generatedImageUrl)
+            .filter(Boolean)
+            .map(normalizePreviewUrl)
+    );
+
+    const savedOnly = sortRemoteGenerationsNewestFirst(remoteGenerations || []).filter((entry) => {
+        const queueId = entry?.metadata?.queueId;
+        if (queueId && sessionQueueIds.has(queueId)) return false;
+        const previewUrl = normalizePreviewUrl(entry?.previewImageUrl);
+        if (previewUrl && sessionPreviewUrls.has(previewUrl)) return false;
+        return true;
+    });
+
+    return [
+        ...sessionCompleted.map((item) => ({
+            kind: 'session',
+            ts: queueItemSortTimestamp(item),
+            item
+        })),
+        ...savedOnly.map((entry) => ({
+            kind: 'saved',
+            ts: toTimestampMs(entry?.createdAt),
+            entry
+        }))
+    ].sort((a, b) => b.ts - a.ts);
+}
+
 export const QueueView = (state) => {
     const container = document.createElement('div');
     container.className = 'aif-queue-view';
@@ -45,7 +91,6 @@ export const QueueView = (state) => {
 
     const processingCount = state.queue.filter(i => i.status === QUEUE_STATUS.PROCESSING || i.status === QUEUE_STATUS.PENDING).length;
     const completedCount = state.queue.filter(i => i.status === QUEUE_STATUS.COMPLETED).length;
-    const failedCount = state.queue.filter(i => i.status === QUEUE_STATUS.ERROR).length;
 
     header.innerHTML = `
     <div class="aif-badge">
@@ -58,7 +103,7 @@ export const QueueView = (state) => {
     container.appendChild(header);
 
     // Tabs
-    const activeTab = state.queueTab || 'all';
+    const activeTab = state.queueTab === 'failed' ? 'all' : (state.queueTab || 'all');
     const tabs = document.createElement('div');
     tabs.className = 'aif-queue-tabs';
     tabs.style.display = 'flex';
@@ -67,18 +112,13 @@ export const QueueView = (state) => {
     tabs.style.marginBottom = '8px';
 
     const remoteGenerations = state.remoteGenerations || [];
-    const savedCount = remoteGenerations.length;
-    const completedTabCount = completedCount + savedCount;
+    const readyEntries = buildReadyTabEntries(state.queue, remoteGenerations);
 
     const tabOptions = [
         { id: 'all', label: 'All', count: state.queue.length },
         { id: 'processing', label: 'In progress', count: processingCount },
-        { id: 'completed', label: 'Ready', count: completedTabCount }
+        { id: 'completed', label: 'Ready', count: readyEntries.length }
     ];
-
-    if (failedCount > 0) {
-        tabOptions.push({ id: 'failed', label: 'Failed', count: failedCount });
-    }
 
     tabOptions.forEach(tab => {
         const tabBtn = document.createElement('button');
@@ -111,8 +151,6 @@ export const QueueView = (state) => {
         filteredQueue = state.queue.filter(i => i.status === QUEUE_STATUS.PROCESSING || i.status === QUEUE_STATUS.PENDING);
     } else if (activeTab === 'completed') {
         filteredQueue = state.queue.filter(i => i.status === QUEUE_STATUS.COMPLETED);
-    } else if (activeTab === 'failed') {
-        filteredQueue = state.queue.filter(i => i.status === QUEUE_STATUS.ERROR);
     }
 
     // Queue List
@@ -122,24 +160,7 @@ export const QueueView = (state) => {
     list.style.flexDirection = 'column';
 
     if (activeTab === 'completed') {
-        // Merge session + server-saved items so newest always appears at the top.
-        const sessionCompleted = sortQueueItemsNewestFirst(
-            state.queue.filter((i) => i.status === QUEUE_STATUS.COMPLETED)
-        ).map((item) => ({
-            kind: 'session',
-            ts: queueItemSortTimestamp(item),
-            item
-        }));
-
-        const savedCompleted = sortRemoteGenerationsNewestFirst(remoteGenerations).map((entry) => ({
-            kind: 'saved',
-            ts: toTimestampMs(entry?.createdAt),
-            entry
-        }));
-
-        const combined = [...savedCompleted, ...sessionCompleted].sort((a, b) => b.ts - a.ts);
-
-        if (combined.length === 0) {
+        if (readyEntries.length === 0) {
             const empty = document.createElement('p');
             empty.style.textAlign = 'center';
             empty.style.color = '#94a3b8';
@@ -147,7 +168,7 @@ export const QueueView = (state) => {
             empty.textContent = 'Nothing here yet.';
             list.appendChild(empty);
         } else {
-            combined.forEach((x) => {
+            readyEntries.forEach((x) => {
                 if (x.kind === 'saved') list.appendChild(createSavedHistoryRow(x.entry));
                 else list.appendChild(createQueueItem(x.item));
             });
