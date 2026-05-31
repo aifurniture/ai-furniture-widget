@@ -3,7 +3,8 @@ import { trackEvent } from '../tracking.js';
 import {
     postWidgetGeneration,
     getStorefrontDomain,
-    fetchWidgetGenerationStatus
+    fetchWidgetGenerationStatus,
+    startWidgetGeneration
 } from '../utils/widgetShopperApi.js';
 import { getWidgetAnonymousClientId } from '../utils/persistStorage.js';
 import { debugLog } from '../debug.js';
@@ -215,8 +216,28 @@ function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
     }
 }
 
+function handleAsyncJobStatus(id, item, statusPayload, uploaded, mergedConfig) {
+    if (statusPayload.status === BACKEND_JOB_STATUS.COMPLETED && statusPayload.result) {
+        applyCompletedResult(id, item, statusPayload, uploaded, mergedConfig);
+        return 'completed';
+    }
+    if (statusPayload.status === BACKEND_JOB_STATUS.FAILED) {
+        actions.updateQueueItem(id, {
+            status: QUEUE_STATUS.ERROR,
+            completedAt: Date.now(),
+            error: statusPayload.error || 'Generation failed',
+            backendJobSubmitted: false
+        });
+        return 'failed';
+    }
+    if (statusPayload.status === BACKEND_JOB_STATUS.PROCESSING) {
+        return 'processing';
+    }
+    return 'unknown';
+}
+
 async function pollAsyncJobUntilComplete(id, item, apiEndpoint, domainForApi, uploaded, mergedConfig) {
-    if (pollingItems.has(id)) return false;
+    if (pollingItems.has(id)) return 'polling';
     pollingItems.add(id);
     processingItems.add(id);
 
@@ -232,25 +253,46 @@ async function pollAsyncJobUntilComplete(id, item, apiEndpoint, domainForApi, up
                     domain: domainForApi
                 });
             } catch (e) {
-                if (e?.status === 404) return false;
+                if (e?.status === 404) return 'missing';
                 await sleep(POLL_INTERVAL_MS);
                 continue;
             }
 
-            if (statusPayload.status === BACKEND_JOB_STATUS.COMPLETED && statusPayload.result) {
-                applyCompletedResult(id, item, statusPayload, uploaded, mergedConfig);
-                return true;
-            }
-            if (statusPayload.status === BACKEND_JOB_STATUS.FAILED) {
-                return false;
-            }
+            const outcome = handleAsyncJobStatus(id, item, statusPayload, uploaded, mergedConfig);
+            if (outcome === 'completed' || outcome === 'failed') return outcome;
             await sleep(POLL_INTERVAL_MS);
         }
-        return false;
+        return isPageUnloading ? 'interrupted' : 'timeout';
     } finally {
         pollingItems.delete(id);
         processingItems.delete(id);
     }
+}
+
+async function submitAsyncJob(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded) {
+    if (!uploaded?.s3Key) {
+        throw new Error('imageS3Key required for async generation');
+    }
+
+    const formData = new FormData();
+    formData.append('queueId', id);
+    formData.append('productUrl', item.productUrl);
+    formData.append('productName', (item.productName || document.title || '').slice(0, 500));
+    formData.append('model', 'slow');
+    formData.append('domain', domainForApi);
+    formData.append('imageS3Key', uploaded.s3Key);
+    if (sessionIdForApi) formData.append('sessionId', sessionIdForApi);
+    if (
+        typeof item.furnitureWidthCm === 'number' &&
+        Number.isFinite(item.furnitureWidthCm) &&
+        item.furnitureWidthCm > 0
+    ) {
+        formData.append('furnitureWidthCm', String(item.furnitureWidthCm));
+    }
+
+    debugLog(`POST /widget/generate for ${id.slice(0, 8)}`);
+    await startWidgetGeneration(apiEndpoint, formData);
+    actions.updateQueueItem(id, { backendJobSubmitted: true });
 }
 
 async function runSyncGenerate(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded, imageToUse) {
@@ -305,12 +347,9 @@ function checkQueue(state) {
     state.queue
         .filter(
             (item) =>
-                (item.status === QUEUE_STATUS.PENDING ||
-                    (item.status === QUEUE_STATUS.PROCESSING &&
-                        !item.backendJobSubmitted &&
-                        !processingItems.has(item.id) &&
-                        !pollingItems.has(item.id))) &&
-                !processingItems.has(item.id)
+                (item.status === QUEUE_STATUS.PENDING || item.status === QUEUE_STATUS.PROCESSING) &&
+                !processingItems.has(item.id) &&
+                !pollingItems.has(item.id)
         )
         .forEach((item) => processQueueItem(item));
 }
@@ -422,9 +461,9 @@ async function processQueueItem(item) {
             }
         }
 
-        // Recover result from a prior async job if one exists
-        if (item.backendJobSubmitted) {
-            const recovered = await pollAsyncJobUntilComplete(
+        // Recover from an existing backend job (safe after page navigation — same queueId).
+        if (uploaded?.s3Key || item.backendJobSubmitted || item.imageS3Key) {
+            const pollOutcome = await pollAsyncJobUntilComplete(
                 id,
                 item,
                 apiEndpoint,
@@ -432,19 +471,47 @@ async function processQueueItem(item) {
                 uploaded,
                 mergedConfig
             );
-            if (recovered) return;
+            if (pollOutcome === 'completed' || pollOutcome === 'failed') return;
+            if (pollOutcome === 'interrupted' || pollOutcome === 'polling') return;
         }
 
-        const result = await runSyncGenerate(
+        if (!uploaded?.s3Key) {
+            const result = await runSyncGenerate(
+                id,
+                item,
+                apiEndpoint,
+                domainForApi,
+                sessionIdForApi,
+                uploaded,
+                imageToUse
+            );
+            applyCompletedResult(id, item, { result }, uploaded, mergedConfig);
+            return;
+        }
+
+        if (!item.backendJobSubmitted) {
+            await submitAsyncJob(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded);
+        }
+
+        const finalOutcome = await pollAsyncJobUntilComplete(
             id,
             item,
             apiEndpoint,
             domainForApi,
-            sessionIdForApi,
             uploaded,
-            imageToUse
+            mergedConfig
         );
-        applyCompletedResult(id, item, { result }, uploaded, mergedConfig);
+        if (finalOutcome === 'completed' || finalOutcome === 'failed') return;
+        if (finalOutcome === 'interrupted' || finalOutcome === 'polling') return;
+
+        actions.updateQueueItem(id, {
+            status: QUEUE_STATUS.ERROR,
+            completedAt: Date.now(),
+            error:
+                finalOutcome === 'timeout'
+                    ? 'Generation timed out - please retry'
+                    : 'Generation failed - please retry'
+        });
     } catch (error) {
         if (isNavigationAbort(error)) {
             debugLog(`Generation interrupted for ${id.slice(0, 8)} — will resume on next page`);
@@ -465,6 +532,13 @@ if (typeof window !== 'undefined') {
     window.addEventListener('pagehide', () => {
         isPageUnloading = true;
         processingItems.clear();
+    });
+
+    window.addEventListener('pageshow', (event) => {
+        isPageUnloading = false;
+        if (event.persisted || store.getState().queue?.length > 0) {
+            resumePendingItems(store.getState());
+        }
     });
 }
 

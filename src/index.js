@@ -40,6 +40,7 @@ export function initAIFurnitureWidget(userConfig = {}) {
         } catch (e) {
             // no-op (avoid noisy console in production)
         }
+        initQueueProcessor();
         // Still attach listeners in case they were lost
         attachDomListeners();
         return;
