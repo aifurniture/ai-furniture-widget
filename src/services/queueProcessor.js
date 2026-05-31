@@ -89,8 +89,23 @@ async function uploadImageViaBackend({ apiEndpoint, domain, sessionId, fileOrBlo
 
 const processingItems = new Set();
 const pollingItems = new Set();
+const inFlightById = new Map();
 let queueProcessorInitialized = false;
 let isPageUnloading = false;
+
+function tryClaimQueueItem(id) {
+    if (inFlightById.has(id) || processingItems.has(id) || pollingItems.has(id)) {
+        return false;
+    }
+    processingItems.add(id);
+    return true;
+}
+
+function releaseQueueItem(id) {
+    processingItems.delete(id);
+    pollingItems.delete(id);
+    inFlightById.delete(id);
+}
 
 const dataURLToBlob = (dataURL) => {
     if (!dataURL) return null;
@@ -239,7 +254,6 @@ function handleAsyncJobStatus(id, item, statusPayload, uploaded, mergedConfig) {
 async function pollAsyncJobUntilComplete(id, item, apiEndpoint, domainForApi, uploaded, mergedConfig) {
     if (pollingItems.has(id)) return 'polling';
     pollingItems.add(id);
-    processingItems.add(id);
 
     const startedAt = item.startedAt || Date.now();
     const deadline = startedAt + MAX_POLL_MS;
@@ -265,7 +279,18 @@ async function pollAsyncJobUntilComplete(id, item, apiEndpoint, domainForApi, up
         return isPageUnloading ? 'interrupted' : 'timeout';
     } finally {
         pollingItems.delete(id);
-        processingItems.delete(id);
+    }
+}
+
+async function fetchAsyncJobStatusOnce(id, apiEndpoint, domainForApi) {
+    try {
+        return await fetchWidgetGenerationStatus(apiEndpoint, {
+            queueId: id,
+            domain: domainForApi
+        });
+    } catch (e) {
+        if (e?.status === 404) return null;
+        throw e;
     }
 }
 
@@ -330,83 +355,92 @@ async function runSyncGenerate(id, item, apiEndpoint, domainForApi, sessionIdFor
 
 export function initQueueProcessor() {
     if (queueProcessorInitialized) {
-        const currentState = store.getState();
-        if (currentState.queue?.length > 0) resumePendingItems(currentState);
+        scheduleQueueWork(store.getState());
         return;
     }
 
     queueProcessorInitialized = true;
-    store.subscribe((state) => checkQueue(state));
-
-    const initialState = store.getState();
-    checkQueue(initialState);
-    resumePendingItems(initialState);
+    store.subscribe((state) => scheduleQueueWork(state));
+    scheduleQueueWork(store.getState());
 }
 
-function checkQueue(state) {
+function getFreshQueueItem(id) {
+    return store.getState().queue.find((q) => q.id === id) || null;
+}
+
+function prepareQueueItemForProcessing(item) {
+    if (
+        item.status !== QUEUE_STATUS.PENDING &&
+        item.startedAt &&
+        Date.now() - item.startedAt > MAX_POLL_MS
+    ) {
+        actions.updateQueueItem(item.id, {
+            status: QUEUE_STATUS.ERROR,
+            completedAt: Date.now(),
+            error: 'Generation timed out - please retry'
+        });
+        return null;
+    }
+
+    if (!item.userImage && !item.userImageDataUrl && !item.imageS3Key) {
+        actions.updateQueueItem(item.id, {
+            status: QUEUE_STATUS.ERROR,
+            completedAt: Date.now(),
+            error: 'Image data lost - please re-upload'
+        });
+        return null;
+    }
+
+    const prepared = { ...item };
+    if (prepared.userImageDataUrl && !prepared.userImage && !prepared.imageS3Key) {
+        const blob = dataURLToBlob(prepared.userImageDataUrl);
+        if (!blob) {
+            actions.updateQueueItem(item.id, {
+                status: QUEUE_STATUS.ERROR,
+                completedAt: Date.now(),
+                error: 'Failed to restore image - please re-upload'
+            });
+            return null;
+        }
+        prepared.userImage = blob;
+    }
+
+    return prepared;
+}
+
+function scheduleQueueWork(state) {
     state.queue
         .filter(
             (item) =>
-                (item.status === QUEUE_STATUS.PENDING || item.status === QUEUE_STATUS.PROCESSING) &&
-                !processingItems.has(item.id) &&
-                !pollingItems.has(item.id)
-        )
-        .forEach((item) => processQueueItem(item));
-}
-
-function resumePendingItems(state) {
-    state.queue
-        .filter(
-            (item) =>
-                (item.status === QUEUE_STATUS.PENDING || item.status === QUEUE_STATUS.PROCESSING) &&
-                !processingItems.has(item.id)
+                item.status === QUEUE_STATUS.PENDING || item.status === QUEUE_STATUS.PROCESSING
         )
         .forEach((item) => {
-            if (
-                item.status !== QUEUE_STATUS.PENDING &&
-                item.startedAt &&
-                Date.now() - item.startedAt > MAX_POLL_MS
-            ) {
-                actions.updateQueueItem(item.id, {
-                    status: QUEUE_STATUS.ERROR,
-                    completedAt: Date.now(),
-                    error: 'Generation timed out - please retry'
-                });
-                return;
-            }
-
-            if (!item.userImage && !item.userImageDataUrl && !item.imageS3Key) {
-                actions.updateQueueItem(item.id, {
-                    status: QUEUE_STATUS.ERROR,
-                    completedAt: Date.now(),
-                    error: 'Image data lost - please re-upload'
-                });
-                return;
-            }
-
-            if (item.userImageDataUrl && !item.userImage && !item.imageS3Key) {
-                const blob = dataURLToBlob(item.userImageDataUrl);
-                if (blob) {
-                    item.userImage = blob;
-                } else {
-                    actions.updateQueueItem(item.id, {
-                        status: QUEUE_STATUS.ERROR,
-                        completedAt: Date.now(),
-                        error: 'Failed to restore image - please re-upload'
-                    });
-                    return;
-                }
-            }
-
             processQueueItem(item);
         });
 }
 
 async function processQueueItem(item) {
-    const { id, userImage, userImageDataUrl, imageS3Key } = item;
-    const mergedConfig = { ...(store.getState().config || {}), ...(item.config || {}) };
+    const id = item.id;
+    if (inFlightById.has(id)) return inFlightById.get(id);
 
-    if (processingItems.has(id) || pollingItems.has(id)) return;
+    const prepared = prepareQueueItemForProcessing(item);
+    if (!prepared) return;
+
+    if (!tryClaimQueueItem(id)) return;
+
+    const work = runQueueItemWork(prepared);
+    inFlightById.set(id, work);
+    try {
+        await work;
+    } finally {
+        releaseQueueItem(id);
+    }
+}
+
+async function runQueueItemWork(item) {
+    const id = item.id;
+    const mergedConfig = { ...(store.getState().config || {}), ...(item.config || {}) };
+    const { userImage, userImageDataUrl, imageS3Key } = item;
 
     let imageToUse = null;
     if (!imageS3Key || !item.userImageUrl) {
@@ -432,7 +466,6 @@ async function processQueueItem(item) {
     const sessionIdForApi = getSessionIdForApi(mergedConfig);
 
     try {
-        processingItems.add(id);
         actions.updateQueueItem(id, {
             status: QUEUE_STATUS.PROCESSING,
             startedAt: item.startedAt || Date.now(),
@@ -441,8 +474,6 @@ async function processQueueItem(item) {
 
         let uploaded = imageS3Key ? { s3Key: imageS3Key, imageUrl: item.userImageUrl || null } : null;
 
-        // Send image to backend — never browser->S3 PUT (blocked by S3 CORS on storefronts).
-        // Prefer /api/generate with image file; backend uploads to S3 server-side.
         if (!uploaded?.s3Key && imageToUse) {
             debugLog(`Uploading via backend /upload for ${id.slice(0, 8)}`);
             try {
@@ -461,11 +492,13 @@ async function processQueueItem(item) {
             }
         }
 
-        // Recover from an existing backend job (safe after page navigation — same queueId).
-        if (uploaded?.s3Key || item.backendJobSubmitted || item.imageS3Key) {
+        const latest = getFreshQueueItem(id) || item;
+
+        // Resume: poll an already-submitted backend job (safe across page navigation).
+        if (latest.backendJobSubmitted) {
             const pollOutcome = await pollAsyncJobUntilComplete(
                 id,
-                item,
+                latest,
                 apiEndpoint,
                 domainForApi,
                 uploaded,
@@ -473,29 +506,56 @@ async function processQueueItem(item) {
             );
             if (pollOutcome === 'completed' || pollOutcome === 'failed') return;
             if (pollOutcome === 'interrupted' || pollOutcome === 'polling') return;
+        } else if (uploaded?.s3Key || latest.imageS3Key) {
+            // Another tab/page may have submitted while we were uploading — check once before creating a job.
+            const existingStatus = await fetchAsyncJobStatusOnce(id, apiEndpoint, domainForApi);
+            if (existingStatus) {
+                const existingOutcome = handleAsyncJobStatus(
+                    id,
+                    latest,
+                    existingStatus,
+                    uploaded,
+                    mergedConfig
+                );
+                if (existingOutcome === 'completed' || existingOutcome === 'failed') return;
+                if (existingStatus.status === BACKEND_JOB_STATUS.PROCESSING) {
+                    actions.updateQueueItem(id, { backendJobSubmitted: true });
+                    const pollOutcome = await pollAsyncJobUntilComplete(
+                        id,
+                        getFreshQueueItem(id) || latest,
+                        apiEndpoint,
+                        domainForApi,
+                        uploaded,
+                        mergedConfig
+                    );
+                    if (pollOutcome === 'completed' || pollOutcome === 'failed') return;
+                    if (pollOutcome === 'interrupted' || pollOutcome === 'polling') return;
+                }
+            }
         }
 
         if (!uploaded?.s3Key) {
             const result = await runSyncGenerate(
                 id,
-                item,
+                latest,
                 apiEndpoint,
                 domainForApi,
                 sessionIdForApi,
                 uploaded,
                 imageToUse
             );
-            applyCompletedResult(id, item, { result }, uploaded, mergedConfig);
+            applyCompletedResult(id, latest, { result }, uploaded, mergedConfig);
             return;
         }
 
-        if (!item.backendJobSubmitted) {
-            await submitAsyncJob(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded);
+        const beforeSubmit = getFreshQueueItem(id) || latest;
+        if (!beforeSubmit.backendJobSubmitted) {
+            await submitAsyncJob(id, beforeSubmit, apiEndpoint, domainForApi, sessionIdForApi, uploaded);
         }
 
         const finalOutcome = await pollAsyncJobUntilComplete(
             id,
-            item,
+            getFreshQueueItem(id) || beforeSubmit,
             apiEndpoint,
             domainForApi,
             uploaded,
@@ -523,8 +583,6 @@ async function processQueueItem(item) {
             completedAt: Date.now(),
             error: error.message || 'Generation failed'
         });
-    } finally {
-        processingItems.delete(id);
     }
 }
 
@@ -532,12 +590,14 @@ if (typeof window !== 'undefined') {
     window.addEventListener('pagehide', () => {
         isPageUnloading = true;
         processingItems.clear();
+        pollingItems.clear();
+        inFlightById.clear();
     });
 
     window.addEventListener('pageshow', (event) => {
         isPageUnloading = false;
         if (event.persisted || store.getState().queue?.length > 0) {
-            resumePendingItems(store.getState());
+            scheduleQueueWork(store.getState());
         }
     });
 }
