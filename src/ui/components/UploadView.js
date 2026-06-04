@@ -1,7 +1,7 @@
 /**
  * Upload View Component
  */
-import { actions, VIEWS, store, fileToDataURL } from '../../state/store.js';
+import { actions, VIEWS, store } from '../../state/store.js';
 import { Button } from './Button.js';
 import { trackEvent } from '../../tracking.js';
 import { compressRoomImage } from '../../utils/compressRoomImage.js';
@@ -199,70 +199,35 @@ export const UploadView = (state) => {
     const generateBtn = Button({
         text: 'Create preview',
         disabled: !state.uploadedImage,
-        onClick: async () => {
+        onClick: () => {
             if (!state.uploadedImage) return;
 
-            generateBtn.disabled = true;
-            generateBtn.innerHTML = '';
-            const spinner = document.createElement('div');
-            spinner.className = 'aif-spinner';
-            const loadingText = document.createElement('span');
-            loadingText.textContent = ' Starting…';
-            generateBtn.appendChild(spinner);
-            generateBtn.appendChild(loadingText);
-            generateBtn.style.display = 'flex';
-            generateBtn.style.alignItems = 'center';
-            generateBtn.style.justifyContent = 'center';
-            generateBtn.style.gap = '8px';
+            const image = state.uploadedImage;
+            const currentState = store.getState();
+            const productUrl = currentState.config?.productUrl || window.location.href;
+            const productName =
+                currentState.config?.productTitle || document.title || productUrl;
+            const queueId = `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-            try {
-                const currentState = store.getState();
-                const productUrl = currentState.config?.productUrl || window.location.href;
-                const productName =
-                    currentState.config?.productTitle || document.title || productUrl;
+            actions.addToQueue({
+                id: queueId,
+                productUrl,
+                productName,
+                userImage: image,
+                selectedModel: 'slow',
+                config: currentState.config || {},
+                queuedAt: Date.now()
+            });
+            actions.setUploadedImage(null);
+            actions.setView(VIEWS.QUEUE);
 
-                const userImageDataUrl = await fileToDataURL(
-                    await compressRoomImage(state.uploadedImage)
-                );
-
-                const queueId = `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-                const queueItem = {
-                    id: queueId,
-                    productUrl,
-                    productName,
-                    userImage: state.uploadedImage,
-                    userImageDataUrl,
-                    selectedModel: 'slow',
-                    config: currentState.config || {},
-                    queuedAt: Date.now()
-                };
-
-                trackEvent('ai_generation_started', {
-                    queueId,
-                    productUrl,
-                    productName,
-                    model: 'slow',
-                    imageSize: state.uploadedImage?.size || 0
-                });
-
-                actions.addToQueue(queueItem);
-                actions.setView(VIEWS.QUEUE);
-                actions.setUploadedImage(null);
-
-                generateBtn.disabled = false;
-                generateBtn.innerHTML = '';
-                generateBtn.textContent = 'Create preview';
-                generateBtn.style.display = '';
-            } catch (error) {
-                console.error('Failed to add to queue:', error);
-                actions.setError(error.message || 'Something went wrong. Please try again.');
-
-                generateBtn.disabled = false;
-                generateBtn.innerHTML = '';
-                generateBtn.textContent = 'Create preview';
-                generateBtn.style.display = '';
-            }
+            trackEvent('ai_generation_started', {
+                queueId,
+                productUrl,
+                productName,
+                model: 'slow',
+                imageSize: image?.size || 0
+            });
         }
     });
 

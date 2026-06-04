@@ -2,8 +2,7 @@
 import { createConfig } from './config.js';
 import { actions, store } from './state/store.js';
 import { injectStyles } from './ui/styles.js';
-import { Modal } from './ui/components/Modal.js';
-import { attachDomListeners } from './init.js';
+import { attachDomListeners, ensureWidgetUiMounted, shouldShowWidgetUi, syncWidgetUiForPage } from './init.js';
 import { setConfig } from './state.js';
 import { initQueueProcessor } from './services/queueProcessor.js';
 
@@ -41,8 +40,8 @@ export function initAIFurnitureWidget(userConfig = {}) {
             // no-op (avoid noisy console in production)
         }
         initQueueProcessor();
-        // Still attach listeners in case they were lost
         attachDomListeners();
+        syncWidgetUiForPage();
         return;
     }
     
@@ -52,13 +51,8 @@ export function initAIFurnitureWidget(userConfig = {}) {
     // 2. Inject Styles
     injectStyles();
 
-    // 3. Mount Modal (it stays hidden until opened)
-    // Check if modal already exists to avoid duplicates
-    let modal = document.getElementById('ai-furniture-modal');
-    if (!modal) {
-        modal = Modal();
-        document.body.appendChild(modal);
-    }
+    // 3. Mount modal + floating button only on product pages (or while a preview is generating)
+    syncWidgetUiForPage();
 
     // 4. Initialize Queue Processor (must be done after store is ready)
     initQueueProcessor();
@@ -90,10 +84,9 @@ export function initAIFurnitureWidget(userConfig = {}) {
 
     // 9. Handle browser back/forward navigation
     window.addEventListener('popstate', () => {
-        // Restore state on navigation
+        syncWidgetUiForPage();
         const state = store.getState();
-        if (state.isOpen) {
-            // Keep modal open if it was open
+        if (state.isOpen && shouldShowWidgetUi()) {
             actions.openModal();
         }
     });

@@ -5,7 +5,19 @@ import { actions, store, QUEUE_STATUS, VIEWS } from '../state/store.js';
 import { getConfig, getSessionId } from '../state.js';
 import { trackEvent } from '../tracking.js';
 
+export function removeWidgetButton() {
+    const button = document.getElementById('ai-furniture-trigger-btn');
+    if (button) button.remove();
+}
+
+export function removeWidgetModal() {
+    const modal = document.getElementById('ai-furniture-modal');
+    if (modal) modal.remove();
+}
+
 export function createWidgetButton() {
+    if (!isFurnitureProductPage()) return;
+
     // Avoid duplicates
     if (document.getElementById('ai-furniture-trigger-btn')) return;
 

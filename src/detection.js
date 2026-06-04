@@ -2,36 +2,167 @@
 import { debugLog } from './debug.js';
 import { trackEvent, trackOrderCompletion, disconnectAllTracking } from './tracking.js';
 
-export function isFurnitureProductPage() {
-    const url = window.location.href.toLowerCase();
-    const title = document.title.toLowerCase();
-    const bodyText = document.body.textContent.toLowerCase();
+const NON_PRODUCT_SHOPIFY_PAGE_TYPES = new Set([
+    'index',
+    'home',
+    'collection',
+    'list-collections',
+    'cart',
+    'checkout',
+    'search',
+    'page',
+    'blog',
+    'article',
+    '404',
+    'password',
+    'gift_card',
+    'customers/account',
+    'customers/login',
+    'customers/register'
+]);
 
-    const furnitureKeywords = [
-        'sofa', 'couch', 'chair', 'table', 'bed', 'desk', 'cabinet', 'shelf',
-        'dresser', 'nightstand', 'wardrobe', 'ottoman', 'bench', 'stool',
-        'armchair', 'dining', 'bedroom', 'living', 'furniture', 'product'
+function getShopifyPageType() {
+    try {
+        return String(
+            window.ShopifyAnalytics?.meta?.page?.pageType ||
+                window.meta?.page?.pageType ||
+                window.Shopify?.Analytics?.meta?.page?.pageType ||
+                ''
+        ).toLowerCase();
+    } catch {
+        return '';
+    }
+}
+
+function isCatalogPath(pathname) {
+    const path = (pathname || '').toLowerCase();
+
+    if (!path || path === '/') return true;
+
+    // Locale-only home paths, e.g. /en or /en-gb
+    if (/^\/[a-z]{2}(-[a-z]{2})?\/?$/i.test(path)) return true;
+
+    const catalogMarkers = [
+        '/collections',
+        '/catalog',
+        '/category',
+        '/categories',
+        '/shop',
+        '/search',
+        '/cart',
+        '/checkout',
+        '/account',
+        '/pages/',
+        '/blog',
+        '/blogs/',
+        '/about',
+        '/contact',
+        '/home',
+        '/index',
+        '/brands',
+        '/sale',
+        '/deals',
+        '/tag/',
+        '/tags/',
+        '/vendor',
+        '/vendors',
+        '/browse',
+        '/store',
+        '/listing',
+        '/all-products'
     ];
 
-    const hasProductIndicators =
-        document.querySelector('[data-product-id]') ||
-        document.querySelector('.product') ||
-        document.querySelector('#product') ||
-        document.querySelector('[class*="product"]') ||
-        document.querySelector('[id*="product"]');
+    if (catalogMarkers.some((marker) => path.includes(marker))) return true;
+    if (/^\/products\/?$/i.test(path)) return true;
 
-    const hasPrice =
-        document.querySelector('[class*="price"]') ||
-        document.querySelector('[id*="price"]') ||
-        /\$[\d,]+/.test(bodyText) ||
-        /£[\d,]+/.test(bodyText) ||
-        /€[\d,]+/.test(bodyText);
+    return false;
+}
 
-    const hasFurnitureKeywords = furnitureKeywords.some(keyword =>
-        url.includes(keyword) || title.includes(keyword) || bodyText.includes(keyword)
+function isProductDetailPath(pathname) {
+    const path = (pathname || '').toLowerCase();
+    return (
+        /\/products\/[^/?#]+/i.test(path) ||
+        /\/product\/[^/?#]+/i.test(path) ||
+        /\/p\/[^/?#]+/i.test(path) ||
+        /\/item\/[^/?#]+/i.test(path)
     );
+}
 
-    return hasProductIndicators && hasPrice && hasFurnitureKeywords;
+function hasShopifyProductMeta() {
+    return getShopifyPageType() === 'product';
+}
+
+function hasJsonLdProduct() {
+    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
+    for (const script of scripts) {
+        try {
+            const parsed = JSON.parse(script.textContent || '');
+            const nodes = Array.isArray(parsed) ? parsed : [parsed];
+            for (const node of nodes) {
+                if (!node || typeof node !== 'object') continue;
+                const type = node['@type'];
+                if (type === 'Product') return true;
+                if (Array.isArray(type) && type.includes('Product')) return true;
+                if (Array.isArray(node['@graph'])) {
+                    if (node['@graph'].some((g) => g && g['@type'] === 'Product')) return true;
+                }
+            }
+        } catch {
+            /* ignore invalid JSON-LD */
+        }
+    }
+    return false;
+}
+
+function hasOpenGraphProduct() {
+    const ogType = document
+        .querySelector('meta[property="og:type"]')
+        ?.getAttribute('content')
+        ?.toLowerCase();
+    return ogType === 'product';
+}
+
+function hasSingleProductDetailSignals() {
+    const detailRoot =
+        document.querySelector(
+            '[data-product-id], [data-product-handle], .product-single, .product-detail, #product-detail, .productView, .product-page'
+        ) || document.querySelector('main .product, #product');
+
+    if (!detailRoot) return false;
+
+    const addToCart =
+        detailRoot.querySelector(
+            'form[action*="/cart/add"], form[action*="add-to-cart"], [data-add-to-cart], button[name="add"], input[name="add"]'
+        ) ||
+        document.querySelector('form[action*="/cart/add"], form[action*="add-to-cart"]');
+
+    if (!addToCart) return false;
+
+    const inListing = addToCart.closest(
+        '[class*="collection"], [class*="grid"], [class*="carousel"], [class*="slider"], [class*="listing"], [class*="catalog"]'
+    );
+    return !inListing;
+}
+
+export function isFurnitureProductPage() {
+    const path = window.location.pathname;
+    const shopifyPageType = getShopifyPageType();
+
+    if (shopifyPageType === 'product') return true;
+    if (shopifyPageType && NON_PRODUCT_SHOPIFY_PAGE_TYPES.has(shopifyPageType)) {
+        return false;
+    }
+
+    if (isCatalogPath(path)) return false;
+    if (isProductDetailPath(path)) return true;
+
+    if (hasOpenGraphProduct()) return true;
+
+    if (hasJsonLdProduct() && hasSingleProductDetailSignals()) {
+        return true;
+    }
+
+    return false;
 }
 
 /**

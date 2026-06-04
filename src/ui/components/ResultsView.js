@@ -33,15 +33,38 @@ export const ResultsView = (state) => {
         return pairs;
     };
 
-    const createActionsRow = (afterUrl) => {
+    const createActionsRow = (beforeUrl, afterUrl) => {
         const wrap = document.createElement('div');
         wrap.className = 'aif-result-actions';
         wrap.style.marginTop = '12px';
 
         const savePreviewBtn = Button({
             text: 'Save preview',
-            onClick: () =>
-                downloadUrlAsFile(afterUrl, `preview-${getFilenameFromUrl(afterUrl)}`, dlOpts)
+            onClick: async () => {
+                savePreviewBtn.disabled = true;
+                const originalText = savePreviewBtn.textContent;
+                savePreviewBtn.textContent = 'Saving…';
+
+                try {
+                    if (beforeUrl) {
+                        await downloadUrlAsFile(
+                            beforeUrl,
+                            `room-${getFilenameFromUrl(beforeUrl, 'room.jpg')}`,
+                            dlOpts
+                        );
+                    }
+                    if (afterUrl) {
+                        await downloadUrlAsFile(
+                            afterUrl,
+                            `preview-${getFilenameFromUrl(afterUrl, 'preview.png')}`,
+                            dlOpts
+                        );
+                    }
+                } finally {
+                    savePreviewBtn.disabled = false;
+                    savePreviewBtn.textContent = originalText;
+                }
+            }
         });
         savePreviewBtn.style.width = '100%';
 
@@ -91,7 +114,7 @@ export const ResultsView = (state) => {
                 img.style.borderRadius = '8px';
                 grid.appendChild(previewBlock(img));
             }
-            grid.appendChild(createActionsRow(generatedUrl));
+            grid.appendChild(createActionsRow(beforeUrl, generatedUrl));
         }
     });
 

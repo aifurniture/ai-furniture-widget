@@ -1,9 +1,10 @@
 // src/init.js
-import { actions } from './state/store.js';
+import { actions, store, QUEUE_STATUS } from './state/store.js';
 import { verifyDomain, verifyDomainWithServer } from './domainVerification.js';
 import { debugLog } from './debug.js';
 import { initSession, trackEvent, onOrderAddedToDatabase, resetWidget, disconnectAllTracking, setRecreateWidgetButton } from './tracking.js';
-import { createWidgetButton } from './ui/widgetButton.js';
+import { createWidgetButton, removeWidgetButton, removeWidgetModal } from './ui/widgetButton.js';
+import { Modal } from './ui/components/Modal.js';
 import { isFurnitureProductPage, detectCartAndOrderPages, checkForOrderCompletion, trackOrderConfirmationPage } from './detection.js';
 import { resumeQueueAfterNavigation } from './services/queueProcessor.js';
 
@@ -43,6 +44,59 @@ function setWidgetInitialized(value) {
     }
 }
 
+function hasActiveGeneration() {
+    return store.getState().queue.some(
+        (item) =>
+            item.status === QUEUE_STATUS.PENDING || item.status === QUEUE_STATUS.PROCESSING
+    );
+}
+
+export function shouldShowWidgetUi() {
+    return isFurnitureProductPage() || hasActiveGeneration();
+}
+
+export function shouldShowWidgetButton() {
+    return isFurnitureProductPage();
+}
+
+export function ensureWidgetUiMounted() {
+    if (!shouldShowWidgetUi()) return;
+    if (!document.getElementById('ai-furniture-modal')) {
+        document.body.appendChild(Modal());
+    }
+}
+
+export function syncWidgetUiForPage() {
+    if (!shouldShowWidgetUi()) {
+        removeWidgetButton();
+        removeWidgetModal();
+        if (store.getState().isOpen) {
+            actions.closeModal();
+        }
+        return;
+    }
+
+    ensureWidgetUiMounted();
+
+    if (shouldShowWidgetButton()) {
+        createWidgetButton();
+    } else {
+        removeWidgetButton();
+    }
+}
+
+function syncWidgetButtonVisibility() {
+    syncWidgetUiForPage();
+}
+
+function scheduleWidgetVisibilityRecheck() {
+    if (window.__AIFurnitureVisibilityRecheckScheduled) return;
+    window.__AIFurnitureVisibilityRecheckScheduled = true;
+    [0, 50, 200, 500, 1000, 2000, 4000].forEach((ms) => {
+        setTimeout(() => syncWidgetUiForPage(), ms);
+    });
+}
+
 export async function initializeWidget(isInitialLoad = false) {
     debugLog('Initializing widget', {
         isInitialLoad,
@@ -52,11 +106,11 @@ export async function initializeWidget(isInitialLoad = false) {
         hasConfig: !!window.__AIFurnitureConfig
     });
 
-    // If widget button already exists and not initial load, just update page tracking
-    const existingButton = document.getElementById('ai-furniture-trigger-btn');
-    if (existingButton && !isInitialLoad) {
-        debugLog('Widget button already exists, updating page tracking only');
+    // After first init, only refresh tracking + button visibility on SPA navigation
+    if (!isInitialLoad && isWidgetInitialized()) {
+        debugLog('Widget already initialized, updating for navigation');
         updatePageTracking();
+        syncWidgetButtonVisibility();
         return;
     }
 
@@ -131,7 +185,7 @@ export async function initializeWidget(isInitialLoad = false) {
         debugLog('Skipping order confirmation check - user has not used AI Furniture');
     }
 
-    createWidgetButton();
+    syncWidgetButtonVisibility();
 
     if (isAIFurnitureUser) {
         trackEvent('page_view', {
@@ -147,7 +201,7 @@ export async function initializeWidget(isInitialLoad = false) {
     }
 
     // allow tracking module to recreate widget after reset
-    setRecreateWidgetButton(createWidgetButton);
+    setRecreateWidgetButton(syncWidgetUiForPage);
 
     // expose backend hook
     window.onOrderAddedToDatabase = onOrderAddedToDatabase;
@@ -220,8 +274,11 @@ export function attachDomListeners() {
             const previousUrl = lastUrl;
             lastUrl = currentUrl;
             debugLog('URL changed, updating widget...', { from: previousUrl, to: currentUrl });
-            // Only update page tracking, don't reinitialize
-            setTimeout(() => initializeWidget(false), 100);
+            window.__AIFurnitureVisibilityRecheckScheduled = false;
+            setTimeout(() => {
+                initializeWidget(false);
+                scheduleWidgetVisibilityRecheck();
+            }, 100);
         }
     };
 
@@ -260,4 +317,5 @@ export function attachDomListeners() {
     }
 
     debugLog('AI Furniture widget initialized successfully');
+    scheduleWidgetVisibilityRecheck();
 }
