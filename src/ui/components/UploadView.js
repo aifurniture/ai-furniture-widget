@@ -191,7 +191,7 @@ export const UploadView = (state) => {
                 currentState.config?.productTitle || document.title || productUrl;
             const queueId = `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-            actions.addToQueue({
+            actions.beginPreviewGeneration({
                 id: queueId,
                 productUrl,
                 productName,
@@ -200,8 +200,6 @@ export const UploadView = (state) => {
                 config: currentState.config || {},
                 queuedAt: Date.now()
             });
-            actions.setUploadedImage(null);
-            actions.setView(VIEWS.QUEUE);
 
             trackEvent('ai_generation_started', {
                 queueId,

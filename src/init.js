@@ -3,7 +3,7 @@ import { actions, store, QUEUE_STATUS } from './state/store.js';
 import { verifyDomain, verifyDomainWithServer } from './domainVerification.js';
 import { debugLog } from './debug.js';
 import { initSession, trackEvent, onOrderAddedToDatabase, resetWidget, disconnectAllTracking, setRecreateWidgetButton } from './tracking.js';
-import { createWidgetButton, removeWidgetButton, removeWidgetModal } from './ui/widgetButton.js';
+import { createWidgetButton, removeWidgetButton, removeWidgetModal, showWidgetModalShell } from './ui/widgetButton.js';
 import { Modal } from './ui/components/Modal.js';
 import { isFurnitureProductPage, detectCartAndOrderPages, checkForOrderCompletion, trackOrderConfirmationPage } from './detection.js';
 import { resumeQueueAfterNavigation } from './services/queueProcessor.js';
@@ -53,8 +53,12 @@ function hasActiveGeneration() {
     );
 }
 
-export function shouldShowWidgetUi() {
+export function isProductPageContext() {
     return isFurnitureProductPage() || hasActiveGeneration();
+}
+
+export function shouldShowWidgetUi() {
+    return isProductPageContext();
 }
 
 export function shouldShowWidgetButton() {
@@ -113,6 +117,7 @@ export function syncWidgetUiForPage() {
 
     ensureWidgetRuntimeActive();
     ensureWidgetUiMounted();
+    showWidgetModalShell();
 
     if (shouldShowWidgetButton()) {
         createWidgetButton();
@@ -284,6 +289,39 @@ function updatePageTracking() {
 
         detectCartAndOrderPages();
     }
+}
+
+export function attachDeferredProductPageBootstrap(onReady) {
+    if (window.__AIFurnitureDeferredBootstrapAttached) return;
+    window.__AIFurnitureDeferredBootstrapAttached = true;
+
+    const tryReady = () => {
+        if (window.__AIFurnitureInitialized) return;
+        if (!isProductPageContext()) return;
+        onReady();
+    };
+
+    if (!window.__AIFurniturePushStatePatched) {
+        window.__AIFurniturePushStatePatched = true;
+        const originalPushState = history.pushState;
+        const originalReplaceState = history.replaceState;
+
+        history.pushState = function (...args) {
+            originalPushState.apply(history, args);
+            setTimeout(tryReady, 0);
+        };
+
+        history.replaceState = function (...args) {
+            originalReplaceState.apply(history, args);
+            setTimeout(tryReady, 0);
+        };
+
+        window.addEventListener('popstate', tryReady);
+    }
+
+    [0, 250, 750, 1500, 3000, 5000].forEach((ms) => {
+        setTimeout(tryReady, ms);
+    });
 }
 
 export function attachDomListeners() {

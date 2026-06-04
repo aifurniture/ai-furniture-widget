@@ -398,9 +398,39 @@ export const actions = {
         });
     },
     setUploadedImage: (file) => {
+        const updates = { uploadedImage: file };
+        if (file) {
+            updates.view = VIEWS.UPLOAD;
+        }
+        store.setState(updates);
+    },
+    beginPreviewGeneration: (item) => {
+        const queue = store.getState().queue;
+        const queueItem = { ...item, status: QUEUE_STATUS.PENDING, timestamp: Date.now() };
+
+        if (
+            item.userImage &&
+            (item.userImage instanceof File || item.userImage instanceof Blob) &&
+            !item.userImageDataUrl
+        ) {
+            fileToDataURL(item.userImage)
+                .then((dataUrl) => {
+                    const currentQueue = store.getState().queue;
+                    const updatedQueue = currentQueue.map((qi) =>
+                        qi.id === queueItem.id ? { ...qi, userImageDataUrl: dataUrl } : qi
+                    );
+                    store.setState({ queue: updatedQueue });
+                })
+                .catch((e) => {
+                    console.warn('Failed to convert image to data URL for queue item', e);
+                });
+        }
+
         store.setState({
-            uploadedImage: file,
-            view: VIEWS.UPLOAD
+            queue: [...queue, queueItem],
+            uploadedImage: null,
+            view: VIEWS.QUEUE,
+            error: null
         });
     },
     startGeneration: () => {

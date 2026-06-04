@@ -13,7 +13,18 @@ export function removeWidgetButton() {
 
 export function removeWidgetModal() {
     const modal = document.getElementById('ai-furniture-modal');
-    if (modal) modal.remove();
+    if (modal) {
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+    }
+}
+
+export function showWidgetModalShell() {
+    const modal = document.getElementById('ai-furniture-modal');
+    if (modal) {
+        modal.style.display = '';
+        modal.removeAttribute('aria-hidden');
+    }
 }
 
 export function createWidgetButton() {
