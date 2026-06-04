@@ -62,7 +62,7 @@ export function createWidgetButton() {
 
     // Text
     const text = document.createElement('span');
-    text.textContent = 'Visualize in Your Room';
+    text.textContent = 'See in my room';
     text.style.lineHeight = '1';
     button.appendChild(text);
 
@@ -127,35 +127,27 @@ export function createWidgetButton() {
 
     // Subscribe to store to update button status
     store.subscribe((state) => {
-        const processingCount = state.queue.filter(i => i.status === QUEUE_STATUS.PROCESSING).length;
-        const completedCount = state.queue.filter(i => i.status === QUEUE_STATUS.COMPLETED).length;
-        const totalCount = state.queue.length;
+        const processingCount = state.queue.filter(
+            (i) => i.status === QUEUE_STATUS.PROCESSING || i.status === QUEUE_STATUS.PENDING
+        ).length;
+        const completedCount = state.queue.filter(
+            (i) => i.status === QUEUE_STATUS.COMPLETED
+        ).length;
 
-        // Update button text based on status
         const textSpan = button.querySelector('span:nth-child(2)');
         const badgeSpan = button.querySelector('span:last-child');
 
         if (textSpan) {
             if (processingCount > 0) {
-                textSpan.textContent = `Generating ${processingCount}...`;
-                badgeSpan.style.display = 'block';
-                badgeSpan.textContent = processingCount;
-                badgeSpan.style.background = 'linear-gradient(135deg, #3b82f6, #2563eb)';
+                textSpan.textContent = 'Creating preview…';
+                badgeSpan.style.display = 'none';
                 button.style.background = 'linear-gradient(135deg, #3b82f6, #2563eb)';
             } else if (completedCount > 0) {
-                textSpan.textContent = `${completedCount} Ready to View`;
-                badgeSpan.style.display = 'block';
-                badgeSpan.textContent = completedCount;
-                badgeSpan.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
+                textSpan.textContent = 'View preview';
+                badgeSpan.style.display = 'none';
                 button.style.background = 'linear-gradient(135deg, #22c55e, #16a34a)';
-            } else if (totalCount > 0) {
-                textSpan.textContent = 'View Queue';
-                badgeSpan.style.display = 'block';
-                badgeSpan.textContent = totalCount;
-                badgeSpan.style.background = 'linear-gradient(135deg, #64748b, #475569)';
-                button.style.background = 'linear-gradient(135deg, #64748b, #475569)';
             } else {
-                textSpan.textContent = 'Visualize in Your Room';
+                textSpan.textContent = 'See in my room';
                 badgeSpan.style.display = 'none';
                 button.style.background = 'linear-gradient(135deg, #10b981, #059669)';
             }
@@ -199,12 +191,32 @@ function handleWidgetClick() {
         console.warn('⚠️ Could not save user state to sessionStorage:', e.message);
     }
     
-    // If there are items in queue, open to queue view, otherwise upload view
-    if (state.queue && state.queue.length > 0) {
-        actions.openModal({ productUrl });
+    // Open the simplest path: progress if generating, result if ready, otherwise upload
+    const processing = state.queue?.some(
+        (i) => i.status === QUEUE_STATUS.PROCESSING || i.status === QUEUE_STATUS.PENDING
+    );
+    const latestCompleted = state.queue
+        ?.filter((i) => i.status === QUEUE_STATUS.COMPLETED && i.result?.generatedImageUrl)
+        .sort((a, b) => (b.completedAt || b.queuedAt || 0) - (a.completedAt || a.queuedAt || 0))[0];
+
+    actions.openModal({ productUrl });
+
+    if (processing) {
         actions.setView(VIEWS.QUEUE);
+    } else if (latestCompleted) {
+        actions.setGenerationResults([
+            {
+                url: latestCompleted.result.generatedImageUrl,
+                originalImageUrl:
+                    latestCompleted.result?.originalImageUrl || latestCompleted.userImageUrl || '',
+                originalAspectRatio: latestCompleted.result?.originalAspectRatio,
+                originalWidth: latestCompleted.result?.originalWidth,
+                originalHeight: latestCompleted.result?.originalHeight,
+                imageS3Key:
+                    latestCompleted.result?.imageS3Key || latestCompleted.imageS3Key || null
+            }
+        ]);
     } else {
-        actions.openModal({ productUrl });
         actions.setView(VIEWS.UPLOAD);
     }
 }

@@ -1,7 +1,7 @@
 /**
  * Upload View Component
  */
-import { actions, VIEWS, store, QUEUE_STATUS, fileToDataURL } from '../../state/store.js';
+import { actions, VIEWS, store, fileToDataURL } from '../../state/store.js';
 import { Button } from './Button.js';
 import { trackEvent } from '../../tracking.js';
 import { compressRoomImage } from '../../utils/compressRoomImage.js';
@@ -25,7 +25,6 @@ async function handleRoomPhotoSelected(file, source) {
     });
 }
 
-
 export const UploadView = (state) => {
     const container = document.createElement('div');
     container.className = 'aif-upload-view';
@@ -36,48 +35,14 @@ export const UploadView = (state) => {
     container.style.minHeight = '0';
     container.style.overflow = 'hidden';
 
-    // Header
     const header = document.createElement('div');
     header.className = 'aif-header';
     header.innerHTML = `
-    <div class="aif-badge">
-      <span style="width:6px; height:6px; border-radius:50%; background:#22c55e;"></span>
-      Room preview
-    </div>
     <h2>See it in your room</h2>
-    <p>Upload one photo of your room. We place this product in your space for you.</p>
+    <p>Take a photo of your room. We'll show you this product in it.</p>
   `;
     container.appendChild(header);
 
-    // Queue status banner (if items exist)
-    const queueCount = state.queue.length;
-    if (queueCount > 0) {
-        const queueBanner = document.createElement('div');
-        queueBanner.style.padding = '12px';
-        queueBanner.style.background = '#eff6ff';
-        queueBanner.style.border = '1px solid #3b82f6';
-        queueBanner.style.borderRadius = '8px';
-        queueBanner.style.display = 'flex';
-        queueBanner.style.alignItems = 'center';
-        queueBanner.style.justifyContent = 'space-between';
-        queueBanner.style.cursor = 'pointer';
-        queueBanner.onclick = () => actions.setView('QUEUE');
-
-        const completedCount = state.queue.filter(i => i.status === 'COMPLETED').length;
-        const processingCount = state.queue.filter(i => i.status === 'PROCESSING').length;
-
-        let statusText = `${queueCount} item${queueCount > 1 ? 's' : ''} in queue`;
-        if (completedCount > 0) statusText += ` • ${completedCount} ready`;
-        if (processingCount > 0) statusText += ` • ${processingCount} processing`;
-
-        queueBanner.innerHTML = `
-            <span style="color:#1e40af; font-size:13px; font-weight:500;">${statusText}</span>
-            <span style="color:#3b82f6; font-size:12px;">Open</span>
-        `;
-        container.appendChild(queueBanner);
-    }
-
-    // Error message
     if (state.error) {
         const errorBox = document.createElement('div');
         errorBox.style.padding = '12px';
@@ -89,7 +54,6 @@ export const UploadView = (state) => {
         container.appendChild(errorBox);
     }
 
-    // Main Upload Area
     const uploadArea = document.createElement('div');
     uploadArea.style.flex = '1';
     uploadArea.style.minHeight = '0';
@@ -97,11 +61,7 @@ export const UploadView = (state) => {
     uploadArea.style.display = 'flex';
     uploadArea.style.flexDirection = 'column';
 
-    /** Optional width (cm) of the product being placed — passed to /generate; blank = skip */
-    let furnitureWidthInput = null;
-
     if (state.uploadedImage) {
-        // Preview Mode
         const previewContainer = document.createElement('div');
         previewContainer.className = 'aif-upload-stage';
         previewContainer.style.position = 'relative';
@@ -129,112 +89,38 @@ export const UploadView = (state) => {
         previewContainer.appendChild(img);
         previewContainer.appendChild(changeBtn);
         uploadArea.appendChild(previewContainer);
-
-        const dimWrap = document.createElement('div');
-        dimWrap.style.marginTop = '12px';
-        dimWrap.style.padding = '12px';
-        dimWrap.style.background = '#f8fafc';
-        dimWrap.style.borderRadius = '10px';
-        dimWrap.style.border = '1px solid #e2e8f0';
-
-        const dimLabel = document.createElement('div');
-        dimLabel.textContent = 'Furniture width (optional)';
-        dimLabel.style.fontSize = '12px';
-        dimLabel.style.fontWeight = '600';
-        dimLabel.style.color = '#334155';
-        dimLabel.style.marginBottom = '6px';
-
-        const dimRow = document.createElement('div');
-        dimRow.style.display = 'flex';
-        dimRow.style.alignItems = 'center';
-        dimRow.style.gap = '8px';
-
-        furnitureWidthInput = document.createElement('input');
-        furnitureWidthInput.type = 'number';
-        furnitureWidthInput.min = '0.1';
-        furnitureWidthInput.step = 'any';
-        furnitureWidthInput.placeholder = 'e.g. 180';
-        furnitureWidthInput.setAttribute('inputmode', 'decimal');
-        furnitureWidthInput.setAttribute('autocomplete', 'off');
-        Object.assign(furnitureWidthInput.style, {
-            flex: '1',
-            minWidth: '0',
-            padding: '10px 12px',
-            fontSize: '14px',
-            border: '1px solid #cbd5e1',
-            borderRadius: '8px',
-            background: '#fff',
-            color: '#0f172a',
-            fontFamily: 'inherit',
-            boxSizing: 'border-box'
-        });
-
-        const unit = document.createElement('span');
-        unit.textContent = 'cm';
-        unit.style.fontSize = '13px';
-        unit.style.fontWeight = '600';
-        unit.style.color = '#64748b';
-        unit.style.flexShrink = '0';
-
-        dimRow.appendChild(furnitureWidthInput);
-        dimRow.appendChild(unit);
-
-        const dimHint = document.createElement('p');
-        dimHint.textContent =
-            'Approximate width of this piece in your room (the item you are replacing). Leave blank if you prefer.';
-        Object.assign(dimHint.style, {
-            margin: '8px 0 0',
-            fontSize: '11px',
-            color: '#64748b',
-            lineHeight: '1.4'
-        });
-
-        dimWrap.appendChild(dimLabel);
-        dimWrap.appendChild(dimRow);
-        dimWrap.appendChild(dimHint);
-        uploadArea.appendChild(dimWrap);
     } else {
-        // Dropzone Mode - restructured for camera support
         const dropzoneContainer = document.createElement('div');
         dropzoneContainer.className = 'aif-dropzone';
-        
-        // Icon
+
         const icon = document.createElement('div');
-        icon.style.width = '40px';
-        icon.style.height = '40px';
+        icon.style.width = '48px';
+        icon.style.height = '48px';
         icon.style.borderRadius = '50%';
         icon.style.background = '#dcfce7';
         icon.style.display = 'flex';
         icon.style.alignItems = 'center';
         icon.style.justifyContent = 'center';
         icon.style.color = '#166534';
-        icon.style.fontSize = '20px';
+        icon.style.fontSize = '24px';
         icon.textContent = '📸';
         dropzoneContainer.appendChild(icon);
-        
-        // Text container
-        const textDiv = document.createElement('div');
-        const titleSpan = document.createElement('span');
-        titleSpan.style.fontWeight = '600';
-        titleSpan.style.color = '#166534';
-        titleSpan.textContent = 'Upload or Take a Photo';
-        const subtitleSpan = document.createElement('span');
-        subtitleSpan.style.color = '#64748b';
-        subtitleSpan.style.margin = '0 4px';
-        subtitleSpan.textContent = 'of your room';
-        textDiv.appendChild(titleSpan);
-        textDiv.appendChild(subtitleSpan);
-        dropzoneContainer.appendChild(textDiv);
-        
-        // Note
+
+        const title = document.createElement('p');
+        title.style.margin = '12px 0 4px';
+        title.style.fontWeight = '600';
+        title.style.fontSize = '15px';
+        title.style.color = '#0f172a';
+        title.textContent = 'Add a room photo';
+        dropzoneContainer.appendChild(title);
+
         const note = document.createElement('p');
-        note.style.fontSize = '11px';
-        note.style.color = '#94a3b8';
+        note.style.fontSize = '12px';
+        note.style.color = '#64748b';
         note.style.margin = '0';
-        note.textContent = 'JPG or PNG — large photos are resized automatically';
+        note.textContent = 'Use your camera or pick one from your gallery.';
         dropzoneContainer.appendChild(note);
 
-        // Create hidden file input for gallery - use label for Android compatibility
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.accept = 'image/*';
@@ -251,8 +137,6 @@ export const UploadView = (state) => {
             }
         };
 
-        // Create hidden file input for camera - use label for Android compatibility
-        // Programmatic click() is blocked on mobile; label association allows native camera access
         const cameraInput = document.createElement('input');
         cameraInput.type = 'file';
         cameraInput.accept = 'image/*';
@@ -270,70 +154,60 @@ export const UploadView = (state) => {
             }
         };
 
-        // Detect if device has camera (mobile)
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || 
-                         window.innerWidth <= 768;
+        const isMobile =
+            /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
 
-        // Button container - explicit stacking above dropzone overlay
         const buttonContainer = document.createElement('div');
-        buttonContainer.style.cssText = 'display:flex; gap:12px; width:100%; margin-top:16px; position:relative; z-index:2;';
-        const btnBase = 'flex:1; padding:14px 20px; border:none; border-radius:12px; font-weight:600; font-size:14px; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.2s; -webkit-tap-highlight-color:transparent; position:relative; z-index:2; pointer-events:auto; touch-action:manipulation; user-select:none; min-height:48px;';
+        buttonContainer.style.cssText =
+            'display:flex; flex-direction:column; gap:10px; width:100%; margin-top:20px; position:relative; z-index:2;';
+        const btnBase =
+            'width:100%; padding:16px 20px; border:none; border-radius:12px; font-weight:600; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; -webkit-tap-highlight-color:transparent; touch-action:manipulation; min-height:52px; box-sizing:border-box;';
 
-        // Camera button - use label for native tap (required for Android camera)
         if (isMobile) {
             const cameraLabel = document.createElement('label');
             cameraLabel.htmlFor = cameraInput.id;
-            cameraLabel.style.cssText = btnBase + ' background:linear-gradient(135deg, #10b981, #059669); color:white; box-shadow:0 4px 12px rgba(16, 185, 129, 0.3);';
-            cameraLabel.innerHTML = '<span style="font-size:18px;margin-right:6px">📷</span><span>Take Photo</span>';
-            
+            cameraLabel.style.cssText =
+                btnBase +
+                ' background:linear-gradient(135deg, #10b981, #059669); color:white; box-shadow:0 4px 12px rgba(16, 185, 129, 0.3);';
+            cameraLabel.innerHTML = '<span>📷</span><span>Take a photo</span>';
             buttonContainer.appendChild(cameraLabel);
         }
 
-        // Upload from gallery button - use label for native tap (Android compatibility)
         const uploadLabel = document.createElement('label');
         uploadLabel.htmlFor = fileInput.id;
-        uploadLabel.style.cssText = btnBase + ' background:white; border:2px solid #10b981; color:#10b981;';
-        uploadLabel.innerHTML = '<span style="font-size:18px;margin-right:6px">📁</span><span>' + (isMobile ? 'Gallery' : 'Choose Photo') + '</span>';
-        
-        uploadLabel.addEventListener('mouseenter', () => {
-            uploadLabel.style.background = '#f0fdf4';
-            uploadLabel.style.transform = 'translateY(-2px)';
-        });
-        uploadLabel.addEventListener('mouseleave', () => {
-            uploadLabel.style.background = 'white';
-            uploadLabel.style.transform = 'translateY(0)';
-        });
-
+        uploadLabel.style.cssText =
+            btnBase +
+            (isMobile
+                ? ' background:white; border:2px solid #10b981; color:#059669;'
+                : ' background:linear-gradient(135deg, #10b981, #059669); color:white; box-shadow:0 4px 12px rgba(16, 185, 129, 0.3);');
+        uploadLabel.innerHTML = isMobile
+            ? '<span>🖼️</span><span>Choose from gallery</span>'
+            : '<span>🖼️</span><span>Choose a photo</span>';
         buttonContainer.appendChild(uploadLabel);
 
-        // Append inputs and buttons to dropzone
         dropzoneContainer.appendChild(fileInput);
         dropzoneContainer.appendChild(cameraInput);
         dropzoneContainer.appendChild(buttonContainer);
-        
         uploadArea.appendChild(dropzoneContainer);
     }
 
     container.appendChild(uploadArea);
 
-    // Model Selection
-    // Footer / Action Button
     const footer = document.createElement('div');
     footer.style.marginTop = 'auto';
 
     const generateBtn = Button({
-        text: 'Start preview',
+        text: 'Create preview',
         disabled: !state.uploadedImage,
         onClick: async () => {
             if (!state.uploadedImage) return;
 
-            // Manually update button to show loading state
             generateBtn.disabled = true;
             generateBtn.innerHTML = '';
             const spinner = document.createElement('div');
             spinner.className = 'aif-spinner';
             const loadingText = document.createElement('span');
-            loadingText.textContent = ' Working…';
+            loadingText.textContent = ' Starting…';
             generateBtn.appendChild(spinner);
             generateBtn.appendChild(loadingText);
             generateBtn.style.display = 'flex';
@@ -343,71 +217,50 @@ export const UploadView = (state) => {
 
             try {
                 const currentState = store.getState();
-                
-                // Get product URL from config (Shopify) or fallback to current URL
                 const productUrl = currentState.config?.productUrl || window.location.href;
-                const productName = currentState.config?.productTitle || document.title || productUrl;
+                const productName =
+                    currentState.config?.productTitle || document.title || productUrl;
 
-                // Encode image before queueing so sessionStorage always has userImageDataUrl
-                // (avoids losing the job if the user navigates away before async conversion finished)
                 const userImageDataUrl = await fileToDataURL(
                     await compressRoomImage(state.uploadedImage)
                 );
 
-                // Create queue item
                 const queueId = `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-                let furnitureWidthCm = null;
-                if (furnitureWidthInput) {
-                    const raw = (furnitureWidthInput.value || '').trim().replace(',', '.');
-                    if (raw !== '') {
-                        const n = parseFloat(raw);
-                        if (Number.isFinite(n) && n > 0) furnitureWidthCm = n;
-                    }
-                }
 
                 const queueItem = {
                     id: queueId,
-                    productUrl: productUrl,
-                    productName: productName,
+                    productUrl,
+                    productName,
                     userImage: state.uploadedImage,
                     userImageDataUrl,
-                    selectedModel: 'slow', // Always use high quality model
+                    selectedModel: 'slow',
                     config: currentState.config || {},
-                    queuedAt: Date.now(),
-                    ...(furnitureWidthCm != null ? { furnitureWidthCm } : {})
+                    queuedAt: Date.now()
                 };
 
-                // Track AI generation started
                 trackEvent('ai_generation_started', {
                     queueId,
-                    productUrl: productUrl,
-                    productName: productName,
-                    model: 'slow', // Always use high quality model
-                    imageSize: state.uploadedImage?.size || 0,
-                    ...(furnitureWidthCm != null ? { furnitureWidthCm } : {})
+                    productUrl,
+                    productName,
+                    model: 'slow',
+                    imageSize: state.uploadedImage?.size || 0
                 });
 
-                // Add to queue - this will trigger the queue processor
                 actions.addToQueue(queueItem);
-
-                // Switch to queue view to show progress
                 actions.setView(VIEWS.QUEUE);
                 actions.setUploadedImage(null);
 
-                // Reset button
                 generateBtn.disabled = false;
                 generateBtn.innerHTML = '';
-                generateBtn.textContent = 'Start preview';
+                generateBtn.textContent = 'Create preview';
                 generateBtn.style.display = '';
-
             } catch (error) {
-                console.error('❌ Failed to add to queue:', error);
-                actions.setError(error.message || 'Failed to add to queue');
+                console.error('Failed to add to queue:', error);
+                actions.setError(error.message || 'Something went wrong. Please try again.');
 
                 generateBtn.disabled = false;
                 generateBtn.innerHTML = '';
-                generateBtn.textContent = 'Start preview';
+                generateBtn.textContent = 'Create preview';
                 generateBtn.style.display = '';
             }
         }
@@ -416,8 +269,8 @@ export const UploadView = (state) => {
     footer.appendChild(generateBtn);
 
     const note = document.createElement('p');
-    note.textContent = 'We only use this photo to generate your preview.';
-    note.style.fontSize = '10px';
+    note.textContent = 'We only use your photo to create the preview.';
+    note.style.fontSize = '11px';
     note.style.color = '#94a3b8';
     note.style.textAlign = 'center';
     note.style.marginTop = '8px';

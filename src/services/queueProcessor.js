@@ -1,4 +1,4 @@
-import { store, actions, QUEUE_STATUS } from '../state/store.js';
+import { store, actions, QUEUE_STATUS, VIEWS } from '../state/store.js';
 import { trackEvent } from '../tracking.js';
 import {
     postWidgetGeneration,
@@ -263,6 +263,32 @@ function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
                 actions.syncShopperGenerations();
             })
             .catch((e) => debugLog('Could not save preview to history', e?.message || e));
+    }
+
+    if (generatedImageUrl) {
+        actions.setGenerationResults([
+            {
+                url: generatedImageUrl,
+                originalImageUrl: originalImageUrl || '',
+                originalAspectRatio:
+                    result.originalImageDimensions?.aspectRatio ||
+                    result.generatedImages?.[0]?.originalAspectRatio,
+                originalWidth:
+                    result.originalImageDimensions?.width ||
+                    result.generatedImages?.[0]?.originalWidth,
+                originalHeight:
+                    result.originalImageDimensions?.height ||
+                    result.generatedImages?.[0]?.originalHeight,
+                imageS3Key: uploaded?.s3Key || item.imageS3Key || null,
+                furnitureWidthCm:
+                    typeof item.furnitureWidthCm === 'number' &&
+                    Number.isFinite(item.furnitureWidthCm) &&
+                    item.furnitureWidthCm > 0
+                        ? item.furnitureWidthCm
+                        : null
+            }
+        ]);
+        actions.setView(VIEWS.RESULTS);
     }
 }
 

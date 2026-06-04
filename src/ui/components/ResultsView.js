@@ -1,10 +1,10 @@
 /**
  * Results View Component
  */
-import { store, actions, VIEWS, QUEUE_STATUS } from '../../state/store.js';
+import { actions, VIEWS } from '../../state/store.js';
 import { Slider } from './Slider.js';
 import { Button } from './Button.js';
-import { downloadUrlAsFile, fetchImageBlob, getFilenameFromUrl } from '../../utils/downloadImage.js';
+import { downloadUrlAsFile, getFilenameFromUrl } from '../../utils/downloadImage.js';
 
 function previewBlock(el) {
     const wrap = document.createElement('div');
@@ -28,189 +28,45 @@ export const ResultsView = (state) => {
         state.generatedImages.forEach((imgData, index) => {
             const afterUrl = imgData.url || imgData;
             const beforeUrl = imgData.originalImageUrl || uploadedBlobUrl || '';
-            const s3Key = imgData.imageS3Key || imgData?.metadata?.imageS3Key || null;
-            const furnitureWidthCm =
-                typeof imgData.furnitureWidthCm === 'number' && Number.isFinite(imgData.furnitureWidthCm)
-                    ? imgData.furnitureWidthCm
-                    : null;
-            if (afterUrl) pairs.push({ beforeUrl, afterUrl, index, s3Key, furnitureWidthCm });
+            if (afterUrl) pairs.push({ beforeUrl, afterUrl, index });
         });
         return pairs;
     };
 
-    /**
-     * Web Share Level 2: share before/after as image files when the target supports it.
-     */
-    const shareBeforeAfter = async (beforeUrl, afterUrl) => {
-        if (!afterUrl) return;
-
-        const roomBase = `room-${getFilenameFromUrl(beforeUrl || 'room', 'room.jpg')}`;
-        const previewBase = `preview-${getFilenameFromUrl(afterUrl, 'preview.png')}`;
-
-        const files = [];
-
-        if (beforeUrl) {
-            const blob = await fetchImageBlob(beforeUrl, roomBase, dlOpts);
-            if (blob) {
-                const type = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/jpeg';
-                const name = /\.[a-z0-9]+$/i.test(roomBase) ? roomBase : `${roomBase}.jpg`;
-                files.push(new File([blob], name, { type }));
-            }
-        }
-
-        const afterBlob = await fetchImageBlob(afterUrl, previewBase, dlOpts);
-        if (afterBlob) {
-            const type =
-                afterBlob.type && afterBlob.type.startsWith('image/') ? afterBlob.type : 'image/png';
-            const name = /\.[a-z0-9]+$/i.test(previewBase) ? previewBase : `${previewBase}.png`;
-            files.push(new File([afterBlob], name, { type }));
-        }
-
-        const sharePayload = (fileList) => ({
-            title: 'AI Furniture — room & preview',
-            text: fileList.length > 1 ? 'Before and after images' : 'AI room preview',
-            files: fileList
-        });
-
-        if (typeof navigator.share === 'function' && files.length > 0) {
-            const shareFiles = async (list) => {
-                await navigator.share(sharePayload(list));
-            };
-
-            try {
-                await shareFiles(files);
-                return;
-            } catch (e) {
-                if (e && e.name === 'AbortError') return;
-            }
-
-            if (files.length > 1) {
-                try {
-                    await shareFiles([files[files.length - 1]]);
-                    return;
-                } catch (e) {
-                    if (e && e.name === 'AbortError') return;
-                }
-            }
-        }
-
-        try {
-            if (typeof navigator.share === 'function') {
-                await navigator.share({
-                    title: 'AI Furniture Result',
-                    text: 'Check out my room preview',
-                    url: afterUrl
-                });
-                return;
-            }
-        } catch (e) {
-            if (e && e.name === 'AbortError') return;
-        }
-
-        try {
-            await navigator.clipboard.writeText(afterUrl);
-            alert('Link copied to clipboard');
-        } catch (_) {
-            alert(
-                'Unable to share images automatically. Use Save room photo / Save AI preview, then share from your gallery.'
-            );
-        }
-    };
-
-    const createActionsRow = (beforeUrl, afterUrl, s3Key = null, furnitureWidthCm = null) => {
+    const createActionsRow = (afterUrl) => {
         const wrap = document.createElement('div');
         wrap.className = 'aif-result-actions';
-        wrap.setAttribute('data-aif-actions', 'download-share');
+        wrap.style.marginTop = '12px';
 
-        const hint = document.createElement('p');
-        hint.className = 'aif-result-actions__hint';
-        hint.textContent = beforeUrl
-            ? 'Save images — tap each:'
-            : 'Save your preview:';
-
-        const row = document.createElement('div');
-        row.className = 'aif-result-actions__row';
-
-        const makeBtn = (text, onClick, primary = false) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.textContent = text;
-            btn.className = primary ? 'aif-result-actions__btn aif-result-actions__btn--primary' : 'aif-result-actions__btn';
-            btn.onclick = onClick;
-            return btn;
-        };
-
-        const saveRoomBtn = makeBtn('Save room photo', () => {
-            downloadUrlAsFile(beforeUrl, `room-${getFilenameFromUrl(beforeUrl)}`, dlOpts);
+        const savePreviewBtn = Button({
+            text: 'Save preview',
+            onClick: () =>
+                downloadUrlAsFile(afterUrl, `preview-${getFilenameFromUrl(afterUrl)}`, dlOpts)
         });
-        if (!beforeUrl) {
-            saveRoomBtn.disabled = true;
-        }
+        savePreviewBtn.style.width = '100%';
 
-        const savePreviewBtn = makeBtn(
-            'Save AI preview',
-            () => downloadUrlAsFile(afterUrl, `preview-${getFilenameFromUrl(afterUrl)}`, dlOpts),
-            true
-        );
-        const shareBtn = makeBtn('Share', () => shareBeforeAfter(beforeUrl, afterUrl));
-        const retryBtn = makeBtn('Retry', () => {
-            const cur = store.getState();
-            const config = cur.config || {};
-            const queueId = `queue_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-            actions.addToQueue({
-                id: queueId,
-                productUrl: config.productUrl || window.location.href,
-                productName: config.productTitle || document.title || '',
-                selectedModel: 'slow',
-                config,
-                queuedAt: Date.now(),
-                ...(s3Key ? { imageS3Key: s3Key } : {}),
-                ...(typeof furnitureWidthCm === 'number' &&
-                Number.isFinite(furnitureWidthCm) &&
-                furnitureWidthCm > 0
-                    ? { furnitureWidthCm }
-                    : {})
-            });
-            actions.setView(VIEWS.QUEUE);
-            actions.setQueueTab('processing');
-        });
-        if (!s3Key) {
-            retryBtn.disabled = true;
-            retryBtn.title = 'Retry is unavailable for this preview. Try another photo instead.';
-        }
-
-        row.appendChild(saveRoomBtn);
-        row.appendChild(savePreviewBtn);
-        row.appendChild(shareBtn);
-        row.appendChild(retryBtn);
-
-        // Keep the hint for accessibility, but let CSS collapse it on desktop to save space.
-        wrap.appendChild(hint);
-        wrap.appendChild(row);
+        wrap.appendChild(savePreviewBtn);
         return wrap;
     };
 
     const container = document.createElement('div');
     container.className = 'aif-results-view';
 
-    // Header
     const header = document.createElement('div');
     header.className = 'aif-results-lede';
     header.innerHTML = `
-    <h3 style="margin:0; font-size:14px; font-weight:600;">Your room preview</h3>
-    <p style="margin:2px 0 0; font-size:10px; color:#64748b;line-height:1.3;">
-      Drag the slider to compare. Sizes are estimated — measure before buying.
+    <h3 style="margin:0; font-size:16px; font-weight:600;">Your preview</h3>
+    <p style="margin:4px 0 0; font-size:12px; color:#64748b;line-height:1.4;">
+      Drag the slider to compare before and after.
     </p>
   `;
     container.appendChild(header);
 
     const pairs = buildPairs();
-
-    // Results Grid
     const grid = document.createElement('div');
     grid.className = 'aif-results-grid';
 
-    pairs.forEach(({ beforeUrl, afterUrl, index: i, s3Key, furnitureWidthCm }) => {
+    pairs.forEach(({ beforeUrl, afterUrl, index: i }) => {
         const imgData = state.generatedImages[i];
         const generatedUrl = imgData.url || imgData;
         const aspectRatio =
@@ -228,58 +84,33 @@ export const ResultsView = (state) => {
                     fillParent: true
                 });
                 grid.appendChild(previewBlock(slider));
-                grid.appendChild(createActionsRow(beforeUrl, generatedUrl, s3Key, furnitureWidthCm));
             } else {
                 const img = document.createElement('img');
                 img.src = generatedUrl;
                 img.style.maxWidth = '100%';
                 img.style.borderRadius = '8px';
                 grid.appendChild(previewBlock(img));
-                grid.appendChild(createActionsRow('', generatedUrl, s3Key, furnitureWidthCm));
             }
+            grid.appendChild(createActionsRow(generatedUrl));
         }
     });
 
     container.appendChild(grid);
 
-    // Actions
     const actionsDiv = document.createElement('div');
     actionsDiv.style.display = 'flex';
     actionsDiv.style.flexDirection = 'column';
-    actionsDiv.style.gap = '6px';
+    actionsDiv.style.gap = '8px';
     actionsDiv.style.flexShrink = '0';
+    actionsDiv.style.marginTop = '12px';
 
-    const backBtn = Button({
-        text: 'Back to previews',
-        variant: 'secondary',
-        onClick: () => {
-            const cur = store.getState();
-            const hasCompleted = cur.queue.some((i) => i.status === QUEUE_STATUS.COMPLETED);
-            if (hasCompleted) {
-                actions.setQueueTab('completed');
-            }
-            actions.setView(VIEWS.QUEUE);
-        },
-        className: 'aif-btn-secondary'
-    });
-    backBtn.style.background = 'white';
-    backBtn.style.border = '1px solid #cbd5e1';
-    backBtn.style.color = '#475569';
-    backBtn.onmouseover = () => (backBtn.style.background = '#f8fafc');
-    backBtn.onmouseout = () => (backBtn.style.background = 'white');
-
-    const tryAgainBtn = document.createElement('button');
-    tryAgainBtn.textContent = 'Start over';
-    tryAgainBtn.style.background = 'none';
-    tryAgainBtn.style.border = 'none';
-    tryAgainBtn.style.color = '#64748b';
-    tryAgainBtn.style.fontSize = '12px';
-    tryAgainBtn.style.cursor = 'pointer';
-    tryAgainBtn.style.textDecoration = 'underline';
-    tryAgainBtn.onclick = actions.reset;
-
-    actionsDiv.appendChild(backBtn);
-    actionsDiv.appendChild(tryAgainBtn);
+    actionsDiv.appendChild(
+        Button({
+            text: 'Try another photo',
+            variant: 'secondary',
+            onClick: () => actions.setView(VIEWS.UPLOAD)
+        })
+    );
 
     container.appendChild(actionsDiv);
 
