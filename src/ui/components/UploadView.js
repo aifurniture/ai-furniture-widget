@@ -38,8 +38,9 @@ export const UploadView = (state) => {
     const header = document.createElement('div');
     header.className = 'aif-header';
     header.innerHTML = `
-    <h2>See it in your room</h2>
-    <p>Take a photo of your room. We'll show you this product in it.</p>
+    <span class="aif-eyebrow">Room preview</span>
+    <h2>See it in your space</h2>
+    <p>Snap your room once — we'll place this piece where it belongs.</p>
   `;
     container.appendChild(header);
 
@@ -94,31 +95,19 @@ export const UploadView = (state) => {
         dropzoneContainer.className = 'aif-dropzone';
 
         const icon = document.createElement('div');
-        icon.style.width = '48px';
-        icon.style.height = '48px';
-        icon.style.borderRadius = '50%';
-        icon.style.background = '#dcfce7';
-        icon.style.display = 'flex';
-        icon.style.alignItems = 'center';
-        icon.style.justifyContent = 'center';
-        icon.style.color = '#166534';
-        icon.style.fontSize = '24px';
-        icon.textContent = '📸';
+        icon.className = 'aif-dropzone-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-3h4l2 3h4v12H4V7z"/><circle cx="12" cy="13" r="3.25"/></svg>`;
         dropzoneContainer.appendChild(icon);
 
         const title = document.createElement('p');
-        title.style.margin = '12px 0 4px';
-        title.style.fontWeight = '600';
-        title.style.fontSize = '15px';
-        title.style.color = '#0f172a';
+        title.className = 'aif-dropzone-title';
         title.textContent = 'Add a room photo';
         dropzoneContainer.appendChild(title);
 
         const note = document.createElement('p');
-        note.style.fontSize = '12px';
-        note.style.color = '#64748b';
-        note.style.margin = '0';
-        note.textContent = 'Use your camera or pick one from your gallery.';
+        note.className = 'aif-dropzone-note';
+        note.textContent = 'Natural light and a straight-on angle work best.';
         dropzoneContainer.appendChild(note);
 
         const fileInput = document.createElement('input');
@@ -158,31 +147,24 @@ export const UploadView = (state) => {
             /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
 
         const buttonContainer = document.createElement('div');
-        buttonContainer.style.cssText =
-            'display:flex; flex-direction:column; gap:10px; width:100%; margin-top:20px; position:relative; z-index:2;';
-        const btnBase =
-            'width:100%; padding:16px 20px; border:none; border-radius:12px; font-weight:600; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; -webkit-tap-highlight-color:transparent; touch-action:manipulation; min-height:52px; box-sizing:border-box;';
+        buttonContainer.className = 'aif-upload-actions';
 
         if (isMobile) {
             const cameraLabel = document.createElement('label');
             cameraLabel.htmlFor = cameraInput.id;
-            cameraLabel.style.cssText =
-                btnBase +
-                ' background:linear-gradient(135deg, #10b981, #059669); color:white; box-shadow:0 4px 12px rgba(16, 185, 129, 0.3);';
-            cameraLabel.innerHTML = '<span>📷</span><span>Take a photo</span>';
+            cameraLabel.className = 'aif-upload-cta aif-upload-cta--primary';
+            cameraLabel.innerHTML = '<span aria-hidden="true">📷</span><span>Take a photo</span>';
             buttonContainer.appendChild(cameraLabel);
         }
 
         const uploadLabel = document.createElement('label');
         uploadLabel.htmlFor = fileInput.id;
-        uploadLabel.style.cssText =
-            btnBase +
-            (isMobile
-                ? ' background:white; border:2px solid #10b981; color:#059669;'
-                : ' background:linear-gradient(135deg, #10b981, #059669); color:white; box-shadow:0 4px 12px rgba(16, 185, 129, 0.3);');
+        uploadLabel.className = isMobile
+            ? 'aif-upload-cta aif-upload-cta--secondary'
+            : 'aif-upload-cta aif-upload-cta--primary';
         uploadLabel.innerHTML = isMobile
-            ? '<span>🖼️</span><span>Choose from gallery</span>'
-            : '<span>🖼️</span><span>Choose a photo</span>';
+            ? '<span aria-hidden="true">🖼️</span><span>Choose from gallery</span>'
+            : '<span aria-hidden="true">🖼️</span><span>Choose a photo</span>';
         buttonContainer.appendChild(uploadLabel);
 
         dropzoneContainer.appendChild(fileInput);
@@ -234,11 +216,8 @@ export const UploadView = (state) => {
     footer.appendChild(generateBtn);
 
     const note = document.createElement('p');
-    note.textContent = 'We only use your photo to create the preview.';
-    note.style.fontSize = '11px';
-    note.style.color = '#94a3b8';
-    note.style.textAlign = 'center';
-    note.style.marginTop = '8px';
+    note.className = 'aif-upload-privacy';
+    note.textContent = 'Your photo is only used to generate this preview.';
     footer.appendChild(note);
 
     container.appendChild(footer);

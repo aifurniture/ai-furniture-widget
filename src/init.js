@@ -7,6 +7,8 @@ import { createWidgetButton, removeWidgetButton, removeWidgetModal } from './ui/
 import { Modal } from './ui/components/Modal.js';
 import { isFurnitureProductPage, detectCartAndOrderPages, checkForOrderCompletion, trackOrderConfirmationPage } from './detection.js';
 import { resumeQueueAfterNavigation } from './services/queueProcessor.js';
+import { initQueueProcessor } from './services/queueProcessor.js';
+import { injectStyles } from './ui/styles.js';
 
 // Track if widget has been initialized - use sessionStorage to persist across script reloads
 function getWidgetInitKey() {
@@ -66,6 +68,39 @@ export function ensureWidgetUiMounted() {
     }
 }
 
+export function ensureWidgetRuntimeActive() {
+    if (window.__AIFurnitureRuntimeReady) return;
+    window.__AIFurnitureRuntimeReady = true;
+    injectStyles();
+    initQueueProcessor();
+    window.AIFurniture = {
+        open: (options) => actions.openModal(options),
+        close: actions.closeModal,
+        getState: () => store.getState()
+    };
+
+    if (!window.__AIFurniturePopstateBound) {
+        window.__AIFurniturePopstateBound = true;
+        window.addEventListener('popstate', () => {
+            syncWidgetUiForPage();
+            const state = store.getState();
+            if (state.isOpen && shouldShowWidgetUi()) {
+                actions.openModal();
+            }
+        });
+    }
+
+    if (!window.__AIFurnitureTriggersBound) {
+        window.__AIFurnitureTriggersBound = true;
+        document.querySelectorAll('[data-ai-furniture-trigger]').forEach((el) => {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                actions.openModal();
+            });
+        });
+    }
+}
+
 export function syncWidgetUiForPage() {
     if (!shouldShowWidgetUi()) {
         removeWidgetButton();
@@ -76,6 +111,7 @@ export function syncWidgetUiForPage() {
         return;
     }
 
+    ensureWidgetRuntimeActive();
     ensureWidgetUiMounted();
 
     if (shouldShowWidgetButton()) {
@@ -98,6 +134,13 @@ function scheduleWidgetVisibilityRecheck() {
 }
 
 export async function initializeWidget(isInitialLoad = false) {
+    syncWidgetUiForPage();
+
+    if (!shouldShowWidgetUi()) {
+        debugLog('Not a product page — widget runtime skipped');
+        return;
+    }
+
     debugLog('Initializing widget', {
         isInitialLoad,
         currentUrl: window.location.href,
@@ -316,6 +359,6 @@ export function attachDomListeners() {
         window.addEventListener('popstate', window.__AIFurniturePopstateHandler);
     }
 
-    debugLog('AI Furniture widget initialized successfully');
+    debugLog('Navigation listeners attached');
     scheduleWidgetVisibilityRecheck();
 }
