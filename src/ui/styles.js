@@ -880,6 +880,42 @@ export const styles = `
     cursor: not-allowed;
   }
 
+  .aif-save-fallback {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    background: var(--aif-accent-soft);
+    border: 1px solid var(--aif-border);
+  }
+
+  .aif-save-fallback__text {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--aif-text-muted);
+  }
+
+  .aif-save-fallback__btn {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--aif-font);
+    color: var(--aif-primary-hover);
+    background: var(--aif-bg-elevated);
+    border: 1px solid var(--aif-border);
+    border-radius: 8px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .aif-save-fallback__btn:active {
+    background: var(--aif-accent-soft);
+  }
+
   /* Results: locked viewport — preview row gets all leftover height (no page scroll for image) */
   .aif-results-view {
     flex: 1 1 0;

@@ -4,7 +4,40 @@
 import { actions, VIEWS } from '../../state/store.js';
 import { Slider } from './Slider.js';
 import { Button } from './Button.js';
-import { downloadUrlAsFile, getFilenameFromUrl } from '../../utils/downloadImage.js';
+import { saveImageSet, openImageSaveTarget, getFilenameFromUrl } from '../../utils/downloadImage.js';
+
+function appendIOSaveFallback(container, items, dlOpts, hasBefore) {
+    const existing = container.querySelector('.aif-save-fallback');
+    if (existing) existing.remove();
+
+    const wrap = document.createElement('div');
+    wrap.className = 'aif-save-fallback';
+
+    const text = document.createElement('p');
+    text.className = 'aif-save-fallback__text';
+    text.textContent =
+        'On iPhone: tap each button, then long-press the image and choose Save to Photos.';
+    wrap.appendChild(text);
+
+    items.forEach((item, index) => {
+        const label =
+            items.length > 1
+                ? index === 0 && hasBefore
+                    ? 'Open before photo'
+                    : 'Open after photo'
+                : 'Open image';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'aif-save-fallback__btn';
+        btn.textContent = label;
+        btn.addEventListener('click', () => {
+            openImageSaveTarget(item.url, item.filename, dlOpts);
+        });
+        wrap.appendChild(btn);
+    });
+
+    container.appendChild(wrap);
+}
 
 function previewBlock(el) {
     const wrap = document.createElement('div');
@@ -47,20 +80,24 @@ export const ResultsView = (state) => {
                 savePreviewBtn.textContent = 'Saving…';
 
                 try {
+                    const items = [];
                     if (beforeUrl) {
-                        await downloadUrlAsFile(
-                            beforeUrl,
-                            `before-${getFilenameFromUrl(beforeUrl, 'room.jpg')}`,
-                            dlOpts
-                        );
+                        items.push({
+                            url: beforeUrl,
+                            filename: `before-${getFilenameFromUrl(beforeUrl, 'room.jpg')}`
+                        });
                     }
                     if (afterUrl) {
-                        await downloadUrlAsFile(
-                            afterUrl,
-                            `after-${getFilenameFromUrl(afterUrl, 'preview.png')}`,
-                            dlOpts
-                        );
+                        items.push({
+                            url: afterUrl,
+                            filename: `after-${getFilenameFromUrl(afterUrl, 'preview.png')}`
+                        });
                     }
+
+                    const result = await saveImageSet(items, dlOpts);
+                    if (result.ok || result.reason === 'cancelled') return;
+
+                    appendIOSaveFallback(wrap, items, dlOpts, hasBefore);
                 } finally {
                     savePreviewBtn.disabled = false;
                     savePreviewBtn.textContent = originalText;
