@@ -4,7 +4,12 @@
 import { actions, VIEWS, QUEUE_STATUS } from '../../state/store.js';
 import { Slider } from './Slider.js';
 import { Button } from './Button.js';
-import { saveSingleImage, openImageSaveTarget, getFilenameFromUrl } from '../../utils/downloadImage.js';
+import {
+    saveSingleImage,
+    openImageSaveTarget,
+    getFilenameFromUrl,
+    shareBeforeAfter,
+} from '../../utils/downloadImage.js';
 
 function previewBlock(el) {
     const wrap = document.createElement('div');
@@ -20,6 +25,21 @@ function makeActionButton(label, className, onClick) {
     btn.textContent = label;
     btn.addEventListener('click', onClick);
     return btn;
+}
+
+async function runShare(button, beforeUrl, afterUrl, dlOpts) {
+    button.disabled = true;
+    const label = button.textContent;
+    button.textContent = 'Preparing…';
+    try {
+        const result = await shareBeforeAfter(beforeUrl, afterUrl, dlOpts);
+        if (!result.ok && result.reason === 'mobile_fallback') {
+            alert('Could not open the share sheet. Use Save room photo / Save preview, then share from your gallery.');
+        }
+    } finally {
+        button.disabled = false;
+        button.textContent = label;
+    }
 }
 
 async function saveOneImage(button, item, dlOpts) {
@@ -107,10 +127,17 @@ function createSaveSection(beforeUrl, afterUrl, dlOpts, state) {
 
     const hint = document.createElement('p');
     hint.className = 'aif-result-actions__hint';
-    hint.textContent = 'Save one image at a time';
+    hint.textContent = 'Share or save your preview';
     actions.appendChild(hint);
 
     if (afterItem) {
+        const shareBtn = makeActionButton(
+            'Share before & after',
+            'aif-result-actions__btn aif-result-actions__btn--primary aif-result-actions__btn--full',
+            () => runShare(shareBtn, resolvedBefore, afterUrl, dlOpts)
+        );
+        actions.appendChild(shareBtn);
+
         const split = document.createElement('div');
         split.className = 'aif-result-actions__split';
 

@@ -232,3 +232,155 @@ export async function downloadUrlAsFile(url, filename, options = {}) {
     }
     alert('Could not save this image automatically. Try again after refreshing, or long-press the image and choose Save.');
 }
+
+function loadImageElement(blob) {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            resolve(img);
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error('Failed to load image'));
+        };
+        img.src = url;
+    });
+}
+
+function canvasToJpegBlob(canvas, quality = 0.92) {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(
+            (blob) => (blob ? resolve(blob) : reject(new Error('Canvas export failed'))),
+            'image/jpeg',
+            quality
+        );
+    });
+}
+
+/**
+ * Build a single side-by-side before/after JPEG for sharing (not URLs).
+ */
+export async function buildBeforeAfterComposite(beforeBlob, afterBlob) {
+    const images = await Promise.all([
+        beforeBlob ? loadImageElement(beforeBlob) : null,
+        loadImageElement(afterBlob),
+    ]);
+    const [beforeImg, afterImg] = images;
+    if (!afterImg) throw new Error('Missing after image');
+
+    const targetHeight = 1200;
+    const gap = 16;
+    const pad = 24;
+    const labelH = 36;
+
+    const scaleToHeight = (img, h) => {
+        const scale = h / img.naturalHeight;
+        return { w: Math.round(img.naturalWidth * scale), h };
+    };
+
+    const afterSize = scaleToHeight(afterImg, targetHeight);
+    const beforeSize = beforeImg ? scaleToHeight(beforeImg, targetHeight) : null;
+
+    const contentW =
+        (beforeSize?.w || 0) + (beforeSize ? gap : 0) + afterSize.w;
+    const canvas = document.createElement('canvas');
+    canvas.width = contentW + pad * 2;
+    canvas.height = targetHeight + labelH + pad * 2;
+
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#faf8f5';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const drawLabel = (text, x, y, w) => {
+        ctx.fillStyle = '#5c4a3a';
+        ctx.font = '600 22px system-ui, -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(text, x + w / 2, y);
+    };
+
+    let x = pad;
+    const imgY = pad + labelH;
+
+    if (beforeImg && beforeSize) {
+        drawLabel('Before', x, pad + 26, beforeSize.w);
+        ctx.drawImage(beforeImg, x, imgY, beforeSize.w, beforeSize.h);
+        x += beforeSize.w + gap;
+    }
+
+    drawLabel('After', x, pad + 26, afterSize.w);
+    ctx.drawImage(afterImg, x, imgY, afterSize.w, afterSize.h);
+
+    return canvasToJpegBlob(canvas);
+}
+
+/**
+ * Share before/after as real image file(s) — never as a URL link.
+ * Uses a side-by-side composite when needed for single-file share targets.
+ */
+export async function shareBeforeAfter(beforeUrl, afterUrl, options = {}) {
+    if (!afterUrl) return { ok: false, reason: 'empty' };
+
+    const afterBlob = await fetchImageBlob(
+        afterUrl,
+        `preview-${getFilenameFromUrl(afterUrl, 'preview.png')}`,
+        options
+    );
+    if (!afterBlob) return { ok: false, reason: 'fetch_failed' };
+
+    const beforeBlob = beforeUrl
+        ? await fetchImageBlob(
+              beforeUrl,
+              `room-${getFilenameFromUrl(beforeUrl, 'room.jpg')}`,
+              options
+          )
+        : null;
+
+    const files = [];
+
+    if (beforeBlob) {
+        try {
+            const composite = await buildBeforeAfterComposite(beforeBlob, afterBlob);
+            files.push(blobToFile(composite, 'room-before-after.jpg'));
+        } catch (e) {
+            console.warn('[AI Furniture] composite failed, sharing separate files:', e);
+            files.push(
+                blobToFile(beforeBlob, `room-${getFilenameFromUrl(beforeUrl, 'room.jpg')}`),
+                blobToFile(afterBlob, `preview-${getFilenameFromUrl(afterUrl, 'preview.png')}`)
+            );
+        }
+    } else {
+        files.push(blobToFile(afterBlob, `preview-${getFilenameFromUrl(afterUrl, 'preview.png')}`));
+    }
+
+    if (typeof navigator.share === 'function') {
+        try {
+            const shared =
+                files.length === 1
+                    ? await trySharePayload({
+                          files,
+                          title: 'Room preview',
+                          text: beforeBlob ? 'Before and after' : 'AI room preview',
+                      })
+                    : await shareFiles(files);
+            if (shared) return { ok: true, method: 'share', saved: files.length };
+        } catch (e) {
+            if (e?.name === 'AbortError') return { ok: false, reason: 'cancelled' };
+        }
+    }
+
+    if (isMobileDevice()) {
+        const file = files[0];
+        if (file) {
+            const blobUrl = URL.createObjectURL(file);
+            window.open(blobUrl, '_blank', 'noopener,noreferrer');
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+            return { ok: true, method: 'open' };
+        }
+        return { ok: false, reason: 'mobile_fallback' };
+    }
+
+    triggerBlobDownload(files[0], files[0].name);
+    return { ok: true, method: 'download', saved: 1 };
+}
