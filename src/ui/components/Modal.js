@@ -43,7 +43,7 @@ export const Modal = () => {
     closeBtn.className = 'aif-close-btn';
     closeBtn.type = 'button';
     closeBtn.innerHTML =
-        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="7" y1="7" x2="17" y2="17"/><line x1="17" y1="7" x2="7" y2="17"/></svg>';
     closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.onclick = actions.closeModal;
 

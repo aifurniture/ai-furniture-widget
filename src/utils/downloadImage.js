@@ -20,12 +20,16 @@ function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function isIOS() {
+export function isIOSDevice() {
     if (typeof navigator === 'undefined') return false;
     return (
         /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
     );
+}
+
+function isIOS() {
+    return isIOSDevice();
 }
 
 function guessMimeFromFilename(filename) {
@@ -201,6 +205,16 @@ export async function fetchImageBlob(url, filename, options = {}) {
  * @param {string} filename
  * @param {{ apiEndpoint?: string }} [options] - e.g. `https://ai-furniture-backend.vercel.app/api` (uses /download-image proxy)
  */
+/** Save one image — on iPhone opens in a new tab for long-press Save to Photos. */
+export async function saveSingleImage(item, options = {}) {
+    if (!item?.url) return { ok: false, reason: 'empty' };
+    if (isIOS()) {
+        openImageSaveTarget(item.url, item.filename, options);
+        return { ok: true, method: 'open' };
+    }
+    return saveImageSet([item], options);
+}
+
 export async function downloadUrlAsFile(url, filename, options = {}) {
     const result = await saveImageSet([{ url, filename }], options);
     if (result.ok) return;

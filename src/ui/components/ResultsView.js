@@ -4,46 +4,34 @@
 import { actions, VIEWS } from '../../state/store.js';
 import { Slider } from './Slider.js';
 import { Button } from './Button.js';
-import { saveImageSet, openImageSaveTarget, getFilenameFromUrl } from '../../utils/downloadImage.js';
-
-function appendIOSaveFallback(container, items, dlOpts, hasBefore) {
-    const existing = container.querySelector('.aif-save-fallback');
-    if (existing) existing.remove();
-
-    const wrap = document.createElement('div');
-    wrap.className = 'aif-save-fallback';
-
-    const text = document.createElement('p');
-    text.className = 'aif-save-fallback__text';
-    text.textContent =
-        'On iPhone: tap each button, then long-press the image and choose Save to Photos.';
-    wrap.appendChild(text);
-
-    items.forEach((item, index) => {
-        const label =
-            items.length > 1
-                ? index === 0 && hasBefore
-                    ? 'Open before photo'
-                    : 'Open after photo'
-                : 'Open image';
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'aif-save-fallback__btn';
-        btn.textContent = label;
-        btn.addEventListener('click', () => {
-            openImageSaveTarget(item.url, item.filename, dlOpts);
-        });
-        wrap.appendChild(btn);
-    });
-
-    container.appendChild(wrap);
-}
+import { saveImageSet, saveSingleImage, getFilenameFromUrl } from '../../utils/downloadImage.js';
 
 function previewBlock(el) {
     const wrap = document.createElement('div');
     wrap.className = 'aif-result-preview-block';
     wrap.appendChild(el);
     return wrap;
+}
+
+function makeActionButton(label, className, onClick) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = className;
+    btn.textContent = label;
+    btn.addEventListener('click', onClick);
+    return btn;
+}
+
+async function runSaveAction(button, items, dlOpts) {
+    button.disabled = true;
+    const originalText = button.textContent;
+    button.textContent = 'Saving…';
+    try {
+        return await saveImageSet(items, dlOpts);
+    } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+    }
 }
 
 export const ResultsView = (state) => {
@@ -69,44 +57,88 @@ export const ResultsView = (state) => {
     const createActionsRow = (beforeUrl, afterUrl) => {
         const wrap = document.createElement('div');
         wrap.className = 'aif-result-actions';
-        wrap.style.marginTop = '12px';
 
-        const hasBefore = Boolean(beforeUrl);
-        const savePreviewBtn = Button({
-            text: hasBefore ? 'Save before & after' : 'Save after image',
-            onClick: async () => {
-                savePreviewBtn.disabled = true;
-                const originalText = savePreviewBtn.textContent;
-                savePreviewBtn.textContent = 'Saving…';
+        const hint = document.createElement('p');
+        hint.className = 'aif-result-actions__hint';
+        hint.textContent = 'Save your images';
+        wrap.appendChild(hint);
 
-                try {
-                    const items = [];
-                    if (beforeUrl) {
-                        items.push({
-                            url: beforeUrl,
-                            filename: `before-${getFilenameFromUrl(beforeUrl, 'room.jpg')}`
-                        });
-                    }
-                    if (afterUrl) {
-                        items.push({
-                            url: afterUrl,
-                            filename: `after-${getFilenameFromUrl(afterUrl, 'preview.png')}`
-                        });
-                    }
+        const grid = document.createElement('div');
+        grid.className = 'aif-result-actions__grid';
 
-                    const result = await saveImageSet(items, dlOpts);
-                    if (result.ok || result.reason === 'cancelled') return;
+        const beforeItem = beforeUrl
+            ? {
+                  url: beforeUrl,
+                  filename: `before-${getFilenameFromUrl(beforeUrl, 'room.jpg')}`
+              }
+            : null;
+        const afterItem = afterUrl
+            ? {
+                  url: afterUrl,
+                  filename: `after-${getFilenameFromUrl(afterUrl, 'preview.png')}`
+              }
+            : null;
 
-                    appendIOSaveFallback(wrap, items, dlOpts, hasBefore);
-                } finally {
-                    savePreviewBtn.disabled = false;
-                    savePreviewBtn.textContent = originalText;
+        if (beforeItem && afterItem) {
+            const saveBothBtn = makeActionButton(
+                'Save both images',
+                'aif-result-actions__btn aif-result-actions__btn--primary aif-result-actions__btn--full',
+                async () => {
+                    await runSaveAction(saveBothBtn, [beforeItem, afterItem], dlOpts);
                 }
-            }
-        });
-        savePreviewBtn.style.width = '100%';
+            );
+            grid.appendChild(saveBothBtn);
 
-        wrap.appendChild(savePreviewBtn);
+            const split = document.createElement('div');
+            split.className = 'aif-result-actions__split';
+
+            const beforeBtn = makeActionButton(
+                'Before photo',
+                'aif-result-actions__btn',
+                async () => {
+                    beforeBtn.disabled = true;
+                    const label = beforeBtn.textContent;
+                    beforeBtn.textContent = 'Opening…';
+                    try {
+                        await saveSingleImage(beforeItem, dlOpts);
+                    } finally {
+                        beforeBtn.disabled = false;
+                        beforeBtn.textContent = label;
+                    }
+                }
+            );
+
+            const afterBtn = makeActionButton(
+                'After photo',
+                'aif-result-actions__btn',
+                async () => {
+                    afterBtn.disabled = true;
+                    const label = afterBtn.textContent;
+                    afterBtn.textContent = 'Opening…';
+                    try {
+                        await saveSingleImage(afterItem, dlOpts);
+                    } finally {
+                        afterBtn.disabled = false;
+                        afterBtn.textContent = label;
+                    }
+                }
+            );
+
+            split.appendChild(beforeBtn);
+            split.appendChild(afterBtn);
+            grid.appendChild(split);
+        } else if (afterItem) {
+            const saveAfterBtn = makeActionButton(
+                'Save after image',
+                'aif-result-actions__btn aif-result-actions__btn--primary aif-result-actions__btn--full',
+                async () => {
+                    await runSaveAction(saveAfterBtn, [afterItem], dlOpts);
+                }
+            );
+            grid.appendChild(saveAfterBtn);
+        }
+
+        wrap.appendChild(grid);
         return wrap;
     };
 
