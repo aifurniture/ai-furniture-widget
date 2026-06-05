@@ -4,7 +4,13 @@
 import { actions, VIEWS } from '../../state/store.js';
 import { Slider } from './Slider.js';
 import { Button } from './Button.js';
-import { saveImageSet, saveSingleImage, getFilenameFromUrl } from '../../utils/downloadImage.js';
+import {
+    saveImageSet,
+    saveSingleImage,
+    openImageSaveTarget,
+    isMobileDevice,
+    getFilenameFromUrl
+} from '../../utils/downloadImage.js';
 
 function previewBlock(el) {
     const wrap = document.createElement('div');
@@ -22,16 +28,131 @@ function makeActionButton(label, className, onClick) {
     return btn;
 }
 
-async function runSaveAction(button, items, dlOpts) {
+function showMobileSaveFallback(container, items, dlOpts) {
+    const existing = container.querySelector('.aif-save-fallback');
+    if (existing) existing.remove();
+
+    const wrap = document.createElement('div');
+    wrap.className = 'aif-save-fallback';
+
+    const text = document.createElement('p');
+    text.className = 'aif-save-fallback__text';
+    text.textContent = isMobileDevice()
+        ? 'Tap each image to open it, then use Save to Photos (iPhone) or Download (Android).'
+        : 'Tap each button to open the image in a new tab.';
+    wrap.appendChild(text);
+
+    items.forEach((item, index) => {
+        const label =
+            items.length > 1
+                ? index === 0
+                    ? 'Open before photo'
+                    : 'Open after photo'
+                : 'Open image';
+        wrap.appendChild(
+            makeActionButton(label, 'aif-save-fallback__btn', () => {
+                openImageSaveTarget(item.url, item.filename, dlOpts);
+            })
+        );
+    });
+
+    container.appendChild(wrap);
+}
+
+async function runSaveAction(button, container, items, dlOpts) {
     button.disabled = true;
     const originalText = button.textContent;
     button.textContent = 'Saving…';
     try {
-        return await saveImageSet(items, dlOpts);
+        const result = await saveImageSet(items, dlOpts);
+        if (result.ok || result.reason === 'cancelled') return result;
+        if (result.reason === 'mobile_fallback' || result.reason === 'fetch_failed') {
+            showMobileSaveFallback(container, items, dlOpts);
+        }
+        return result;
     } finally {
         button.disabled = false;
         button.textContent = originalText;
     }
+}
+
+function createSaveSection(beforeUrl, afterUrl, dlOpts) {
+    const section = document.createElement('div');
+    section.className = 'aif-results-save';
+
+    const beforeItem = beforeUrl
+        ? { url: beforeUrl, filename: `before-${getFilenameFromUrl(beforeUrl, 'room.jpg')}` }
+        : null;
+    const afterItem = afterUrl
+        ? { url: afterUrl, filename: `after-${getFilenameFromUrl(afterUrl, 'preview.png')}` }
+        : null;
+
+    const actions = document.createElement('div');
+    actions.className = 'aif-result-actions';
+
+    const hint = document.createElement('p');
+    hint.className = 'aif-result-actions__hint';
+    hint.textContent = 'Save your preview';
+    actions.appendChild(hint);
+
+    const grid = document.createElement('div');
+    grid.className = 'aif-result-actions__grid';
+
+    if (beforeItem && afterItem) {
+        const saveBothBtn = makeActionButton(
+            'Save preview',
+            'aif-result-actions__btn aif-result-actions__btn--primary aif-result-actions__btn--full',
+            async () => {
+                await runSaveAction(saveBothBtn, actions, [beforeItem, afterItem], dlOpts);
+            }
+        );
+        grid.appendChild(saveBothBtn);
+
+        const split = document.createElement('div');
+        split.className = 'aif-result-actions__split';
+
+        const beforeBtn = makeActionButton('Before', 'aif-result-actions__btn', async () => {
+            beforeBtn.disabled = true;
+            const label = beforeBtn.textContent;
+            beforeBtn.textContent = '…';
+            try {
+                await saveSingleImage(beforeItem, dlOpts);
+            } finally {
+                beforeBtn.disabled = false;
+                beforeBtn.textContent = label;
+            }
+        });
+
+        const afterBtn = makeActionButton('After', 'aif-result-actions__btn', async () => {
+            afterBtn.disabled = true;
+            const label = afterBtn.textContent;
+            afterBtn.textContent = '…';
+            try {
+                await saveSingleImage(afterItem, dlOpts);
+            } finally {
+                afterBtn.disabled = false;
+                afterBtn.textContent = label;
+            }
+        });
+
+        split.appendChild(beforeBtn);
+        split.appendChild(afterBtn);
+
+        grid.appendChild(split);
+    } else if (afterItem) {
+        const saveBtn = makeActionButton(
+            'Save preview',
+            'aif-result-actions__btn aif-result-actions__btn--primary aif-result-actions__btn--full',
+            async () => {
+                await runSaveAction(saveBtn, actions, [afterItem], dlOpts);
+            }
+        );
+        grid.appendChild(saveBtn);
+    }
+
+    actions.appendChild(grid);
+    section.appendChild(actions);
+    return section;
 }
 
 export const ResultsView = (state) => {
@@ -54,94 +175,6 @@ export const ResultsView = (state) => {
         return pairs;
     };
 
-    const createActionsRow = (beforeUrl, afterUrl) => {
-        const wrap = document.createElement('div');
-        wrap.className = 'aif-result-actions';
-
-        const hint = document.createElement('p');
-        hint.className = 'aif-result-actions__hint';
-        hint.textContent = 'Save your images';
-        wrap.appendChild(hint);
-
-        const grid = document.createElement('div');
-        grid.className = 'aif-result-actions__grid';
-
-        const beforeItem = beforeUrl
-            ? {
-                  url: beforeUrl,
-                  filename: `before-${getFilenameFromUrl(beforeUrl, 'room.jpg')}`
-              }
-            : null;
-        const afterItem = afterUrl
-            ? {
-                  url: afterUrl,
-                  filename: `after-${getFilenameFromUrl(afterUrl, 'preview.png')}`
-              }
-            : null;
-
-        if (beforeItem && afterItem) {
-            const saveBothBtn = makeActionButton(
-                'Save both images',
-                'aif-result-actions__btn aif-result-actions__btn--primary aif-result-actions__btn--full',
-                async () => {
-                    await runSaveAction(saveBothBtn, [beforeItem, afterItem], dlOpts);
-                }
-            );
-            grid.appendChild(saveBothBtn);
-
-            const split = document.createElement('div');
-            split.className = 'aif-result-actions__split';
-
-            const beforeBtn = makeActionButton(
-                'Before photo',
-                'aif-result-actions__btn',
-                async () => {
-                    beforeBtn.disabled = true;
-                    const label = beforeBtn.textContent;
-                    beforeBtn.textContent = 'Opening…';
-                    try {
-                        await saveSingleImage(beforeItem, dlOpts);
-                    } finally {
-                        beforeBtn.disabled = false;
-                        beforeBtn.textContent = label;
-                    }
-                }
-            );
-
-            const afterBtn = makeActionButton(
-                'After photo',
-                'aif-result-actions__btn',
-                async () => {
-                    afterBtn.disabled = true;
-                    const label = afterBtn.textContent;
-                    afterBtn.textContent = 'Opening…';
-                    try {
-                        await saveSingleImage(afterItem, dlOpts);
-                    } finally {
-                        afterBtn.disabled = false;
-                        afterBtn.textContent = label;
-                    }
-                }
-            );
-
-            split.appendChild(beforeBtn);
-            split.appendChild(afterBtn);
-            grid.appendChild(split);
-        } else if (afterItem) {
-            const saveAfterBtn = makeActionButton(
-                'Save after image',
-                'aif-result-actions__btn aif-result-actions__btn--primary aif-result-actions__btn--full',
-                async () => {
-                    await runSaveAction(saveAfterBtn, [afterItem], dlOpts);
-                }
-            );
-            grid.appendChild(saveAfterBtn);
-        }
-
-        wrap.appendChild(grid);
-        return wrap;
-    };
-
     const container = document.createElement('div');
     container.className = 'aif-results-view';
 
@@ -159,6 +192,8 @@ export const ResultsView = (state) => {
     const grid = document.createElement('div');
     grid.className = 'aif-results-grid';
 
+    let saveSection = null;
+
     pairs.forEach(({ beforeUrl, afterUrl, index: i }) => {
         const imgData = state.generatedImages[i];
         const generatedUrl = imgData.url || imgData;
@@ -170,13 +205,16 @@ export const ResultsView = (state) => {
 
         if (generatedUrl) {
             if (beforeUrl) {
-                const slider = Slider({
-                    beforeImage: beforeUrl,
-                    afterImage: generatedUrl,
-                    aspectRatio: aspectRatio,
-                    fillParent: true
-                });
-                grid.appendChild(previewBlock(slider));
+                grid.appendChild(
+                    previewBlock(
+                        Slider({
+                            beforeImage: beforeUrl,
+                            afterImage: generatedUrl,
+                            aspectRatio,
+                            fillParent: true
+                        })
+                    )
+                );
             } else {
                 const img = document.createElement('img');
                 img.src = generatedUrl;
@@ -184,18 +222,18 @@ export const ResultsView = (state) => {
                 img.style.borderRadius = '8px';
                 grid.appendChild(previewBlock(img));
             }
-            grid.appendChild(createActionsRow(beforeUrl, generatedUrl));
+            saveSection = createSaveSection(beforeUrl, generatedUrl, dlOpts);
         }
     });
 
     container.appendChild(grid);
 
+    if (saveSection) {
+        container.appendChild(saveSection);
+    }
+
     const actionsDiv = document.createElement('div');
-    actionsDiv.style.display = 'flex';
-    actionsDiv.style.flexDirection = 'column';
-    actionsDiv.style.gap = '8px';
-    actionsDiv.style.flexShrink = '0';
-    actionsDiv.style.marginTop = '12px';
+    actionsDiv.className = 'aif-results-footer';
 
     const disclaimer = document.createElement('p');
     disclaimer.className = 'aif-results-disclaimer';

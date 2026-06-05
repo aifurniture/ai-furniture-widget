@@ -937,13 +937,64 @@ export const styles = `
     cursor: not-allowed;
   }
 
-  /* Results: locked viewport — preview row gets all leftover height (no page scroll for image) */
+  .aif-save-fallback {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 10px;
+    border-radius: 10px;
+    background: var(--aif-accent-soft);
+    border: 1px solid var(--aif-border);
+  }
+
+  .aif-save-fallback__text {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--aif-text-muted);
+  }
+
+  .aif-save-fallback__btn {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: var(--aif-font);
+    color: var(--aif-primary-hover);
+    background: var(--aif-bg-elevated);
+    border: 1px solid var(--aif-border);
+    border-radius: 8px;
+    cursor: pointer;
+    min-height: 44px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .aif-results-save {
+    flex-shrink: 0;
+    overflow: visible;
+  }
+
+  .aif-results-save .aif-result-actions {
+    border-top: none;
+    padding-top: 0;
+    margin-top: 0;
+  }
+
+  .aif-results-footer {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Results: locked viewport — preview row gets leftover height; save buttons stay visible */
   .aif-results-view {
     flex: 1 1 0;
     min-height: 0;
     overflow: hidden;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
     gap: 6px;
     height: 100%;
     max-height: 100%;
@@ -951,10 +1002,8 @@ export const styles = `
 
   .aif-results-grid {
     min-height: 0;
-    height: 100%;
     display: flex;
     flex-direction: column;
-    gap: 8px;
     overflow: hidden;
     align-self: stretch;
   }

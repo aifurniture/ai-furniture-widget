@@ -1,7 +1,7 @@
 /**
  * Save images as files. Remote URLs use the backend proxy first so the browser
  * actually downloads (S3/CDN often block CORS; <a download> is ignored cross-origin).
- * iOS Safari ignores programmatic downloads — use Web Share API or per-tap image open.
+ * iOS/Android: Web Share API (Save to Photos / Downloads). Desktop: blob download.
  */
 
 export function getFilenameFromUrl(url, fallback = 'image') {
@@ -28,8 +28,12 @@ export function isIOSDevice() {
     );
 }
 
-function isIOS() {
-    return isIOSDevice();
+export function isAndroidDevice() {
+    return typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+}
+
+export function isMobileDevice() {
+    return isIOSDevice() || isAndroidDevice();
 }
 
 function guessMimeFromFilename(filename) {
@@ -41,12 +45,14 @@ function guessMimeFromFilename(filename) {
 }
 
 function blobToFile(blob, filename) {
-    const type = blob.type && blob.type !== 'application/octet-stream' ? blob.type : guessMimeFromFilename(filename);
+    const type =
+        blob.type && blob.type !== 'application/octet-stream'
+            ? blob.type
+            : guessMimeFromFilename(filename);
     return new File([blob], filename, { type });
 }
 
 function triggerBlobDownload(blob, filename) {
-    if (isIOS()) return false;
     const blobUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = blobUrl;
@@ -81,26 +87,11 @@ export function openImageSaveTarget(url, filename, options = {}) {
     window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-async function shareFiles(files) {
-    if (typeof navigator.share !== 'function' || typeof File === 'undefined' || !files.length) {
-        return false;
-    }
-
+async function trySharePayload(payload) {
+    if (typeof navigator.share !== 'function') return false;
     try {
-        if (files.length > 1) {
-            const multi = { files };
-            if (!navigator.canShare || navigator.canShare(multi)) {
-                await navigator.share(multi);
-                return true;
-            }
-        }
-
-        for (const file of files) {
-            const single = { files: [file] };
-            if (!navigator.canShare || navigator.canShare(single)) {
-                await navigator.share(single);
-            }
-        }
+        if (navigator.canShare && !navigator.canShare(payload)) return false;
+        await navigator.share(payload);
         return true;
     } catch (e) {
         if (e?.name === 'AbortError') throw e;
@@ -108,11 +99,32 @@ async function shareFiles(files) {
     }
 }
 
+async function shareFiles(files) {
+    if (typeof navigator.share !== 'function' || typeof File === 'undefined' || !files.length) {
+        return false;
+    }
+
+    if (files.length > 1) {
+        const shared = await trySharePayload({
+            files,
+            title: 'Room preview',
+            text: 'Before and after photos'
+        });
+        if (shared) return true;
+    }
+
+    let sharedAny = false;
+    for (const file of files) {
+        const shared = await trySharePayload({ files: [file], title: file.name });
+        if (shared) sharedAny = true;
+    }
+    return sharedAny;
+}
+
 /**
- * Save one or more images. Prefers Web Share on mobile (Save to Photos on iOS).
+ * Save one or more images. Uses Web Share on iOS/Android; blob download on desktop.
  * @param {{ url: string, filename: string }[]} items
  * @param {{ apiEndpoint?: string }} [options]
- * @returns {Promise<{ ok: boolean, reason?: string, method?: string, saved?: number, items?: { url: string, filename: string }[] }>}
  */
 export async function saveImageSet(items, options = {}) {
     const entries = (items || []).filter((i) => i?.url);
@@ -132,17 +144,16 @@ export async function saveImageSet(items, options = {}) {
 
     const files = ready.map(({ item, blob }) => blobToFile(blob, item.filename));
 
-    try {
-        const shared = await shareFiles(files);
-        if (shared) {
-            return { ok: true, method: 'share', saved: files.length };
+    if (isMobileDevice()) {
+        try {
+            const shared = await shareFiles(files);
+            if (shared) {
+                return { ok: true, method: 'share', saved: files.length };
+            }
+        } catch (e) {
+            if (e?.name === 'AbortError') return { ok: false, reason: 'cancelled' };
         }
-    } catch (e) {
-        if (e?.name === 'AbortError') return { ok: false, reason: 'cancelled' };
-    }
-
-    if (isIOS()) {
-        return { ok: false, reason: 'ios_fallback', items: entries };
+        return { ok: false, reason: 'mobile_fallback', items: entries };
     }
 
     for (const { item, blob } of ready) {
@@ -154,11 +165,7 @@ export async function saveImageSet(items, options = {}) {
 }
 
 /**
- * Fetch image bytes (same proxy / CORS strategy as download). For share, Web Share API, etc.
- * @param {string} url
- * @param {string} filename - used for proxy request name=
- * @param {{ apiEndpoint?: string }} [options]
- * @returns {Promise<Blob|null>}
+ * Fetch image bytes (same proxy / CORS strategy as download).
  */
 export async function fetchImageBlob(url, filename, options = {}) {
     if (!url) return null;
@@ -200,26 +207,26 @@ export async function fetchImageBlob(url, filename, options = {}) {
     }
 }
 
-/**
- * @param {string} url
- * @param {string} filename
- * @param {{ apiEndpoint?: string }} [options] - e.g. `https://ai-furniture-backend.vercel.app/api` (uses /download-image proxy)
- */
-/** Save one image — on iPhone opens in a new tab for long-press Save to Photos. */
+/** Save one image — share sheet on mobile, download on desktop. */
 export async function saveSingleImage(item, options = {}) {
     if (!item?.url) return { ok: false, reason: 'empty' };
-    if (isIOS()) {
+
+    const result = await saveImageSet([item], options);
+    if (result.ok || result.reason === 'cancelled') return result;
+
+    if (result.reason === 'mobile_fallback' || result.reason === 'fetch_failed') {
         openImageSaveTarget(item.url, item.filename, options);
         return { ok: true, method: 'open' };
     }
-    return saveImageSet([item], options);
+
+    return result;
 }
 
 export async function downloadUrlAsFile(url, filename, options = {}) {
     const result = await saveImageSet([{ url, filename }], options);
     if (result.ok) return;
     if (result.reason === 'cancelled') return;
-    if (result.reason === 'ios_fallback' || result.reason === 'fetch_failed') {
+    if (result.reason === 'mobile_fallback' || result.reason === 'fetch_failed') {
         openImageSaveTarget(url, filename, options);
         return;
     }

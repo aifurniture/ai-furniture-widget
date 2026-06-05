@@ -362,6 +362,12 @@ export function attachDomListeners() {
             lastUrl = currentUrl;
             debugLog('URL changed, updating widget...', { from: previousUrl, to: currentUrl });
             window.__AIFurnitureVisibilityRecheckScheduled = false;
+            try {
+                flushSessionSnapshot();
+                resumeQueueAfterNavigation();
+            } catch (e) {
+                debugLog('Navigation queue resume failed', e);
+            }
             setTimeout(() => {
                 initializeWidget(false);
                 scheduleWidgetVisibilityRecheck();

@@ -39,6 +39,39 @@ function serializeQueueForStorage(queue) {
     });
 }
 
+/** Merge queue rows so async saves cannot wipe progress written during navigation. */
+function mergeQueueItem(stored, current) {
+    if (!stored) return current;
+    if (!current) return stored;
+    return {
+        ...stored,
+        ...current,
+        backendJobSubmitted: !!(stored.backendJobSubmitted || current.backendJobSubmitted),
+        imageS3Key: current.imageS3Key || stored.imageS3Key || null,
+        userImageUrl: current.userImageUrl || stored.userImageUrl || null,
+        userImageDataUrl: current.userImageDataUrl || stored.userImageDataUrl || null,
+        jobDomain: current.jobDomain || stored.jobDomain || null,
+        startedAt: current.startedAt || stored.startedAt || null,
+        status: current.status || stored.status,
+        error: current.error != null ? current.error : stored.error,
+        result: current.result || stored.result || null
+    };
+}
+
+function mergeQueues(a, b) {
+    const byId = new Map();
+    for (const item of a || []) {
+        if (item?.id) byId.set(item.id, item);
+    }
+    for (const item of b || []) {
+        if (!item?.id) continue;
+        byId.set(item.id, mergeQueueItem(byId.get(item.id), item));
+    }
+    return Array.from(byId.values());
+}
+
+let persistGeneration = 0;
+
 function writeSessionSnapshot(state) {
     const { queue, generatedImages, selectedModel, queueTab, config } = state;
     sessionStorage.setItem(
@@ -57,6 +90,7 @@ function writeSessionSnapshot(state) {
 export function flushSessionSnapshot() {
     if (typeof window === 'undefined') return;
     try {
+        persistGeneration += 1;
         writeSessionSnapshot(store.getState());
     } catch (e) {
         debugLog('flushSessionSnapshot failed', e);
@@ -80,44 +114,60 @@ let remoteGenerationsInFlight = null;
 let nextRemoteGenerationsAllowedAt = 0;
 let nextShopperRegisterAllowedAt = 0;
 
-const saveState = async (state) => {
-    // Don't let a pending async write overwrite the synchronous pagehide snapshot
+const saveState = async () => {
     if (isPageUnloading) return;
+    const myGeneration = persistGeneration;
     try {
-        // Persist essential data (queue, generatedImages, selectedModel, queueTab)
-        // Store image data as URLs/data URLs for persistence
-        const { queue, generatedImages, selectedModel, queueTab } = state;
+        const snapshot = store.getState();
+        const dataUrlPatches = new Map();
 
-        // Clean queue items - convert File/Blob to data URLs if needed
-        const cleanQueue = await Promise.all(queue.map(async (item) => {
-            const cleanItem = { ...item };
-            
-            // If userImage is a File/Blob and we don't already have a data URL, convert it
-            if (item.userImage && (item.userImage instanceof File || item.userImage instanceof Blob)) {
-                // Only convert if we don't already have a data URL
-                if (!item.userImageDataUrl) {
+        await Promise.all(
+            snapshot.queue.map(async (item) => {
+                if (
+                    item.userImage &&
+                    (item.userImage instanceof File || item.userImage instanceof Blob) &&
+                    !item.userImageDataUrl
+                ) {
                     try {
-                        cleanItem.userImageDataUrl = await fileToDataURL(item.userImage);
+                        dataUrlPatches.set(item.id, await fileToDataURL(item.userImage));
                     } catch (e) {
                         debugLog('Failed to convert image to data URL', e);
                     }
                 }
+            })
+        );
+
+        if (isPageUnloading || myGeneration !== persistGeneration) return;
+
+        const latest = store.getState();
+        let cleanQueue = serializeQueueForStorage(latest.queue).map((item) => {
+            const patch = dataUrlPatches.get(item.id);
+            if (patch && !item.userImageDataUrl) {
+                return { ...item, userImageDataUrl: patch };
             }
-            
-            // Remove the File/Blob object (can't be serialized)
-            delete cleanItem.userImage;
-            
-            return cleanItem;
-        }));
+            return item;
+        });
+
+        try {
+            const existing = sessionStorage.getItem(STORAGE_KEY);
+            if (existing) {
+                const parsed = JSON.parse(existing);
+                if (parsed?.queue) {
+                    cleanQueue = mergeQueues(parsed.queue, cleanQueue);
+                }
+            }
+        } catch (e) {
+            debugLog('Failed to merge session queue snapshot', e);
+        }
 
         sessionStorage.setItem(
             STORAGE_KEY,
             JSON.stringify({
                 queue: cleanQueue,
-                generatedImages,
-                selectedModel,
-                queueTab,
-                config: ensureApiEndpoint(state.config || {})
+                generatedImages: latest.generatedImages,
+                selectedModel: latest.selectedModel,
+                queueTab: latest.queueTab,
+                config: ensureApiEndpoint(latest.config || {})
             })
         );
     } catch (e) {
@@ -269,7 +319,7 @@ export const createStore = (initialState) => {
         setState: (newState) => {
             state = { ...state, ...newState };
             // Save state asynchronously to avoid blocking
-            saveState(state).catch((e) => debugLog('Failed to save state', e));
+            saveState().catch((e) => debugLog('Failed to save state', e));
             
             // Save modal state separately for quick access
             if ('isOpen' in newState || 'view' in newState) {
@@ -322,6 +372,7 @@ export const store = createStore(initialState);
 if (typeof window !== 'undefined') {
     window.addEventListener('pagehide', () => {
         isPageUnloading = true;
+        persistGeneration += 1;
         try {
             writeSessionSnapshot(store.getState());
         } catch (e) {

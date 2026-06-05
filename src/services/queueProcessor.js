@@ -18,7 +18,7 @@ const BACKEND_JOB_STATUS = {
 
 const POLL_INTERVAL_MS = 4000;
 const MAX_POLL_MS = 5 * 60 * 1000;
-const MAX_MISSING_STATUS_POLLS = 8;
+const MAX_MISSING_STATUS_POLLS = 20;
 
 function pickStablePreviewUrl(savedResponse, fallbackUrl) {
     const candidate =
@@ -40,6 +40,10 @@ function getDomainForApi(mergedConfig) {
         .replace(/\/$/, '')
         .toLowerCase()
         .trim();
+}
+
+function getDomainForItem(item, mergedConfig) {
+    return item?.jobDomain || getDomainForApi(mergedConfig);
 }
 
 function getSessionIdForApi(mergedConfig) {
@@ -112,10 +116,20 @@ export function resumeQueueAfterNavigation() {
         clearTimeout(queueRetryTimer);
         queueRetryTimer = null;
     }
-    // Abandoned in-flight work from a previous page cannot be awaited — release locks so polling restarts.
     processingItems.clear();
     pollingItems.clear();
     inFlightById.clear();
+
+    store.getState().queue.forEach((item) => {
+        if (
+            (item.status === QUEUE_STATUS.PENDING || item.status === QUEUE_STATUS.PROCESSING) &&
+            (item.backendJobSubmitted || item.imageS3Key)
+        ) {
+            actions.updateQueueItem(item.id, { pollMissCount: 0, error: null });
+        }
+    });
+
+    flushSessionSnapshot();
     scheduleQueueWork(store.getState());
 }
 
@@ -416,7 +430,11 @@ async function submitAsyncJob(id, item, apiEndpoint, domainForApi, sessionIdForA
 
     debugLog(`POST /widget/generate for ${id.slice(0, 8)}`);
     await startWidgetGeneration(apiEndpoint, formData);
-    persistQueueProgress(id, { backendJobSubmitted: true, pollMissCount: 0 });
+    persistQueueProgress(id, {
+        backendJobSubmitted: true,
+        pollMissCount: 0,
+        jobDomain: domainForApi
+    });
 }
 
 async function runSyncGenerate(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded, imageToUse) {
@@ -452,6 +470,26 @@ async function runSyncGenerate(id, item, apiEndpoint, domainForApi, sessionIdFor
     return result;
 }
 
+let queueWatchdogStarted = false;
+
+function startQueueWatchdog() {
+    if (queueWatchdogStarted || typeof window === 'undefined') return;
+    queueWatchdogStarted = true;
+    window.setInterval(() => {
+        if (isPageUnloading) return;
+        const { queue } = store.getState();
+        const needsWork = queue.some(
+            (item) =>
+                (item.status === QUEUE_STATUS.PENDING || item.status === QUEUE_STATUS.PROCESSING) &&
+                !inFlightById.has(item.id) &&
+                !pollingItems.has(item.id)
+        );
+        if (needsWork) {
+            scheduleQueueWork(store.getState());
+        }
+    }, 5000);
+}
+
 export function initQueueProcessor() {
     if (queueProcessorInitialized) {
         scheduleQueueWork(store.getState());
@@ -460,6 +498,7 @@ export function initQueueProcessor() {
 
     queueProcessorInitialized = true;
     store.subscribe((state) => scheduleQueueWork(state));
+    startQueueWatchdog();
     scheduleQueueWork(store.getState());
 }
 
@@ -596,7 +635,7 @@ async function runQueueItemWork(item) {
     }
 
     const apiEndpoint = getApiEndpoint(mergedConfig);
-    const domainForApi = getDomainForApi(mergedConfig);
+    const domainForApi = getDomainForItem(item, mergedConfig);
     const sessionIdForApi = getSessionIdForApi(mergedConfig);
 
     try {
@@ -619,7 +658,8 @@ async function runQueueItemWork(item) {
                 });
                 persistQueueProgress(id, {
                     imageS3Key: uploaded.s3Key,
-                    userImageUrl: uploaded.imageUrl || item.userImageUrl || null
+                    userImageUrl: uploaded.imageUrl || item.userImageUrl || null,
+                    jobDomain: domainForApi
                 });
             } catch (uploadErr) {
                 if (isTransientFetchError(uploadErr)) {
@@ -632,6 +672,7 @@ async function runQueueItemWork(item) {
         }
 
         const latest = getFreshQueueItem(id) || item;
+        const pollDomain = getDomainForItem(latest, mergedConfig);
 
         // Resume: poll an already-submitted backend job (safe across page navigation).
         if (latest.backendJobSubmitted) {
@@ -639,7 +680,7 @@ async function runQueueItemWork(item) {
                 id,
                 latest,
                 apiEndpoint,
-                domainForApi,
+                pollDomain,
                 uploaded,
                 mergedConfig
             );
@@ -656,7 +697,7 @@ async function runQueueItemWork(item) {
             }
         } else if (uploaded?.s3Key || latest.imageS3Key) {
             // Another tab/page may have submitted while we were uploading — check once before creating a job.
-            const existingStatus = await fetchAsyncJobStatusOnce(id, apiEndpoint, domainForApi);
+            const existingStatus = await fetchAsyncJobStatusOnce(id, apiEndpoint, pollDomain);
             if (existingStatus) {
                 const existingOutcome = handleAsyncJobStatus(
                     id,
@@ -667,12 +708,16 @@ async function runQueueItemWork(item) {
                 );
                 if (existingOutcome === 'completed' || existingOutcome === 'failed') return;
                 if (existingStatus.status === BACKEND_JOB_STATUS.PROCESSING) {
-                    persistQueueProgress(id, { backendJobSubmitted: true, pollMissCount: 0 });
+                    persistQueueProgress(id, {
+                        backendJobSubmitted: true,
+                        pollMissCount: 0,
+                        jobDomain: pollDomain
+                    });
                     const pollOutcome = await pollAsyncJobUntilComplete(
                         id,
                         getFreshQueueItem(id) || latest,
                         apiEndpoint,
-                        domainForApi,
+                        pollDomain,
                         uploaded,
                         mergedConfig
                     );
@@ -705,15 +750,16 @@ async function runQueueItemWork(item) {
         }
 
         const beforeSubmit = getFreshQueueItem(id) || latest;
+        const submitDomain = getDomainForItem(beforeSubmit, mergedConfig);
         if (!beforeSubmit.backendJobSubmitted) {
-            await submitAsyncJob(id, beforeSubmit, apiEndpoint, domainForApi, sessionIdForApi, uploaded);
+            await submitAsyncJob(id, beforeSubmit, apiEndpoint, submitDomain, sessionIdForApi, uploaded);
         }
 
         const finalOutcome = await pollAsyncJobUntilComplete(
             id,
             getFreshQueueItem(id) || beforeSubmit,
             apiEndpoint,
-            domainForApi,
+            submitDomain,
             uploaded,
             mergedConfig
         );
@@ -756,14 +802,12 @@ if (typeof window !== 'undefined') {
     });
 
     window.addEventListener('pageshow', () => {
-        isPageUnloading = false;
-        scheduleQueueWork(store.getState());
+        resumeQueueAfterNavigation();
     });
 
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
-            isPageUnloading = false;
-            scheduleQueueWork(store.getState());
+            resumeQueueAfterNavigation();
         }
     });
 }
