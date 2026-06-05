@@ -193,7 +193,7 @@ function createProgressView(item) {
     hint.style.margin = '8px 0 0';
     hint.style.fontSize = '12px';
     hint.style.color = '#94a3b8';
-    hint.textContent = 'Please keep this tab open if you can.';
+    hint.textContent = 'You can browse other pages — we’ll keep working in the background.';
 
     wrap.appendChild(spinner);
     wrap.appendChild(title);

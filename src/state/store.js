@@ -53,6 +53,16 @@ function writeSessionSnapshot(state) {
     );
 }
 
+/** Synchronous persist before SPA navigation (pagehide often does not fire). */
+export function flushSessionSnapshot() {
+    if (typeof window === 'undefined') return;
+    try {
+        writeSessionSnapshot(store.getState());
+    } catch (e) {
+        debugLog('flushSessionSnapshot failed', e);
+    }
+}
+
 const loadState = () => {
     try {
         const serialized = sessionStorage.getItem(STORAGE_KEY);

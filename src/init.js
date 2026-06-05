@@ -1,5 +1,5 @@
 // src/init.js
-import { actions, store, QUEUE_STATUS } from './state/store.js';
+import { actions, store, QUEUE_STATUS, flushSessionSnapshot } from './state/store.js';
 import { verifyDomain, verifyDomainWithServer } from './domainVerification.js';
 import { debugLog } from './debug.js';
 import { initSession, trackEvent, onOrderAddedToDatabase, resetWidget, disconnectAllTracking, setRecreateWidgetButton } from './tracking.js';
@@ -263,6 +263,12 @@ export async function initializeWidget(isInitialLoad = false) {
  * Update page tracking without reinitializing entire widget
  */
 function updatePageTracking() {
+    try {
+        flushSessionSnapshot();
+    } catch (e) {
+        debugLog('flushSessionSnapshot failed', e);
+    }
+
     try {
         actions.syncThemeConfig();
     } catch (e) {

@@ -1,7 +1,7 @@
 /**
  * Upload View Component
  */
-import { actions, VIEWS, store } from '../../state/store.js';
+import { actions, VIEWS, store, fileToDataURL, flushSessionSnapshot } from '../../state/store.js';
 import { Button } from './Button.js';
 import { trackEvent } from '../../tracking.js';
 import { compressRoomImage } from '../../utils/compressRoomImage.js';
@@ -181,7 +181,7 @@ export const UploadView = (state) => {
     const generateBtn = Button({
         text: 'Create preview',
         disabled: !state.uploadedImage,
-        onClick: () => {
+        onClick: async () => {
             if (!state.uploadedImage) return;
 
             const image = state.uploadedImage;
@@ -191,23 +191,38 @@ export const UploadView = (state) => {
                 currentState.config?.productTitle || document.title || productUrl;
             const queueId = `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-            actions.beginPreviewGeneration({
-                id: queueId,
-                productUrl,
-                productName,
-                userImage: image,
-                selectedModel: 'slow',
-                config: currentState.config || {},
-                queuedAt: Date.now()
-            });
+            generateBtn.disabled = true;
+            const originalLabel = generateBtn.textContent;
+            generateBtn.textContent = 'Preparing…';
 
-            trackEvent('ai_generation_started', {
-                queueId,
-                productUrl,
-                productName,
-                model: 'slow',
-                imageSize: image?.size || 0
-            });
+            try {
+                const userImageDataUrl = await fileToDataURL(image);
+                actions.beginPreviewGeneration({
+                    id: queueId,
+                    productUrl,
+                    productName,
+                    userImage: image,
+                    userImageDataUrl,
+                    selectedModel: 'slow',
+                    config: currentState.config || {},
+                    queuedAt: Date.now()
+                });
+                flushSessionSnapshot();
+
+                trackEvent('ai_generation_started', {
+                    queueId,
+                    productUrl,
+                    productName,
+                    model: 'slow',
+                    imageSize: image?.size || 0
+                });
+            } catch (err) {
+                console.error('Failed to prepare room photo:', err);
+                actions.setError(err.message || 'Could not prepare image');
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.textContent = originalLabel;
+            }
         }
     });
 

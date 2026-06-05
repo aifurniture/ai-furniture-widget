@@ -1,4 +1,4 @@
-import { store, actions, QUEUE_STATUS, VIEWS } from '../state/store.js';
+import { store, actions, QUEUE_STATUS, VIEWS, flushSessionSnapshot, fileToDataURL } from '../state/store.js';
 import { trackEvent } from '../tracking.js';
 import {
     postWidgetGeneration,
@@ -18,6 +18,7 @@ const BACKEND_JOB_STATUS = {
 
 const POLL_INTERVAL_MS = 4000;
 const MAX_POLL_MS = 5 * 60 * 1000;
+const MAX_MISSING_STATUS_POLLS = 8;
 
 function pickStablePreviewUrl(savedResponse, fallbackUrl) {
     const candidate =
@@ -74,7 +75,8 @@ function isNavigationAbort(error) {
 let queueRetryTimer = null;
 
 function scheduleQueueRetry(delayMs = 800) {
-    if (queueRetryTimer || isPageUnloading) return;
+    if (isPageUnloading) return;
+    if (queueRetryTimer) clearTimeout(queueRetryTimer);
     queueRetryTimer = setTimeout(() => {
         queueRetryTimer = null;
         if (!isPageUnloading) {
@@ -83,8 +85,37 @@ function scheduleQueueRetry(delayMs = 800) {
     }, delayMs);
 }
 
+function persistQueueProgress(id, updates) {
+    actions.updateQueueItem(id, updates);
+    flushSessionSnapshot();
+}
+
+function handleMissingJobStatus(id, item) {
+    const misses = (item.pollMissCount || 0) + 1;
+    if (misses >= MAX_MISSING_STATUS_POLLS) {
+        actions.updateQueueItem(id, {
+            pollMissCount: misses,
+            status: QUEUE_STATUS.ERROR,
+            completedAt: Date.now(),
+            error: 'Preview timed out — tap Try again'
+        });
+        return 'failed';
+    }
+    persistQueueProgress(id, { pollMissCount: misses });
+    scheduleQueueRetry(1500);
+    return 'missing';
+}
+
 export function resumeQueueAfterNavigation() {
     isPageUnloading = false;
+    if (queueRetryTimer) {
+        clearTimeout(queueRetryTimer);
+        queueRetryTimer = null;
+    }
+    // Abandoned in-flight work from a previous page cannot be awaited — release locks so polling restarts.
+    processingItems.clear();
+    pollingItems.clear();
+    inFlightById.clear();
     scheduleQueueWork(store.getState());
 }
 
@@ -173,6 +204,7 @@ function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
     actions.updateQueueItem(id, {
         status: QUEUE_STATUS.COMPLETED,
         completedAt: Date.now(),
+        pollMissCount: 0,
         imageS3Key: uploaded?.s3Key || item.imageS3Key || null,
         userImageUrl: originalImageUrl || item.userImageUrl,
         backendJobSubmitted: false,
@@ -384,7 +416,7 @@ async function submitAsyncJob(id, item, apiEndpoint, domainForApi, sessionIdForA
 
     debugLog(`POST /widget/generate for ${id.slice(0, 8)}`);
     await startWidgetGeneration(apiEndpoint, formData);
-    actions.updateQueueItem(id, { backendJobSubmitted: true });
+    persistQueueProgress(id, { backendJobSubmitted: true, pollMissCount: 0 });
 }
 
 async function runSyncGenerate(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded, imageToUse) {
@@ -554,6 +586,15 @@ async function runQueueItemWork(item) {
         return;
     }
 
+    if (imageToUse && !userImageDataUrl && !imageS3Key) {
+        try {
+            const dataUrl = await fileToDataURL(imageToUse);
+            persistQueueProgress(id, { userImageDataUrl: dataUrl });
+        } catch (e) {
+            debugLog('Could not persist room photo before upload', e?.message || e);
+        }
+    }
+
     const apiEndpoint = getApiEndpoint(mergedConfig);
     const domainForApi = getDomainForApi(mergedConfig);
     const sessionIdForApi = getSessionIdForApi(mergedConfig);
@@ -576,7 +617,7 @@ async function runQueueItemWork(item) {
                     sessionId: sessionIdForApi,
                     fileOrBlob: imageToUse
                 });
-                actions.updateQueueItem(id, {
+                persistQueueProgress(id, {
                     imageS3Key: uploaded.s3Key,
                     userImageUrl: uploaded.imageUrl || item.userImageUrl || null
                 });
@@ -603,10 +644,15 @@ async function runQueueItemWork(item) {
                 mergedConfig
             );
             if (pollOutcome === 'completed' || pollOutcome === 'failed') return;
-            if (pollOutcome === 'interrupted' || pollOutcome === 'polling') return;
-            if (pollOutcome === 'missing' && latest.backendJobSubmitted) {
-                scheduleQueueRetry(1500);
+            if (pollOutcome === 'interrupted' || pollOutcome === 'polling') {
+                scheduleQueueRetry(600);
                 return;
+            }
+            if (pollOutcome === 'missing') {
+                if (latest.backendJobSubmitted) {
+                    handleMissingJobStatus(id, getFreshQueueItem(id) || latest);
+                    return;
+                }
             }
         } else if (uploaded?.s3Key || latest.imageS3Key) {
             // Another tab/page may have submitted while we were uploading — check once before creating a job.
@@ -621,7 +667,7 @@ async function runQueueItemWork(item) {
                 );
                 if (existingOutcome === 'completed' || existingOutcome === 'failed') return;
                 if (existingStatus.status === BACKEND_JOB_STATUS.PROCESSING) {
-                    actions.updateQueueItem(id, { backendJobSubmitted: true });
+                    persistQueueProgress(id, { backendJobSubmitted: true, pollMissCount: 0 });
                     const pollOutcome = await pollAsyncJobUntilComplete(
                         id,
                         getFreshQueueItem(id) || latest,
@@ -631,7 +677,14 @@ async function runQueueItemWork(item) {
                         mergedConfig
                     );
                     if (pollOutcome === 'completed' || pollOutcome === 'failed') return;
-                    if (pollOutcome === 'interrupted' || pollOutcome === 'polling') return;
+                    if (pollOutcome === 'interrupted' || pollOutcome === 'polling') {
+                        scheduleQueueRetry(600);
+                        return;
+                    }
+                    if (pollOutcome === 'missing') {
+                        handleMissingJobStatus(id, getFreshQueueItem(id) || latest);
+                        return;
+                    }
                 }
             }
         }
@@ -665,9 +718,12 @@ async function runQueueItemWork(item) {
             mergedConfig
         );
         if (finalOutcome === 'completed' || finalOutcome === 'failed') return;
-        if (finalOutcome === 'interrupted' || finalOutcome === 'polling') return;
-        if (finalOutcome === 'missing' || finalOutcome === 'timeout') {
-            scheduleQueueRetry(1500);
+        if (finalOutcome === 'interrupted' || finalOutcome === 'polling' || finalOutcome === 'timeout') {
+            scheduleQueueRetry(finalOutcome === 'timeout' ? 2000 : 600);
+            return;
+        }
+        if (finalOutcome === 'missing') {
+            handleMissingJobStatus(id, getFreshQueueItem(id) || beforeSubmit);
             return;
         }
 
