@@ -127,6 +127,12 @@ export const ResultsView = (state) => {
     actionsDiv.style.flexShrink = '0';
     actionsDiv.style.marginTop = '12px';
 
+    const disclaimer = document.createElement('p');
+    disclaimer.className = 'aif-results-disclaimer';
+    disclaimer.textContent =
+        'Sizing in the preview may vary from real life — always double-check dimensions before purchasing.';
+    actionsDiv.appendChild(disclaimer);
+
     actionsDiv.appendChild(
         Button({
             text: 'Try another photo',

@@ -229,6 +229,18 @@ export const styles = `
     line-height: 1.35;
   }
 
+  .aif-results-disclaimer {
+    flex-shrink: 0;
+    margin: 0;
+    padding: 8px 10px;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--aif-text-muted);
+    background: var(--aif-accent-soft);
+    border: 1px solid var(--aif-border);
+    border-radius: 8px;
+  }
+
   .aif-badge {
     display: inline-flex;
     align-items: center;

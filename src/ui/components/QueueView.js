@@ -187,7 +187,7 @@ function createProgressView(item) {
     subtitle.style.color = '#64748b';
     subtitle.style.maxWidth = '260px';
     subtitle.textContent =
-        "This usually takes about a minute. You can keep browsing — we'll show the result when it's ready.";
+        "This usually takes about 20 seconds. You can keep browsing — we'll show the result when it's ready.";
 
     const hint = document.createElement('p');
     hint.style.margin = '8px 0 0';
