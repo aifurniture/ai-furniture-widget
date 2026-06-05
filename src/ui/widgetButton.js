@@ -3,6 +3,7 @@ import { debugLog } from '../debug.js';
 import { isFurnitureProductPage } from '../detection.js';
 import { actions, store, QUEUE_STATUS, VIEWS } from '../state/store.js';
 import { trackEvent } from '../tracking.js';
+import { syncMobileLayoutVars } from './safeArea.js';
 
 const TRIGGER_ICON_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-3h4l2 3h4v12H4V7z"/><circle cx="12" cy="13" r="3.25"/></svg>`;
 
@@ -132,6 +133,7 @@ export function createWidgetButton() {
         }, 80);
     });
 
+    syncMobileLayoutVars();
     repositionWidgetButton();
 }
 
@@ -192,12 +194,18 @@ function repositionWidgetButton() {
 
     const otherWidgets = ['#intercom-container', '#launcher', '#drift-widget'];
 
-    let bottomOffset = isMobile ? 16 : 20;
-    let rightOffset = isMobile ? 16 : 20;
+    const root = document.documentElement;
+    const safeBottom = parseFloat(root.style.getPropertyValue('--aif-safe-bottom')) ||
+        parseFloat(getComputedStyle(root).getPropertyValue('--aif-safe-bottom')) || 0;
+    const safeRight = parseFloat(root.style.getPropertyValue('--aif-safe-right')) ||
+        parseFloat(getComputedStyle(root).getPropertyValue('--aif-safe-right')) || 0;
+
+    let bottomOffset = Math.max(isMobile ? 16 : 20, safeBottom + 12);
+    let rightOffset = Math.max(isMobile ? 16 : 20, safeRight + 12);
 
     otherWidgets.forEach((selector) => {
         if (document.querySelector(selector)) {
-            bottomOffset = isMobile ? 80 : 100;
+            bottomOffset = Math.max(isMobile ? 80 : 100, bottomOffset);
         }
     });
 

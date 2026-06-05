@@ -6,6 +6,7 @@ import { UploadView } from './UploadView.js';
 import { ResultsView } from './ResultsView.js';
 import { QueueView } from './QueueView.js';
 import { WidgetFooter } from './WidgetFooter.js';
+import { syncMobileLayoutVars } from '../safeArea.js';
 
 const FOCUSABLE_SELECTOR = [
     'a[href]',
@@ -47,9 +48,11 @@ export const Modal = () => {
     closeBtn.setAttribute('aria-label', 'Close');
     closeBtn.onclick = actions.closeModal;
 
-    container.appendChild(closeBtn);
+    const chrome = document.createElement('div');
+    chrome.className = 'aif-drawer-chrome';
+    chrome.appendChild(closeBtn);
+    container.appendChild(chrome);
 
-    // Content area
     const contentArea = document.createElement('div');
     contentArea.className = 'aif-content';
     container.appendChild(contentArea);
@@ -187,6 +190,9 @@ export const Modal = () => {
         if (nowOpen) {
             modalOverlay.classList.add('open');
             attachDocHandlers();
+            requestAnimationFrame(() => {
+                syncMobileLayoutVars();
+            });
         } else {
             modalOverlay.classList.remove('open');
         }

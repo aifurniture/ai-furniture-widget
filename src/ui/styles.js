@@ -2,6 +2,7 @@
  * Centralized styles for the widget
  * Injected into the head to avoid external CSS dependencies
  */
+import { initMobileLayout } from './safeArea.js';
 
 export const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=DM+Sans:wght@400;500;600;700&display=swap');
@@ -23,6 +24,11 @@ export const styles = `
     --aif-radius-sm: 12px;
     --aif-font: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
     --aif-font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+    --aif-safe-top: env(safe-area-inset-top, 0px);
+    --aif-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --aif-safe-left: env(safe-area-inset-left, 0px);
+    --aif-safe-right: env(safe-area-inset-right, 0px);
+    --aif-vvh: 100dvh;
   }
 
   /*
@@ -94,9 +100,12 @@ export const styles = `
   /* Mobile Styles */
   @media (max-width: 768px) {
     .aif-container {
-      inset: 0;
+      top: 0;
+      left: 0;
+      right: 0;
       width: 100%;
-      height: 100%;
+      height: var(--aif-vvh, 100dvh);
+      max-height: var(--aif-vvh, 100dvh);
       border-radius: 0;
       transform: translateY(100%);
     }
@@ -104,6 +113,19 @@ export const styles = `
     #ai-furniture-modal.open .aif-container {
       transform: translateY(0);
     }
+  }
+
+  .aif-drawer-chrome {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-height: 48px;
+    padding: 8px 14px 4px;
+    padding-top: max(8px, var(--aif-safe-top, 0px));
+    padding-left: max(14px, calc(var(--aif-safe-left, 0px) + 10px));
+    padding-right: max(14px, calc(var(--aif-safe-right, 0px) + 10px));
+    box-sizing: border-box;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -125,14 +147,8 @@ export const styles = `
     }
   }
 
-  .aif-container > .aif-close-btn {
-    position: absolute;
-    z-index: 20;
-  }
-
   .aif-close-btn {
-    top: 20px;
-    right: 20px;
+    position: relative;
     width: 40px;
     height: 40px;
     min-width: 40px;
@@ -160,11 +176,11 @@ export const styles = `
 
   .aif-close-btn svg {
     display: block;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     stroke: currentColor;
     fill: none;
-    stroke-width: 2.25;
+    stroke-width: 2.5;
     stroke-linecap: round;
     pointer-events: none;
     flex-shrink: 0;
@@ -277,7 +293,7 @@ export const styles = `
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
   }
 
-  .aif-container > :not(.aif-close-btn) {
+  .aif-container > :not(.aif-close-btn):not(.aif-drawer-chrome) {
     position: relative;
     z-index: 1;
   }
@@ -702,7 +718,7 @@ export const styles = `
 
   .aif-widget-footer {
     flex-shrink: 0;
-    padding: 8px 18px 12px;
+    padding: 8px 18px max(12px, calc(var(--aif-safe-bottom, 0px) + 8px));
     border-top: 1px solid var(--aif-border);
     background: linear-gradient(180deg, #fafbfc 0%, #f1f5f9 100%);
   }
@@ -1042,9 +1058,11 @@ export const styles = `
 
   /* Mobile Optimizations */
   @media (max-width: 768px) {
+    .aif-drawer-chrome {
+      min-height: 52px;
+    }
+
     .aif-close-btn {
-      top: max(12px, calc(env(safe-area-inset-top, 0px) + 10px));
-      right: max(12px, calc(env(safe-area-inset-right, 0px) + 10px));
       width: 44px;
       height: 44px;
       min-width: 44px;
@@ -1052,13 +1070,12 @@ export const styles = `
     }
 
     .aif-close-btn svg {
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
     }
 
     .aif-content {
-      padding: 16px 14px 10px;
-      padding-top: max(16px, calc(env(safe-area-inset-top, 0px) + 52px));
+      padding: 12px 14px 10px;
     }
 
     /* Results: edge-to-edge preview; height from flex (no fixed min-height — avoids panel scroll) */
@@ -1074,7 +1091,7 @@ export const styles = `
     }
 
     .aif-widget-footer {
-      padding: 8px 14px 10px;
+      padding: 8px 14px max(10px, calc(var(--aif-safe-bottom, 0px) + 8px));
     }
 
     .aif-header h2 {
@@ -1225,4 +1242,5 @@ export const injectStyles = () => {
     styleEl.id = 'ai-furniture-styles';
     styleEl.textContent = styles;
     document.head.appendChild(styleEl);
+    initMobileLayout();
 };
