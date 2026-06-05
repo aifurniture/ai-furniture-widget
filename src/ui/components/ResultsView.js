@@ -99,46 +99,53 @@ function createSaveSection(beforeUrl, afterUrl, dlOpts) {
     grid.className = 'aif-result-actions__grid';
 
     if (beforeItem && afterItem) {
+        const split = document.createElement('div');
+        split.className = 'aif-result-actions__split';
+
+        const beforeBtn = makeActionButton(
+            'Save before',
+            'aif-result-actions__btn aif-result-actions__btn--secondary',
+            async () => {
+                beforeBtn.disabled = true;
+                const label = beforeBtn.textContent;
+                beforeBtn.textContent = 'Saving…';
+                try {
+                    await saveSingleImage(beforeItem, dlOpts);
+                } finally {
+                    beforeBtn.disabled = false;
+                    beforeBtn.textContent = label;
+                }
+            }
+        );
+
+        const afterBtn = makeActionButton(
+            'Save after',
+            'aif-result-actions__btn aif-result-actions__btn--secondary',
+            async () => {
+                afterBtn.disabled = true;
+                const label = afterBtn.textContent;
+                afterBtn.textContent = 'Saving…';
+                try {
+                    await saveSingleImage(afterItem, dlOpts);
+                } finally {
+                    afterBtn.disabled = false;
+                    afterBtn.textContent = label;
+                }
+            }
+        );
+
+        split.appendChild(beforeBtn);
+        split.appendChild(afterBtn);
+        grid.appendChild(split);
+
         const saveBothBtn = makeActionButton(
-            'Save preview',
+            'Save both images',
             'aif-result-actions__btn aif-result-actions__btn--primary aif-result-actions__btn--full',
             async () => {
                 await runSaveAction(saveBothBtn, actions, [beforeItem, afterItem], dlOpts);
             }
         );
         grid.appendChild(saveBothBtn);
-
-        const split = document.createElement('div');
-        split.className = 'aif-result-actions__split';
-
-        const beforeBtn = makeActionButton('Before', 'aif-result-actions__btn', async () => {
-            beforeBtn.disabled = true;
-            const label = beforeBtn.textContent;
-            beforeBtn.textContent = '…';
-            try {
-                await saveSingleImage(beforeItem, dlOpts);
-            } finally {
-                beforeBtn.disabled = false;
-                beforeBtn.textContent = label;
-            }
-        });
-
-        const afterBtn = makeActionButton('After', 'aif-result-actions__btn', async () => {
-            afterBtn.disabled = true;
-            const label = afterBtn.textContent;
-            afterBtn.textContent = '…';
-            try {
-                await saveSingleImage(afterItem, dlOpts);
-            } finally {
-                afterBtn.disabled = false;
-                afterBtn.textContent = label;
-            }
-        });
-
-        split.appendChild(beforeBtn);
-        split.appendChild(afterBtn);
-
-        grid.appendChild(split);
     } else if (afterItem) {
         const saveBtn = makeActionButton(
             'Save preview',

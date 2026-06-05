@@ -932,6 +932,17 @@ export const styles = `
     background: var(--aif-primary-hover);
   }
 
+  .aif-result-actions__btn--secondary {
+    border: 2px solid var(--aif-primary);
+    color: var(--aif-primary-hover);
+    background: var(--aif-bg-elevated);
+    font-weight: 600;
+  }
+
+  .aif-result-actions__btn--secondary:active:not(:disabled) {
+    background: var(--aif-accent-soft);
+  }
+
   .aif-result-actions__btn:disabled {
     opacity: 0.55;
     cursor: not-allowed;
