@@ -38,8 +38,9 @@ export const ResultsView = (state) => {
         wrap.className = 'aif-result-actions';
         wrap.style.marginTop = '12px';
 
+        const hasBefore = Boolean(beforeUrl);
         const savePreviewBtn = Button({
-            text: 'Save preview',
+            text: hasBefore ? 'Save before & after' : 'Save after image',
             onClick: async () => {
                 savePreviewBtn.disabled = true;
                 const originalText = savePreviewBtn.textContent;
@@ -49,14 +50,14 @@ export const ResultsView = (state) => {
                     if (beforeUrl) {
                         await downloadUrlAsFile(
                             beforeUrl,
-                            `room-${getFilenameFromUrl(beforeUrl, 'room.jpg')}`,
+                            `before-${getFilenameFromUrl(beforeUrl, 'room.jpg')}`,
                             dlOpts
                         );
                     }
                     if (afterUrl) {
                         await downloadUrlAsFile(
                             afterUrl,
-                            `preview-${getFilenameFromUrl(afterUrl, 'preview.png')}`,
+                            `after-${getFilenameFromUrl(afterUrl, 'preview.png')}`,
                             dlOpts
                         );
                     }
