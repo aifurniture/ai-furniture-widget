@@ -131,19 +131,33 @@ export const styles = `
     right: 20px;
     width: 40px;
     height: 40px;
+    padding: 0;
+    margin: 0;
     background: #f9fafb;
     color: #6b7280;
     border: none;
     border-radius: 50%;
-    font-size: 24px;
-    font-weight: 300;
+    font-family: var(--aif-font);
+    line-height: 1;
     cursor: pointer;
     z-index: 10;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .aif-close-btn svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
   }
 
   .aif-close-btn:hover {
@@ -241,7 +255,7 @@ export const styles = `
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
   }
 
-  .aif-container > * {
+  .aif-container > :not(.aif-close-btn) {
     position: relative;
     z-index: 1;
   }
@@ -975,8 +989,16 @@ export const styles = `
 
   /* Mobile Optimizations */
   @media (max-width: 768px) {
+    .aif-close-btn {
+      top: max(12px, calc(env(safe-area-inset-top, 0px) + 10px));
+      right: max(12px, calc(env(safe-area-inset-right, 0px) + 10px));
+      width: 44px;
+      height: 44px;
+    }
+
     .aif-content {
       padding: 16px 14px 10px;
+      padding-top: max(16px, calc(env(safe-area-inset-top, 0px) + 52px));
     }
 
     /* Results: edge-to-edge preview; height from flex (no fixed min-height — avoids panel scroll) */
