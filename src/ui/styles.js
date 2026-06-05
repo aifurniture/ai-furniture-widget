@@ -943,6 +943,18 @@ export const styles = `
     background: var(--aif-accent-soft);
   }
 
+  .aif-result-actions__btn--save {
+    border: 2px solid var(--aif-primary);
+    color: var(--aif-primary-hover);
+    background: var(--aif-bg-elevated);
+    font-weight: 600;
+    font-size: 13px;
+  }
+
+  .aif-result-actions__btn--save:active:not(:disabled) {
+    background: var(--aif-accent-soft);
+  }
+
   .aif-result-actions__btn:disabled {
     opacity: 0.55;
     cursor: not-allowed;
