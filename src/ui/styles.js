@@ -29,6 +29,7 @@ export const styles = `
     --aif-safe-left: env(safe-area-inset-left, 0px);
     --aif-safe-right: env(safe-area-inset-right, 0px);
     --aif-vvh: 100dvh;
+    --aif-drawer-height: 100dvh;
   }
 
   /*
@@ -100,12 +101,12 @@ export const styles = `
   /* Mobile Styles */
   @media (max-width: 768px) {
     .aif-container {
-      top: 0;
-      left: 0;
-      right: 0;
-      width: 100%;
-      height: var(--aif-vvh, 100dvh);
-      max-height: var(--aif-vvh, 100dvh);
+      top: var(--aif-safe-top, 0px);
+      left: var(--aif-safe-left, 0px);
+      right: var(--aif-safe-right, 0px);
+      width: auto;
+      height: var(--aif-drawer-height, var(--aif-vvh, 100dvh));
+      max-height: var(--aif-drawer-height, var(--aif-vvh, 100dvh));
       border-radius: 0;
       transform: translateY(100%);
     }
@@ -121,11 +122,10 @@ export const styles = `
     align-items: center;
     justify-content: flex-end;
     min-height: 48px;
-    padding: 8px 14px 4px;
-    padding-top: max(8px, var(--aif-safe-top, 0px));
-    padding-left: max(14px, calc(var(--aif-safe-left, 0px) + 10px));
-    padding-right: max(14px, calc(var(--aif-safe-right, 0px) + 10px));
+    padding: 10px 12px 6px;
     box-sizing: border-box;
+    position: relative;
+    z-index: 12;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1120,6 +1120,7 @@ export const styles = `
   @media (max-width: 768px) {
     .aif-drawer-chrome {
       min-height: 52px;
+      padding: 8px 10px 6px;
     }
 
     .aif-close-btn {
@@ -1127,6 +1128,7 @@ export const styles = `
       height: 44px;
       min-width: 44px;
       min-height: 44px;
+      margin: 0;
     }
 
     .aif-close-btn svg {

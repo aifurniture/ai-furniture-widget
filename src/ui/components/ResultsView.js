@@ -1,7 +1,7 @@
 /**
  * Results View Component
  */
-import { actions, VIEWS } from '../../state/store.js';
+import { actions, VIEWS, QUEUE_STATUS } from '../../state/store.js';
 import { Slider } from './Slider.js';
 import { Button } from './Button.js';
 import {
@@ -76,15 +76,64 @@ async function runSaveAction(button, container, items, dlOpts) {
     }
 }
 
-function createSaveSection(beforeUrl, afterUrl, dlOpts) {
+function resolveBeforeUrl(imgData, afterUrl, state, uploadedBlobUrl) {
+    if (imgData?.originalImageUrl) return imgData.originalImageUrl;
+    if (uploadedBlobUrl) return uploadedBlobUrl;
+
+    const after = typeof afterUrl === 'string' ? afterUrl : imgData?.url || '';
+    const queue = state.queue || [];
+
+    const matched = queue.find((item) => {
+        const generated = item.result?.generatedImageUrl;
+        return (
+            generated &&
+            after &&
+            (generated === after || generated === imgData?.url)
+        );
+    });
+    if (matched) {
+        return (
+            matched.result?.originalImageUrl ||
+            matched.userImageUrl ||
+            matched.userImageDataUrl ||
+            ''
+        );
+    }
+
+    const latestCompleted = queue
+        .filter(
+            (item) =>
+                item.status === QUEUE_STATUS.COMPLETED &&
+                (item.result?.originalImageUrl || item.userImageUrl || item.userImageDataUrl)
+        )
+        .sort(
+            (a, b) =>
+                (b.completedAt || b.queuedAt || 0) - (a.completedAt || a.queuedAt || 0)
+        )[0];
+
+    if (latestCompleted) {
+        return (
+            latestCompleted.result?.originalImageUrl ||
+            latestCompleted.userImageUrl ||
+            latestCompleted.userImageDataUrl ||
+            ''
+        );
+    }
+
+    return '';
+}
+
+function createSaveSection(beforeUrl, afterUrl, dlOpts, state) {
     const section = document.createElement('div');
     section.className = 'aif-results-save';
 
-    const beforeItem = beforeUrl
-        ? { url: beforeUrl, filename: `before-${getFilenameFromUrl(beforeUrl, 'room.jpg')}` }
-        : null;
     const afterItem = afterUrl
         ? { url: afterUrl, filename: `after-${getFilenameFromUrl(afterUrl, 'preview.png')}` }
+        : null;
+
+    const resolvedBefore = beforeUrl || resolveBeforeUrl(null, afterUrl, state, '');
+    const beforeItem = resolvedBefore
+        ? { url: resolvedBefore, filename: `before-${getFilenameFromUrl(resolvedBefore, 'room.jpg')}` }
         : null;
 
     const actions = document.createElement('div');
@@ -92,13 +141,13 @@ function createSaveSection(beforeUrl, afterUrl, dlOpts) {
 
     const hint = document.createElement('p');
     hint.className = 'aif-result-actions__hint';
-    hint.textContent = 'Save your preview';
+    hint.textContent = 'Save your images';
     actions.appendChild(hint);
 
     const grid = document.createElement('div');
     grid.className = 'aif-result-actions__grid';
 
-    if (beforeItem && afterItem) {
+    if (afterItem) {
         const split = document.createElement('div');
         split.className = 'aif-result-actions__split';
 
@@ -106,6 +155,7 @@ function createSaveSection(beforeUrl, afterUrl, dlOpts) {
             'Save before',
             'aif-result-actions__btn aif-result-actions__btn--secondary',
             async () => {
+                if (!beforeItem) return;
                 beforeBtn.disabled = true;
                 const label = beforeBtn.textContent;
                 beforeBtn.textContent = 'Saving…';
@@ -117,6 +167,10 @@ function createSaveSection(beforeUrl, afterUrl, dlOpts) {
                 }
             }
         );
+        if (!beforeItem) {
+            beforeBtn.disabled = true;
+            beforeBtn.title = 'Original room photo unavailable';
+        }
 
         const afterBtn = makeActionButton(
             'Save after',
@@ -142,19 +196,14 @@ function createSaveSection(beforeUrl, afterUrl, dlOpts) {
             'Save both images',
             'aif-result-actions__btn aif-result-actions__btn--primary aif-result-actions__btn--full',
             async () => {
-                await runSaveAction(saveBothBtn, actions, [beforeItem, afterItem], dlOpts);
+                const items = beforeItem ? [beforeItem, afterItem] : [afterItem];
+                await runSaveAction(saveBothBtn, actions, items, dlOpts);
             }
         );
+        if (!beforeItem) {
+            saveBothBtn.textContent = 'Save preview';
+        }
         grid.appendChild(saveBothBtn);
-    } else if (afterItem) {
-        const saveBtn = makeActionButton(
-            'Save preview',
-            'aif-result-actions__btn aif-result-actions__btn--primary aif-result-actions__btn--full',
-            async () => {
-                await runSaveAction(saveBtn, actions, [afterItem], dlOpts);
-            }
-        );
-        grid.appendChild(saveBtn);
     }
 
     actions.appendChild(grid);
@@ -176,7 +225,7 @@ export const ResultsView = (state) => {
         const pairs = [];
         state.generatedImages.forEach((imgData, index) => {
             const afterUrl = imgData.url || imgData;
-            const beforeUrl = imgData.originalImageUrl || uploadedBlobUrl || '';
+            const beforeUrl = resolveBeforeUrl(imgData, afterUrl, state, uploadedBlobUrl);
             if (afterUrl) pairs.push({ beforeUrl, afterUrl, index });
         });
         return pairs;
@@ -229,7 +278,7 @@ export const ResultsView = (state) => {
                 img.style.borderRadius = '8px';
                 grid.appendChild(previewBlock(img));
             }
-            saveSection = createSaveSection(beforeUrl, generatedUrl, dlOpts);
+            saveSection = createSaveSection(beforeUrl, generatedUrl, dlOpts, state);
         }
     });
 
