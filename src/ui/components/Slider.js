@@ -9,14 +9,18 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
     const initialAspectRatio = numericRatio != null ? String(numericRatio) : '3/4';
 
     const imgBefore = document.createElement('img');
+    imgBefore.className = 'aif-slider__img aif-slider__img--before';
     imgBefore.src = beforeImage;
+    imgBefore.alt = 'Room before';
     imgBefore.decoding = 'async';
 
     const afterClip = document.createElement('div');
     afterClip.className = 'aif-slider__after-clip';
 
     const imgAfter = document.createElement('img');
+    imgAfter.className = 'aif-slider__img aif-slider__img--after';
     imgAfter.src = afterImage;
+    imgAfter.alt = 'Room after';
     imgAfter.decoding = 'async';
 
     const applyAspectFromNatural = (w, h) => {
@@ -43,53 +47,10 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
         }
     };
 
-    const boxStyle = {
-        position: 'relative',
-        width: '100%',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        border: '1px solid #e5e7eb',
-        background: '#f9fafb',
-        userSelect: 'none',
-        WebkitUserSelect: 'none',
-        touchAction: 'none',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
-    };
-    boxStyle.aspectRatio = initialAspectRatio;
+    container.style.aspectRatio = initialAspectRatio;
     if (!fillParent) {
-        boxStyle.maxHeight = 'min(52vh, 520px)';
+        container.style.maxHeight = 'min(52vh, 520px)';
     }
-    Object.assign(container.style, boxStyle);
-
-    Object.assign(imgBefore.style, {
-        position: 'absolute',
-        inset: '0',
-        width: '100%',
-        height: '100%',
-        objectFit: 'contain',
-        pointerEvents: 'none'
-    });
-
-    Object.assign(afterClip.style, {
-        position: 'absolute',
-        top: '0',
-        left: '0',
-        bottom: '0',
-        width: '50%',
-        overflow: 'hidden',
-        pointerEvents: 'none',
-        willChange: 'width'
-    });
-
-    Object.assign(imgAfter.style, {
-        position: 'absolute',
-        top: '0',
-        left: '0',
-        height: '100%',
-        maxWidth: 'none',
-        objectFit: 'contain',
-        pointerEvents: 'none'
-    });
 
     const syncAfterImageWidth = () => {
         const w = container.offsetWidth;
@@ -108,88 +69,26 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
     };
 
     const labelBefore = document.createElement('div');
-    labelBefore.textContent = 'BEFORE';
-    Object.assign(labelBefore.style, {
-        position: 'absolute',
-        top: '16px',
-        right: '16px',
-        background: 'rgba(0, 0, 0, 0.82)',
-        color: 'white',
-        padding: '6px 12px',
-        borderRadius: '6px',
-        fontSize: '11px',
-        fontWeight: '700',
-        letterSpacing: '0.05em',
-        zIndex: '5',
-        pointerEvents: 'none'
-    });
+    labelBefore.className = 'aif-slider__label aif-slider__label--before';
+    labelBefore.textContent = 'Before';
 
     const labelAfter = document.createElement('div');
-    labelAfter.textContent = 'AFTER';
-    Object.assign(labelAfter.style, {
-        position: 'absolute',
-        top: '16px',
-        left: '16px',
-        background: 'rgba(5, 150, 105, 0.95)',
-        color: 'white',
-        padding: '6px 12px',
-        borderRadius: '6px',
-        fontSize: '11px',
-        fontWeight: '700',
-        letterSpacing: '0.05em',
-        zIndex: '5',
-        pointerEvents: 'none'
-    });
+    labelAfter.className = 'aif-slider__label aif-slider__label--after';
+    labelAfter.textContent = 'After';
 
     const dividerWrapper = document.createElement('div');
-    Object.assign(dividerWrapper.style, {
-        position: 'absolute',
-        top: '0',
-        bottom: '0',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        width: '40px',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        cursor: 'ew-resize',
-        zIndex: '10',
-        willChange: 'left'
-    });
+    dividerWrapper.className = 'aif-slider__divider-wrap';
 
     const divider = document.createElement('div');
-    Object.assign(divider.style, {
-        width: '3px',
-        height: '100%',
-        background:
-            'linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,1), rgba(255,255,255,0.9))',
-        boxShadow: '0 0 10px rgba(0, 0, 0, 0.3), 0 0 20px rgba(0, 0, 0, 0.2)',
-        pointerEvents: 'none'
-    });
+    divider.className = 'aif-slider__divider';
 
     const handle = document.createElement('div');
-    Object.assign(handle.style, {
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: '48px',
-        height: '48px',
-        background: 'white',
-        borderRadius: '50%',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        transition: 'transform 0.15s ease, box-shadow 0.15s ease',
-        pointerEvents: 'none'
-    });
-
+    handle.className = 'aif-slider__handle';
     handle.innerHTML = `
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <polyline points="15 18 9 12 15 6"></polyline>
         </svg>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left: -8px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <polyline points="9 18 15 12 9 6"></polyline>
         </svg>
     `;
@@ -224,20 +123,14 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
     };
 
     const setHandleActive = (active) => {
-        handle.style.transition = active ? 'none' : 'transform 0.15s ease, box-shadow 0.15s ease';
-        handle.style.transform = active
-            ? 'translate(-50%, -50%) scale(1.1)'
-            : 'translate(-50%, -50%) scale(1)';
-        handle.style.boxShadow = active
-            ? '0 6px 20px rgba(0, 0, 0, 0.25)'
-            : '0 4px 16px rgba(0, 0, 0, 0.2)';
+        handle.classList.toggle('aif-slider__handle--active', active);
     };
 
     const beginDrag = () => {
         isDragging = true;
         cachedRect = container.getBoundingClientRect();
         syncAfterImageWidth();
-        container.style.cursor = 'ew-resize';
+        container.classList.add('aif-slider--dragging');
         setHandleActive(true);
     };
 
@@ -250,7 +143,7 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
             cancelAnimationFrame(rafId);
             rafId = 0;
         }
-        container.style.cursor = '';
+        container.classList.remove('aif-slider--dragging');
         setHandleActive(false);
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
@@ -287,18 +180,6 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
     };
 
     const onTouchEnd = () => endDrag();
-
-    dividerWrapper.addEventListener('mouseenter', () => {
-        if (!isDragging) {
-            handle.style.transform = 'translate(-50%, -50%) scale(1.05)';
-        }
-    });
-
-    dividerWrapper.addEventListener('mouseleave', () => {
-        if (!isDragging) {
-            handle.style.transform = 'translate(-50%, -50%) scale(1)';
-        }
-    });
 
     dividerWrapper.addEventListener('mousedown', onMouseDown);
     dividerWrapper.addEventListener('touchstart', onTouchStart, { passive: true });

@@ -18,19 +18,35 @@ function previewBlock(el) {
     return wrap;
 }
 
-function makeActionButton(label, className, onClick) {
+const ICON_SHARE = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>`;
+const ICON_DOWNLOAD = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
+const ICON_SLIDE = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/><polyline points="9 18 15 12 9 6"/></svg>`;
+
+function makeActionButton({ label, className, onClick, icon = null, disabled = false, title = '' }) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = className;
-    btn.textContent = label;
+    if (icon) {
+        btn.innerHTML = `<span class="aif-result-actions__icon">${icon}</span><span class="aif-result-actions__label">${label}</span>`;
+    } else {
+        btn.textContent = label;
+    }
+    if (disabled) btn.disabled = true;
+    if (title) btn.title = title;
     btn.addEventListener('click', onClick);
     return btn;
 }
 
+function setButtonLabel(button, text) {
+    const labelEl = button.querySelector('.aif-result-actions__label');
+    if (labelEl) labelEl.textContent = text;
+    else button.textContent = text;
+}
+
 async function runShare(button, beforeUrl, afterUrl, dlOpts) {
     button.disabled = true;
-    const label = button.textContent;
-    button.textContent = 'Preparing…';
+    const label = button.querySelector('.aif-result-actions__label')?.textContent || button.textContent;
+    setButtonLabel(button, 'Preparing…');
     try {
         const result = await shareBeforeAfter(beforeUrl, afterUrl, dlOpts);
         if (!result.ok && result.reason === 'mobile_fallback') {
@@ -38,14 +54,14 @@ async function runShare(button, beforeUrl, afterUrl, dlOpts) {
         }
     } finally {
         button.disabled = false;
-        button.textContent = label;
+        setButtonLabel(button, label);
     }
 }
 
 async function saveOneImage(button, item, dlOpts) {
     button.disabled = true;
-    const label = button.textContent;
-    button.textContent = 'Saving…';
+    const label = button.querySelector('.aif-result-actions__label')?.textContent || button.textContent;
+    setButtonLabel(button, 'Saving…');
     try {
         const result = await saveSingleImage(item, dlOpts);
         if (
@@ -58,7 +74,7 @@ async function saveOneImage(button, item, dlOpts) {
         }
     } finally {
         button.disabled = false;
-        button.textContent = label;
+        setButtonLabel(button, label);
     }
 }
 
@@ -122,49 +138,53 @@ function createSaveSection(beforeUrl, afterUrl, dlOpts, state) {
         ? { url: resolvedBefore, filename: `before-${getFilenameFromUrl(resolvedBefore, 'room.jpg')}` }
         : null;
 
-    const actions = document.createElement('div');
-    actions.className = 'aif-result-actions';
+    const panel = document.createElement('div');
+    panel.className = 'aif-results-panel';
 
-    const hint = document.createElement('p');
-    hint.className = 'aif-result-actions__hint';
-    hint.textContent = 'Share or save your preview';
-    actions.appendChild(hint);
+    const panelLabel = document.createElement('p');
+    panelLabel.className = 'aif-results-panel__label';
+    panelLabel.textContent = 'Share or save';
+    panel.appendChild(panelLabel);
 
     if (afterItem) {
-        const shareBtn = makeActionButton(
-            'Share before & after',
-            'aif-result-actions__btn aif-result-actions__btn--primary aif-result-actions__btn--full',
-            () => runShare(shareBtn, resolvedBefore, afterUrl, dlOpts)
-        );
-        actions.appendChild(shareBtn);
+        const shareBtn = makeActionButton({
+            label: 'Share comparison',
+            icon: ICON_SHARE,
+            className:
+                'aif-result-actions__btn aif-result-actions__btn--primary aif-result-actions__btn--full aif-result-actions__btn--icon',
+            onClick: () => runShare(shareBtn, resolvedBefore, afterUrl, dlOpts),
+        });
+        panel.appendChild(shareBtn);
 
         const split = document.createElement('div');
         split.className = 'aif-result-actions__split';
 
-        const beforeBtn = makeActionButton(
-            'Save room photo',
-            'aif-result-actions__btn aif-result-actions__btn--save',
-            () => {
+        const beforeBtn = makeActionButton({
+            label: 'Room photo',
+            icon: ICON_DOWNLOAD,
+            className:
+                'aif-result-actions__btn aif-result-actions__btn--save aif-result-actions__btn--icon',
+            onClick: () => {
                 if (beforeItem) saveOneImage(beforeBtn, beforeItem, dlOpts);
-            }
-        );
-        if (!beforeItem) {
-            beforeBtn.disabled = true;
-            beforeBtn.title = 'Original room photo unavailable';
-        }
+            },
+            disabled: !beforeItem,
+            title: beforeItem ? '' : 'Original room photo unavailable',
+        });
 
-        const afterBtn = makeActionButton(
-            'Save preview',
-            'aif-result-actions__btn aif-result-actions__btn--save',
-            () => saveOneImage(afterBtn, afterItem, dlOpts)
-        );
+        const afterBtn = makeActionButton({
+            label: 'AI preview',
+            icon: ICON_DOWNLOAD,
+            className:
+                'aif-result-actions__btn aif-result-actions__btn--save aif-result-actions__btn--icon',
+            onClick: () => saveOneImage(afterBtn, afterItem, dlOpts),
+        });
 
         split.appendChild(beforeBtn);
         split.appendChild(afterBtn);
-        actions.appendChild(split);
+        panel.appendChild(split);
     }
 
-    section.appendChild(actions);
+    section.appendChild(panel);
     return section;
 }
 
@@ -194,9 +214,11 @@ export const ResultsView = (state) => {
     const header = document.createElement('div');
     header.className = 'aif-results-lede';
     header.innerHTML = `
-    <h3 style="margin:0; font-size:16px; font-weight:600;">Your preview</h3>
-    <p style="margin:4px 0 0; font-size:12px; color:#64748b;line-height:1.4;">
-      Drag the slider to compare before and after.
+    <span class="aif-results-eyebrow">Showroom preview</span>
+    <h3 class="aif-results-title">Your room, reimagined</h3>
+    <p class="aif-results-hint">
+      <span class="aif-results-hint__icon">${ICON_SLIDE}</span>
+      Slide to compare before &amp; after
     </p>
   `;
     container.appendChild(header);
