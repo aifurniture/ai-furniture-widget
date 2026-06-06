@@ -223,7 +223,6 @@ export const styles = `
     flex: 1 1 0;
     min-height: 0;
     min-width: 0;
-    display: grid;
     overflow: hidden;
   }
 
@@ -1102,15 +1101,15 @@ export const styles = `
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Results: fit in viewport — preview row grows, no page scroll */
+  /* Results: aspect-ratio preview (always visible) + compact chrome — no scroll */
   .aif-results-view {
     flex: 1 1 0;
     min-height: 0;
-    height: 100%;
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    display: flex;
+    flex-direction: column;
     gap: 6px;
     overflow: hidden;
+    justify-content: flex-start;
   }
 
   @keyframes aif-results-in {
@@ -1129,11 +1128,8 @@ export const styles = `
   }
 
   .aif-results-grid {
-    min-height: 0;
+    flex: 0 0 auto;
     width: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
     animation: aif-results-in 0.5s ease 0.06s backwards;
   }
 
@@ -1154,10 +1150,6 @@ export const styles = `
   .aif-result-preview-block {
     position: relative;
     width: 100%;
-    flex: 1 1 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
     padding: 2px;
     border-radius: calc(var(--aif-radius-sm) + 2px);
     background: linear-gradient(145deg, #ebe2d4 0%, #f7f1e8 50%, #e8dfd2 100%);
@@ -1167,23 +1159,14 @@ export const styles = `
   .aif-result-preview-block .aif-slider {
     display: block;
     width: 100%;
-    flex: 1 1 0;
-    min-height: 0;
-    max-height: 100%;
+    max-height: min(36dvh, 340px);
     margin: 0 auto;
-  }
-
-  .aif-result-preview-block .aif-slider.aif-slider--fill {
-    aspect-ratio: unset;
-    min-height: 120px;
   }
 
   .aif-result-preview-block .aif-results-fallback-img {
     display: block;
     width: 100%;
-    flex: 1 1 0;
-    min-height: 0;
-    max-height: 100%;
+    max-height: min(36dvh, 340px);
     object-fit: contain;
     border-radius: var(--aif-radius-sm);
     background: #f5f0e8;
@@ -1414,6 +1397,11 @@ export const styles = `
 
     .aif-results-title {
       font-size: 17px;
+    }
+
+    .aif-result-preview-block .aif-slider,
+    .aif-result-preview-block .aif-results-fallback-img {
+      max-height: min(30dvh, 280px);
     }
 
     .aif-container[data-aif-view="RESULTS"] .aif-result-preview-block {

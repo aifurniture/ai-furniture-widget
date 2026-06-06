@@ -245,7 +245,7 @@ export const ResultsView = (state) => {
                             beforeImage: beforeUrl,
                             afterImage: generatedUrl,
                             aspectRatio,
-                            fillParent: true
+                            fillParent: false
                         })
                     )
                 );
