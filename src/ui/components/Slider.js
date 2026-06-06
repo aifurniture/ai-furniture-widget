@@ -1,9 +1,16 @@
 /**
  * Before/After Slider Component
  */
-export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = false }) => {
+export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = false, variant = '' }) => {
+    const isResults = variant === 'results';
+    const useFillParent = isResults ? false : fillParent;
+
     const container = document.createElement('div');
-    container.className = fillParent ? 'aif-slider aif-slider--fill' : 'aif-slider';
+    container.className = useFillParent
+        ? 'aif-slider aif-slider--fill'
+        : isResults
+          ? 'aif-slider aif-slider--results'
+          : 'aif-slider';
 
     const numericRatio = typeof aspectRatio === 'number' ? aspectRatio : null;
     const initialAspectRatio = numericRatio != null ? String(numericRatio) : '3/4';
@@ -24,14 +31,14 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
     imgAfter.decoding = 'async';
 
     const applyAspectFromNatural = (w, h) => {
-        if (fillParent) return;
+        if (useFillParent) return;
         if (w > 0 && h > 0) {
             container.style.aspectRatio = String(w / h);
         }
     };
 
     const syncAspectFromImages = () => {
-        if (fillParent) return;
+        if (useFillParent) return;
         const wb = imgBefore.naturalWidth;
         const hb = imgBefore.naturalHeight;
         const wa = imgAfter.naturalWidth;
@@ -48,9 +55,13 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
     };
 
     container.style.aspectRatio = initialAspectRatio;
-    if (!fillParent) {
+    if (!useFillParent) {
         container.style.maxHeight = 'min(34dvh, 320px)';
-        container.style.minHeight = 'min(22dvh, 180px)';
+        container.style.minHeight = isResults ? '200px' : 'min(22dvh, 180px)';
+        if (isResults) {
+            container.style.width = '100%';
+            container.style.display = 'block';
+        }
     }
 
     const syncAfterImageWidth = () => {
@@ -205,7 +216,7 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
     container.appendChild(labelAfter);
     container.appendChild(dividerWrapper);
 
-    if (!fillParent) {
+    if (!useFillParent) {
         if (imgBefore.complete) syncAspectFromImages();
         if (imgAfter.complete) syncAspectFromImages();
     }

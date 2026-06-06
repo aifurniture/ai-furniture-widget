@@ -358,7 +358,7 @@ export const styles = `
     overflow-y: auto;
     flex: 1 1 auto;
     min-height: 0;
-    justify-content: safe center;
+    justify-content: flex-start;
     align-items: center;
     -webkit-overflow-scrolling: touch;
   }
@@ -1153,17 +1153,15 @@ export const styles = `
 
   @keyframes aif-results-in {
     from {
-      opacity: 0;
       transform: translateY(6px);
     }
     to {
-      opacity: 1;
       transform: translateY(0);
     }
   }
 
   .aif-results-lede {
-    animation: aif-results-in 0.45s ease backwards;
+    animation: aif-results-in 0.45s ease forwards;
   }
 
   .aif-results-grid {
@@ -1173,14 +1171,15 @@ export const styles = `
     display: flex;
     flex-direction: column;
     align-items: center;
-    animation: aif-results-in 0.5s ease 0.06s backwards;
+    opacity: 1;
+    visibility: visible;
   }
 
   .aif-results-save {
     flex-shrink: 0;
     width: 100%;
     overflow: visible;
-    animation: aif-results-in 0.5s ease 0.12s backwards;
+    animation: aif-results-in 0.5s ease 0.12s forwards;
   }
 
   .aif-results-footer {
@@ -1190,7 +1189,7 @@ export const styles = `
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
-    animation: aif-results-in 0.5s ease 0.18s backwards;
+    animation: aif-results-in 0.5s ease 0.18s forwards;
   }
 
   .aif-result-preview-block {
@@ -1198,22 +1197,26 @@ export const styles = `
     width: 100%;
     max-width: 100%;
     flex-shrink: 0;
+    min-height: 200px;
     padding: 3px;
     border-radius: calc(var(--aif-radius-sm) + 2px);
     background: linear-gradient(145deg, #ebe2d4 0%, #f7f1e8 50%, #e8dfd2 100%);
     box-shadow: 0 8px 22px -10px rgba(44, 36, 28, 0.18);
   }
 
-  .aif-result-preview-block .aif-slider {
+  .aif-result-preview-block .aif-slider,
+  .aif-slider--results {
     display: block;
     width: 100%;
     max-width: 100%;
     aspect-ratio: 3 / 4;
     max-height: min(34dvh, 320px);
-    min-height: min(22dvh, 180px);
+    min-height: 200px;
     height: auto;
     margin: 0 auto;
     flex-shrink: 0;
+    opacity: 1 !important;
+    visibility: visible !important;
   }
 
   .aif-result-preview-block .aif-results-fallback-img {

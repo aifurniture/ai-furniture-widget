@@ -273,7 +273,8 @@ export const ResultsView = (state) => {
                             beforeImage: beforeUrl,
                             afterImage: generatedUrl,
                             aspectRatio,
-                            fillParent: false
+                            fillParent: false,
+                            variant: 'results'
                         })
                     )
                 );
