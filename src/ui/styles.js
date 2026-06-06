@@ -260,9 +260,27 @@ export const styles = `
   .aif-results-lede {
     flex-shrink: 0;
     line-height: 1.3;
-    padding: 12px 52px 10px 0;
+    padding: 0 0 10px;
     margin: 0 0 2px;
     border-bottom: 1px solid var(--aif-border);
+  }
+
+  .aif-results-lede__row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+
+  .aif-results-lede__copy {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .aif-results-close {
+    flex: 0 0 auto;
+    margin: 0;
   }
 
   .aif-results-eyebrow {
@@ -314,29 +332,20 @@ export const styles = `
     border-radius: 8px;
   }
 
-  /* Results: close floats beside header — no empty chrome bar */
+  /* Results: drawer chrome removed — close lives in results header */
   .aif-container[data-aif-view="RESULTS"] .aif-drawer-chrome {
-    position: absolute;
-    top: 10px;
-    right: 14px;
-    left: auto;
-    width: auto;
-    height: auto;
+    display: none !important;
+    height: 0 !important;
     min-height: 0 !important;
     padding: 0 !important;
-    flex: 0 0 auto !important;
-    background: transparent;
+    margin: 0 !important;
+    overflow: hidden;
+    visibility: hidden;
     pointer-events: none;
-    z-index: 20;
-  }
-
-  .aif-container[data-aif-view="RESULTS"] .aif-close-btn {
-    pointer-events: auto;
-    box-shadow: 0 2px 10px rgba(44, 36, 28, 0.1);
   }
 
   .aif-container[data-aif-view="RESULTS"] .aif-content {
-    padding: 10px 16px 12px;
+    padding: 12px 16px 12px;
     overflow: hidden;
     flex: 1 1 0;
     min-height: 0;
@@ -1424,13 +1433,8 @@ export const styles = `
       padding: 8px 12px 10px;
     }
 
-    .aif-container[data-aif-view="RESULTS"] .aif-drawer-chrome {
-      top: max(10px, calc(var(--aif-safe-top, 0px) + 6px));
-      right: max(10px, var(--aif-safe-right, 0px));
-    }
-
     .aif-results-lede {
-      padding: 10px 48px 8px 0;
+      padding-bottom: 8px;
     }
 
     .aif-results-title {

@@ -21,6 +21,43 @@ function previewBlock(el) {
 const ICON_SHARE = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>`;
 const ICON_DOWNLOAD = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`;
 const ICON_SLIDE = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/><polyline points="9 18 15 12 9 6"/></svg>`;
+const ICON_CLOSE = `<svg viewBox="0 0 24 24" aria-hidden="true"><line x1="7" y1="7" x2="17" y2="17"/><line x1="17" y1="7" x2="7" y2="17"/></svg>`;
+
+function createResultsHeader() {
+    const header = document.createElement('div');
+    header.className = 'aif-results-lede';
+
+    const row = document.createElement('div');
+    row.className = 'aif-results-lede__row';
+
+    const copy = document.createElement('div');
+    copy.className = 'aif-results-lede__copy';
+    copy.innerHTML = `
+    <span class="aif-results-eyebrow">Showroom</span>
+    <h3 class="aif-results-title">Your preview</h3>
+  `;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'aif-close-btn aif-results-close';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.innerHTML = ICON_CLOSE;
+    closeBtn.addEventListener('click', () => actions.closeModal());
+
+    row.appendChild(copy);
+    row.appendChild(closeBtn);
+    header.appendChild(row);
+
+    const hint = document.createElement('p');
+    hint.className = 'aif-results-hint';
+    hint.innerHTML = `
+      <span class="aif-results-hint__icon">${ICON_SLIDE}</span>
+      Slide to compare before &amp; after
+    `;
+    header.appendChild(hint);
+
+    return header;
+}
 
 function makeActionButton({ label, className, onClick, icon = null, disabled = false, title = '' }) {
     const btn = document.createElement('button');
@@ -211,17 +248,7 @@ export const ResultsView = (state) => {
     const container = document.createElement('div');
     container.className = 'aif-results-view';
 
-    const header = document.createElement('div');
-    header.className = 'aif-results-lede';
-    header.innerHTML = `
-    <span class="aif-results-eyebrow">Showroom</span>
-    <h3 class="aif-results-title">Your preview</h3>
-    <p class="aif-results-hint">
-      <span class="aif-results-hint__icon">${ICON_SLIDE}</span>
-      Slide to compare before &amp; after
-    </p>
-  `;
-    container.appendChild(header);
+    container.appendChild(createResultsHeader());
 
     const pairs = buildPairs();
     const grid = document.createElement('div');

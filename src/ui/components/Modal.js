@@ -123,11 +123,18 @@ export const Modal = () => {
     const focusDrawer = () => {
         requestAnimationFrame(() => {
             try {
-                closeBtn.focus();
+                const resultsClose = container.querySelector('.aif-results-close');
+                (resultsClose instanceof HTMLElement ? resultsClose : closeBtn).focus();
             } catch {
                 /* ignore */
             }
         });
+    };
+
+    const syncChromeForView = (view) => {
+        const hideChrome = view === VIEWS.RESULTS;
+        chrome.hidden = hideChrome;
+        chrome.style.display = hideChrome ? 'none' : '';
     };
 
     const restoreFocusIfPossible = () => {
@@ -146,6 +153,7 @@ export const Modal = () => {
     const renderContent = (state) => {
         contentArea.innerHTML = '';
         container.setAttribute('data-aif-view', state.view || '');
+        syncChromeForView(state.view);
 
         if (state.view === VIEWS.UPLOAD) {
             contentArea.appendChild(UploadView(state));
