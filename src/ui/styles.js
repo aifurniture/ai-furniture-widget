@@ -275,20 +275,16 @@ export const styles = `
 
   .aif-results-lede__row {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 10px;
-    margin-bottom: 4px;
-  }
-
-  .aif-results-lede__copy {
-    flex: 1 1 auto;
-    min-width: 0;
+    margin: 0 0 4px;
   }
 
   .aif-results-close {
     flex: 0 0 auto;
     margin: 0;
+    align-self: center;
   }
 
   .aif-results-eyebrow {
@@ -298,10 +294,12 @@ export const styles = `
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--aif-primary);
-    margin: 0 0 3px;
+    margin: 0 0 4px;
   }
 
   .aif-results-title {
+    flex: 1 1 auto;
+    min-width: 0;
     margin: 0;
     font-family: var(--aif-font-display);
     font-size: 19px;

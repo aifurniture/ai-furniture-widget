@@ -27,15 +27,17 @@ function createResultsHeader() {
     const header = document.createElement('div');
     header.className = 'aif-results-lede';
 
+    const eyebrow = document.createElement('span');
+    eyebrow.className = 'aif-results-eyebrow';
+    eyebrow.textContent = 'Showroom';
+    header.appendChild(eyebrow);
+
     const row = document.createElement('div');
     row.className = 'aif-results-lede__row';
 
-    const copy = document.createElement('div');
-    copy.className = 'aif-results-lede__copy';
-    copy.innerHTML = `
-    <span class="aif-results-eyebrow">Showroom</span>
-    <h3 class="aif-results-title">Your preview</h3>
-  `;
+    const title = document.createElement('h3');
+    title.className = 'aif-results-title';
+    title.textContent = 'Your preview';
 
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
@@ -44,7 +46,7 @@ function createResultsHeader() {
     closeBtn.innerHTML = ICON_CLOSE;
     closeBtn.addEventListener('click', () => actions.closeModal());
 
-    row.appendChild(copy);
+    row.appendChild(title);
     row.appendChild(closeBtn);
     header.appendChild(row);
 
