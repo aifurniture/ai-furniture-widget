@@ -214,11 +214,10 @@ export const ResultsView = (state) => {
     const header = document.createElement('div');
     header.className = 'aif-results-lede';
     header.innerHTML = `
-    <span class="aif-results-eyebrow">Showroom preview</span>
-    <h3 class="aif-results-title">Your room, reimagined</h3>
+    <h3 class="aif-results-title">Your preview</h3>
     <p class="aif-results-hint">
       <span class="aif-results-hint__icon">${ICON_SLIDE}</span>
-      Slide to compare before &amp; after
+      Slide to compare
     </p>
   `;
     container.appendChild(header);
@@ -246,7 +245,7 @@ export const ResultsView = (state) => {
                             beforeImage: beforeUrl,
                             afterImage: generatedUrl,
                             aspectRatio,
-                            fillParent: false
+                            fillParent: true
                         })
                     )
                 );

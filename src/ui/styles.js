@@ -223,6 +223,8 @@ export const styles = `
     flex: 1 1 0;
     min-height: 0;
     min-width: 0;
+    display: grid;
+    overflow: hidden;
   }
 
   .aif-header {
@@ -258,38 +260,28 @@ export const styles = `
 
   .aif-results-lede {
     flex-shrink: 0;
-    line-height: 1.35;
-    padding-bottom: 2px;
-  }
-
-  .aif-results-eyebrow {
-    display: block;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--aif-primary);
-    margin-bottom: 4px;
+    line-height: 1.3;
+    padding-right: 44px;
   }
 
   .aif-results-title {
     margin: 0;
     font-family: var(--aif-font-display);
-    font-size: 22px;
+    font-size: 18px;
     font-weight: 650;
-    letter-spacing: -0.03em;
+    letter-spacing: -0.02em;
     color: var(--aif-text-main);
-    line-height: 1.15;
+    line-height: 1.2;
   }
 
   .aif-results-hint {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin: 6px 0 0;
-    font-size: 12px;
+    gap: 5px;
+    margin: 2px 0 0;
+    font-size: 11px;
     color: var(--aif-text-muted);
-    line-height: 1.4;
+    line-height: 1.35;
   }
 
   .aif-results-hint__icon {
@@ -302,13 +294,41 @@ export const styles = `
   .aif-results-disclaimer {
     flex-shrink: 0;
     margin: 0;
-    padding: 8px 10px;
-    font-size: 11px;
-    line-height: 1.45;
+    padding: 6px 8px;
+    font-size: 10px;
+    line-height: 1.4;
     color: var(--aif-text-muted);
     background: var(--aif-accent-soft);
     border: 1px solid var(--aif-border);
     border-radius: 8px;
+  }
+
+  /* Results: float close btn, reclaim top bar space */
+  .aif-container[data-aif-view="RESULTS"] .aif-drawer-chrome {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 20;
+    min-height: 0;
+    padding: 8px 10px;
+    background: transparent;
+    pointer-events: none;
+  }
+
+  .aif-container[data-aif-view="RESULTS"] .aif-close-btn {
+    pointer-events: auto;
+    box-shadow: 0 2px 10px rgba(44, 36, 28, 0.12);
+  }
+
+  .aif-container[data-aif-view="RESULTS"] .aif-content {
+    padding-top: 8px;
+    padding-bottom: 4px;
+    overflow: hidden;
+  }
+
+  .aif-container[data-aif-view="RESULTS"] .aif-widget-footer {
+    display: none;
   }
 
   .aif-badge {
@@ -905,14 +925,14 @@ export const styles = `
 
   /* Results actions (Save / Share) */
   .aif-results-panel {
-    padding: 14px;
+    padding: 10px;
     border-radius: var(--aif-radius-sm);
     background: var(--aif-bg-elevated);
     border: 1px solid var(--aif-border);
     box-shadow: 0 2px 12px rgba(44, 36, 28, 0.06);
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
   }
 
   .aif-results-panel__label {
@@ -963,8 +983,8 @@ export const styles = `
 
   .aif-result-actions__btn {
     width: 100%;
-    padding: 12px 14px;
-    font-size: 13px;
+    padding: 10px 12px;
+    font-size: 12px;
     font-weight: 600;
     border-radius: 10px;
     cursor: pointer;
@@ -1082,15 +1102,15 @@ export const styles = `
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Results: preview sizes from aspect-ratio (not % height — avoids 0px collapse) */
+  /* Results: fit in viewport — preview row grows, no page scroll */
   .aif-results-view {
     flex: 1 1 0;
     min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    overflow-y: auto;
-    overflow-x: hidden;
+    height: 100%;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    gap: 6px;
+    overflow: hidden;
   }
 
   @keyframes aif-results-in {
@@ -1109,8 +1129,11 @@ export const styles = `
   }
 
   .aif-results-grid {
-    flex: 0 0 auto;
+    min-height: 0;
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     animation: aif-results-in 0.5s ease 0.06s backwards;
   }
 
@@ -1131,23 +1154,36 @@ export const styles = `
   .aif-result-preview-block {
     position: relative;
     width: 100%;
-    padding: 3px;
-    border-radius: calc(var(--aif-radius-sm) + 3px);
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 2px;
+    border-radius: calc(var(--aif-radius-sm) + 2px);
     background: linear-gradient(145deg, #ebe2d4 0%, #f7f1e8 50%, #e8dfd2 100%);
-    box-shadow: 0 10px 28px -10px rgba(44, 36, 28, 0.2);
+    box-shadow: 0 8px 22px -10px rgba(44, 36, 28, 0.18);
   }
 
   .aif-result-preview-block .aif-slider {
     display: block;
     width: 100%;
-    max-height: min(52vh, 520px);
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: 100%;
     margin: 0 auto;
+  }
+
+  .aif-result-preview-block .aif-slider.aif-slider--fill {
+    aspect-ratio: unset;
+    min-height: 120px;
   }
 
   .aif-result-preview-block .aif-results-fallback-img {
     display: block;
     width: 100%;
-    max-height: min(52vh, 520px);
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: 100%;
     object-fit: contain;
     border-radius: var(--aif-radius-sm);
     background: #f5f0e8;
@@ -1370,10 +1406,14 @@ export const styles = `
       padding: 12px 14px 10px;
     }
 
-    /* Results: edge-to-edge preview; height from flex (no fixed min-height — avoids panel scroll) */
     .aif-container[data-aif-view="RESULTS"] .aif-content {
       padding-left: 12px;
       padding-right: 12px;
+      padding-top: 6px;
+    }
+
+    .aif-results-title {
+      font-size: 17px;
     }
 
     .aif-container[data-aif-view="RESULTS"] .aif-result-preview-block {
@@ -1403,17 +1443,6 @@ export const styles = `
 
   /* Desktop: reclaim vertical space for results */
   @media (min-width: 769px) {
-    /* Results: keep footer visible; email block stays a compact disclosure. */
-    .aif-container[data-aif-view="RESULTS"] .aif-widget-footer:not(.aif-widget-footer--has-email) {
-      display: block;
-      padding: 6px 18px 10px;
-    }
-
-    .aif-container[data-aif-view="RESULTS"] .aif-widget-footer.aif-widget-footer--has-email {
-      display: block;
-      padding: 6px 18px 10px;
-    }
-
     /* Compact the per-result action block. */
     .aif-result-actions {
       padding: 6px 0 2px;

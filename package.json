@@ -9,7 +9,8 @@
   "scripts": {
     "build": "rollup -c",
     "watch": "rollup -c -w",
-    "dev": "rollup -c -w"
+    "dev": "rollup -c -w",
+    "purge:cdn": "node scripts/purge-jsdelivr.mjs"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^25.0.7",
