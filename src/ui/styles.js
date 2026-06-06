@@ -1190,20 +1190,21 @@ export const styles = `
   .aif-result-preview-block {
     position: relative;
     width: 100%;
-    min-height: 200px;
+    min-height: 150px;
     padding: 3px;
     border-radius: calc(var(--aif-radius-sm) + 2px);
     background: linear-gradient(145deg, #ebe2d4 0%, #f7f1e8 50%, #e8dfd2 100%);
     box-shadow: 0 8px 22px -10px rgba(44, 36, 28, 0.18);
   }
 
+  /* Height is driven inline by Slider JS (fits the leftover drawer space);
+     this is only a pre-JS fallback so the box is never zero-height. */
   .aif-result-preview-block .aif-slider,
   .aif-slider--results {
     display: block;
     width: 100%;
-    height: clamp(200px, 32dvh, 320px);
-    min-height: 200px;
-    max-height: min(34dvh, 320px);
+    height: clamp(150px, 30dvh, 320px);
+    min-height: 150px;
     margin: 0 auto;
     opacity: 1;
     visibility: visible;
@@ -1212,9 +1213,8 @@ export const styles = `
   .aif-result-preview-block .aif-results-fallback-img {
     display: block;
     width: 100%;
-    height: clamp(200px, 32dvh, 320px);
-    min-height: 200px;
-    max-height: min(34dvh, 320px);
+    height: clamp(150px, 30dvh, 320px);
+    min-height: 150px;
     object-fit: contain;
     border-radius: var(--aif-radius-sm);
     background: #f5f0e8;
@@ -1467,12 +1467,32 @@ export const styles = `
 
     .aif-result-preview-block .aif-slider,
     .aif-result-preview-block .aif-results-fallback-img {
-      max-height: min(30dvh, 260px);
-      min-height: min(20dvh, 160px);
+      min-height: 140px;
     }
 
     .aif-content > .aif-results-view {
       max-width: 100%;
+    }
+
+    /* Compact the action stack on phones so the preview + buttons fit
+       inside the drawer without scrolling. */
+    .aif-container[data-aif-view="RESULTS"] .aif-results-view > * + * {
+      margin-top: 8px;
+    }
+
+    .aif-container[data-aif-view="RESULTS"] .aif-results-panel {
+      padding: 7px;
+      gap: 5px;
+    }
+
+    .aif-container[data-aif-view="RESULTS"] .aif-result-actions__btn {
+      padding: 9px 10px;
+      min-height: 40px;
+    }
+
+    .aif-container[data-aif-view="RESULTS"] .aif-results-hint {
+      margin-top: 3px;
+      font-size: 11px;
     }
 
     .aif-widget-footer {

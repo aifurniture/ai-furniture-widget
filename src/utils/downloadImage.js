@@ -222,6 +222,40 @@ export async function saveSingleImage(item, options = {}) {
     return result;
 }
 
+/**
+ * Download a single image to the device — NEVER opens the share sheet.
+ * Cross-origin http(s) goes through the backend proxy which sends
+ * `Content-Disposition: attachment`, forcing a real file download on
+ * desktop and mobile alike. blob:/data: URLs download directly.
+ */
+export async function downloadSingleImage(item, options = {}) {
+    if (!item?.url) return { ok: false, reason: 'empty' };
+    const { url, filename } = item;
+    const { apiEndpoint } = options;
+
+    if (apiEndpoint && /^https?:\/\//i.test(url)) {
+        const base = apiEndpoint.replace(/\/$/, '');
+        const proxyUrl = `${base}/download-image?${new URLSearchParams({ url, name: filename })}`;
+        const a = document.createElement('a');
+        a.href = proxyUrl;
+        a.download = filename;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        return { ok: true, method: 'download' };
+    }
+
+    const blob = await fetchImageBlob(url, filename, options);
+    if (blob) {
+        triggerBlobDownload(blob, filename);
+        return { ok: true, method: 'download' };
+    }
+
+    openImageSaveTarget(url, filename, options);
+    return { ok: true, method: 'open' };
+}
+
 export async function downloadUrlAsFile(url, filename, options = {}) {
     const result = await saveImageSet([{ url, filename }], options);
     if (result.ok) return;
@@ -316,54 +350,27 @@ export async function buildBeforeAfterComposite(beforeBlob, afterBlob) {
 }
 
 /**
- * Share before/after as real image file(s) — never as a URL link.
- * Uses a side-by-side composite when needed for single-file share targets.
+ * Share the before & after as TWO separate, full-quality image files —
+ * never a stitched composite (which degrades quality) and never a URL.
+ * Falls back to downloading both files on desktop / unsupported browsers.
  */
 export async function shareBeforeAfter(beforeUrl, afterUrl, options = {}) {
     if (!afterUrl) return { ok: false, reason: 'empty' };
 
-    const afterBlob = await fetchImageBlob(
-        afterUrl,
-        `preview-${getFilenameFromUrl(afterUrl, 'preview.png')}`,
-        options
-    );
+    const afterName = `ai-preview-${getFilenameFromUrl(afterUrl, 'preview.png')}`;
+    const afterBlob = await fetchImageBlob(afterUrl, afterName, options);
     if (!afterBlob) return { ok: false, reason: 'fetch_failed' };
 
-    const beforeBlob = beforeUrl
-        ? await fetchImageBlob(
-              beforeUrl,
-              `room-${getFilenameFromUrl(beforeUrl, 'room.jpg')}`,
-              options
-          )
-        : null;
+    const beforeName = `room-${getFilenameFromUrl(beforeUrl, 'room.jpg')}`;
+    const beforeBlob = beforeUrl ? await fetchImageBlob(beforeUrl, beforeName, options) : null;
 
     const files = [];
-
-    if (beforeBlob) {
-        try {
-            const composite = await buildBeforeAfterComposite(beforeBlob, afterBlob);
-            files.push(blobToFile(composite, 'room-before-after.jpg'));
-        } catch (e) {
-            console.warn('[AI Furniture] composite failed, sharing separate files:', e);
-            files.push(
-                blobToFile(beforeBlob, `room-${getFilenameFromUrl(beforeUrl, 'room.jpg')}`),
-                blobToFile(afterBlob, `preview-${getFilenameFromUrl(afterUrl, 'preview.png')}`)
-            );
-        }
-    } else {
-        files.push(blobToFile(afterBlob, `preview-${getFilenameFromUrl(afterUrl, 'preview.png')}`));
-    }
+    if (beforeBlob) files.push(blobToFile(beforeBlob, beforeName));
+    files.push(blobToFile(afterBlob, afterName));
 
     if (typeof navigator.share === 'function') {
         try {
-            const shared =
-                files.length === 1
-                    ? await trySharePayload({
-                          files,
-                          title: 'Room preview',
-                          text: beforeBlob ? 'Before and after' : 'AI room preview',
-                      })
-                    : await shareFiles(files);
+            const shared = await shareFiles(files);
             if (shared) return { ok: true, method: 'share', saved: files.length };
         } catch (e) {
             if (e?.name === 'AbortError') return { ok: false, reason: 'cancelled' };
@@ -371,16 +378,12 @@ export async function shareBeforeAfter(beforeUrl, afterUrl, options = {}) {
     }
 
     if (isMobileDevice()) {
-        const file = files[0];
-        if (file) {
-            const blobUrl = URL.createObjectURL(file);
-            window.open(blobUrl, '_blank', 'noopener,noreferrer');
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-            return { ok: true, method: 'open' };
-        }
         return { ok: false, reason: 'mobile_fallback' };
     }
 
-    triggerBlobDownload(files[0], files[0].name);
-    return { ok: true, method: 'download', saved: 1 };
+    for (const file of files) {
+        triggerBlobDownload(file, file.name);
+        await sleep(250);
+    }
+    return { ok: true, method: 'download', saved: files.length };
 }

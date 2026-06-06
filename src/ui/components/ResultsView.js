@@ -5,7 +5,7 @@ import { actions, VIEWS, QUEUE_STATUS } from '../../state/store.js';
 import { Slider } from './Slider.js';
 import { Button } from './Button.js';
 import {
-    saveSingleImage,
+    downloadSingleImage,
     openImageSaveTarget,
     getFilenameFromUrl,
     shareBeforeAfter,
@@ -89,7 +89,7 @@ async function runShare(button, beforeUrl, afterUrl, dlOpts) {
     try {
         const result = await shareBeforeAfter(beforeUrl, afterUrl, dlOpts);
         if (!result.ok && result.reason === 'mobile_fallback') {
-            alert('Could not open the share sheet. Use Save room photo / Save preview, then share from your gallery.');
+            alert('Sharing isn’t supported on this browser. Use the Save buttons below to download the photos, then share them from your gallery.');
         }
     } finally {
         button.disabled = false;
@@ -100,15 +100,10 @@ async function runShare(button, beforeUrl, afterUrl, dlOpts) {
 async function saveOneImage(button, item, dlOpts) {
     button.disabled = true;
     const label = button.querySelector('.aif-result-actions__label')?.textContent || button.textContent;
-    setButtonLabel(button, 'Saving…');
+    setButtonLabel(button, 'Downloading…');
     try {
-        const result = await saveSingleImage(item, dlOpts);
-        if (
-            result &&
-            !result.ok &&
-            result.reason !== 'cancelled' &&
-            (result.reason === 'mobile_fallback' || result.reason === 'fetch_failed')
-        ) {
+        const result = await downloadSingleImage(item, dlOpts);
+        if (result && !result.ok && result.reason !== 'cancelled') {
             openImageSaveTarget(item.url, item.filename, dlOpts);
         }
     } finally {

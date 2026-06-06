@@ -12,7 +12,7 @@
 
   window.FURNITURE_AI_CONFIG = { domain: domain, domainId: domainId };
 
-  var WIDGET_CDN_VERSION = '29';
+  var WIDGET_CDN_VERSION = '30';
   var WIDGET_SRC =
     'https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?v=' +
     WIDGET_CDN_VERSION;
