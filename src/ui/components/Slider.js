@@ -55,7 +55,11 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
         touchAction: 'none',
         boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)'
     };
-    if (!fillParent) {
+    if (fillParent) {
+        // Absolute children don't give height — keep a ratio until the flex cell sizes.
+        boxStyle.aspectRatio = initialAspectRatio;
+        boxStyle.minHeight = '180px';
+    } else {
         boxStyle.aspectRatio = initialAspectRatio;
     }
     Object.assign(container.style, boxStyle);

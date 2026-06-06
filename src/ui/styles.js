@@ -210,13 +210,19 @@ export const styles = `
   }
 
   /* Fill the panel: one view root per screen, no outer scroll */
-  .aif-content > :first-child {
+  .aif-content > :first-child:not(.aif-results-view) {
     flex: 1 1 0;
     min-height: 0;
     min-width: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  .aif-content > .aif-results-view {
+    flex: 1 1 0;
+    min-height: 0;
+    min-width: 0;
   }
 
   .aif-header {
@@ -1043,14 +1049,12 @@ export const styles = `
     overflow: hidden;
   }
 
-  /* Results slider: hug parent cell — images stay fully visible via object-fit: contain */
+  /* Results slider: grow in grid row; aspect-ratio from Slider keeps a visible height */
   .aif-result-preview-block .aif-slider.aif-slider--fill {
     flex: 1 1 0 !important;
-    min-height: 0 !important;
+    min-height: 180px !important;
     width: 100% !important;
-    height: 100% !important;
     max-height: 100% !important;
-    aspect-ratio: unset !important;
   }
 
   .aif-result-preview-block > img {
