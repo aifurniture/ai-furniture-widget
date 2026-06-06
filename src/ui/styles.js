@@ -220,10 +220,17 @@ export const styles = `
   }
 
   .aif-content > .aif-results-view {
-    flex: 1 1 0;
-    min-height: 0;
+    flex: 1 1 auto;
+    min-height: min-content;
     min-width: 0;
-    overflow: hidden;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .aif-header {
@@ -259,6 +266,7 @@ export const styles = `
 
   .aif-results-lede {
     flex-shrink: 0;
+    width: 100%;
     line-height: 1.3;
     padding: 0 0 10px;
     margin: 0 0 2px;
@@ -345,10 +353,14 @@ export const styles = `
   }
 
   .aif-container[data-aif-view="RESULTS"] .aif-content {
-    padding: 12px 16px 12px;
-    overflow: hidden;
-    flex: 1 1 0;
+    padding: 14px 16px max(12px, var(--aif-safe-bottom, 0px));
+    overflow-x: hidden;
+    overflow-y: auto;
+    flex: 1 1 auto;
     min-height: 0;
+    justify-content: safe center;
+    align-items: center;
+    -webkit-overflow-scrolling: touch;
   }
 
   .aif-container[data-aif-view="RESULTS"] .aif-widget-footer {
@@ -1126,15 +1138,17 @@ export const styles = `
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Results: aspect-ratio preview (always visible) — fit without scroll */
+  /* Results: aspect-ratio preview (always visible) — centered column */
   .aif-results-view {
-    flex: 1 1 0;
-    min-height: 0;
+    flex: 0 1 auto;
+    min-height: min-content;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    overflow: hidden;
+    align-items: stretch;
+    gap: 10px;
+    overflow: visible;
     justify-content: flex-start;
+    box-sizing: border-box;
   }
 
   @keyframes aif-results-in {
@@ -1154,20 +1168,27 @@ export const styles = `
 
   .aif-results-grid {
     flex: 0 0 auto;
+    flex-shrink: 0;
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     animation: aif-results-in 0.5s ease 0.06s backwards;
   }
 
   .aif-results-save {
     flex-shrink: 0;
+    width: 100%;
     overflow: visible;
     animation: aif-results-in 0.5s ease 0.12s backwards;
   }
 
   .aif-results-footer {
     flex-shrink: 0;
+    width: 100%;
     display: flex;
     flex-direction: column;
+    align-items: stretch;
     gap: 8px;
     animation: aif-results-in 0.5s ease 0.18s backwards;
   }
@@ -1175,7 +1196,9 @@ export const styles = `
   .aif-result-preview-block {
     position: relative;
     width: 100%;
-    padding: 2px;
+    max-width: 100%;
+    flex-shrink: 0;
+    padding: 3px;
     border-radius: calc(var(--aif-radius-sm) + 2px);
     background: linear-gradient(145deg, #ebe2d4 0%, #f7f1e8 50%, #e8dfd2 100%);
     box-shadow: 0 8px 22px -10px rgba(44, 36, 28, 0.18);
@@ -1184,17 +1207,28 @@ export const styles = `
   .aif-result-preview-block .aif-slider {
     display: block;
     width: 100%;
-    max-height: min(32dvh, 300px);
+    max-width: 100%;
+    aspect-ratio: 3 / 4;
+    max-height: min(34dvh, 320px);
+    min-height: min(22dvh, 180px);
+    height: auto;
     margin: 0 auto;
+    flex-shrink: 0;
   }
 
   .aif-result-preview-block .aif-results-fallback-img {
     display: block;
     width: 100%;
-    max-height: min(32dvh, 300px);
+    max-width: 100%;
+    aspect-ratio: 3 / 4;
+    max-height: min(34dvh, 320px);
+    min-height: min(22dvh, 180px);
+    height: auto;
     object-fit: contain;
     border-radius: var(--aif-radius-sm);
     background: #f5f0e8;
+    margin: 0 auto;
+    flex-shrink: 0;
   }
 
   .aif-container[data-aif-view="RESULTS"] .aif-results-footer {
@@ -1443,13 +1477,12 @@ export const styles = `
 
     .aif-result-preview-block .aif-slider,
     .aif-result-preview-block .aif-results-fallback-img {
-      max-height: min(28dvh, 250px);
+      max-height: min(30dvh, 260px);
+      min-height: min(20dvh, 160px);
     }
 
-    .aif-container[data-aif-view="RESULTS"] .aif-result-preview-block {
-      margin-left: -12px;
-      margin-right: -12px;
-      width: calc(100% + 24px);
+    .aif-content > .aif-results-view {
+      max-width: 100%;
     }
 
     .aif-widget-footer {

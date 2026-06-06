@@ -49,7 +49,8 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
 
     container.style.aspectRatio = initialAspectRatio;
     if (!fillParent) {
-        container.style.maxHeight = 'min(32dvh, 300px)';
+        container.style.maxHeight = 'min(34dvh, 320px)';
+        container.style.minHeight = 'min(22dvh, 180px)';
     }
 
     const syncAfterImageWidth = () => {
