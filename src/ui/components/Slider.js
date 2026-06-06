@@ -14,6 +14,7 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
 
     const numericRatio = typeof aspectRatio === 'number' ? aspectRatio : null;
     const initialAspectRatio = numericRatio != null ? String(numericRatio) : '3/4';
+    let resultsRatio = numericRatio ?? 4 / 3;
 
     const imgBefore = document.createElement('img');
     imgBefore.className = 'aif-slider__img aif-slider__img--before';
@@ -31,7 +32,7 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
     imgAfter.decoding = 'async';
 
     const applyAspectFromNatural = (w, h) => {
-        if (useFillParent) return;
+        if (useFillParent || isResults) return;
         if (w > 0 && h > 0) {
             container.style.aspectRatio = String(w / h);
         }
@@ -43,6 +44,17 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
         const hb = imgBefore.naturalHeight;
         const wa = imgAfter.naturalWidth;
         const ha = imgAfter.naturalHeight;
+        if (isResults) {
+            if (wb > 0 && hb > 0 && wa > 0 && ha > 0) {
+                resultsRatio = Math.min(wb / hb, wa / ha);
+            } else if (wb > 0 && hb > 0) {
+                resultsRatio = wb / hb;
+            } else if (wa > 0 && ha > 0) {
+                resultsRatio = wa / ha;
+            }
+            syncResultsBox();
+            return;
+        }
         if (wb > 0 && hb > 0 && wa > 0 && ha > 0) {
             const rb = wb / hb;
             const ra = wa / ha;
@@ -54,21 +66,37 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
         }
     };
 
-    container.style.aspectRatio = initialAspectRatio;
     if (!useFillParent) {
-        container.style.maxHeight = 'min(34dvh, 320px)';
-        container.style.minHeight = isResults ? '200px' : 'min(22dvh, 180px)';
         if (isResults) {
             container.style.width = '100%';
             container.style.display = 'block';
+            container.style.height = 'clamp(200px, 32dvh, 320px)';
+            container.style.minHeight = '200px';
+            container.style.maxHeight = 'min(34dvh, 320px)';
+        } else {
+            container.style.aspectRatio = initialAspectRatio;
+            container.style.maxHeight = 'min(34dvh, 320px)';
+            container.style.minHeight = 'min(22dvh, 180px)';
         }
+    } else {
+        container.style.aspectRatio = initialAspectRatio;
     }
+
+    const syncResultsBox = () => {
+        if (!isResults) return;
+        const w = container.offsetWidth;
+        if (w <= 0) return;
+        const cap = Math.min((window.innerHeight || 640) * 0.34, 320);
+        const h = Math.min(Math.max(w / resultsRatio, 200), cap);
+        container.style.height = `${Math.round(h)}px`;
+    };
 
     const syncAfterImageWidth = () => {
         const w = container.offsetWidth;
         if (w > 0) {
             imgAfter.style.width = `${w}px`;
         }
+        syncResultsBox();
     };
 
     imgBefore.onload = () => {
@@ -221,6 +249,7 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
         if (imgAfter.complete) syncAspectFromImages();
     }
     syncAfterImageWidth();
+    if (isResults) syncResultsBox();
 
     return container;
 };
