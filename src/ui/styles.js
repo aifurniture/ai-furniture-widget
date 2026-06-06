@@ -1017,55 +1017,42 @@ export const styles = `
     gap: 8px;
   }
 
-  /* Results: locked viewport — preview row gets leftover height; save buttons stay visible */
+  /* Results: preview sizes from aspect-ratio (not % height — avoids 0px collapse) */
   .aif-results-view {
     flex: 1 1 0;
     min-height: 0;
-    overflow: hidden;
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto auto;
-    gap: 6px;
-    height: 100%;
-    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .aif-results-grid {
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    align-self: stretch;
+    flex: 0 0 auto;
+    width: 100%;
   }
 
   .aif-result-preview-block {
     position: relative;
     width: 100%;
-    flex: 1 1 0;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    max-height: 100%;
-    overflow: hidden;
   }
 
-  /* Results slider: grow in grid row; aspect-ratio from Slider keeps a visible height */
-  .aif-result-preview-block .aif-slider.aif-slider--fill {
-    flex: 1 1 0 !important;
-    min-height: 180px !important;
-    width: 100% !important;
-    max-height: 100% !important;
-  }
-
-  .aif-result-preview-block > img {
-    flex: 1 1 0;
-    min-height: 0;
+  .aif-result-preview-block .aif-slider {
+    display: block;
     width: 100%;
-    height: 100%;
-    max-width: 100%;
-    max-height: 100%;
+    max-height: min(52vh, 520px);
+    margin: 0 auto;
+  }
+
+  .aif-result-preview-block .aif-results-fallback-img {
+    display: block;
+    width: 100%;
+    max-height: min(52vh, 520px);
     object-fit: contain;
-    align-self: center;
+    border-radius: 12px;
+    border: 1px solid var(--aif-border);
+    background: #f9fafb;
   }
 
   .aif-queue-list {

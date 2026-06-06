@@ -224,15 +224,15 @@ export const ResultsView = (state) => {
                             beforeImage: beforeUrl,
                             afterImage: generatedUrl,
                             aspectRatio,
-                            fillParent: true
+                            fillParent: false
                         })
                     )
                 );
             } else {
                 const img = document.createElement('img');
                 img.src = generatedUrl;
-                img.style.maxWidth = '100%';
-                img.style.borderRadius = '8px';
+                img.className = 'aif-results-fallback-img';
+                img.alt = 'Room preview';
                 grid.appendChild(previewBlock(img));
             }
             saveSection = createSaveSection(beforeUrl, generatedUrl, dlOpts, state);
