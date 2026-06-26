@@ -12,5 +12,5 @@ name = "AI Furniture Widget"
     key = "domain_id"
     type = "text"
     name = "Domain ID"
-    info = "Get your Domain ID from furniture-ai.com/dashboard"
+    info = "Get your Domain ID from aifurniture.app/user-dashboard"
 

@@ -4,7 +4,7 @@
     "settings": {
       "domain_id": {
         "label": "Domain ID",
-        "info": "Get your Domain ID from furniture-ai.com/dashboard"
+        "info": "Get your Domain ID from aifurniture.app/user-dashboard"
       },
       "enabled": {
         "label": "Enable Widget"

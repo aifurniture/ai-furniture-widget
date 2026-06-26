@@ -1,0 +1,72 @@
+{% comment %}
+  AI Furniture Widget - Shopify App Block
+{% endcomment %}
+
+{% schema %}
+{
+  "name": "AI Furniture Widget",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "domain_id",
+      "label": "Domain ID",
+      "info": "Get this from aifurniture.app/user-dashboard after registering your store"
+    },
+    {
+      "type": "checkbox",
+      "id": "enabled",
+      "label": "Enable Widget",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "button_position",
+      "label": "Button Position",
+      "options": [
+        {
+          "value": "bottom-right",
+          "label": "Bottom Right"
+        },
+        {
+          "value": "bottom-left",
+          "label": "Bottom Left"
+        }
+      ],
+      "default": "bottom-right"
+    }
+  ]
+}
+{% endschema %}
+
+{% if block.settings.enabled and block.settings.domain_id != blank %}
+<script>
+  window.FURNITURE_AI_CONFIG = {
+    domain: {{ shop.domain | json }},
+    domainId: {{ block.settings.domain_id | json }},
+    position: {{ block.settings.button_position | json }},
+    shopifyStore: true{% if product %},
+    productId: {{ product.id | json }},
+    productTitle: {{ product.title | json }},
+    productUrl: {{ shop.url | append: product.url | json }}{% endif %}
+  };
+
+  (function () {
+    var script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js';
+    script.async = true;
+    script.onload = function () {
+      if (window.AIFurnitureWidget && window.AIFurnitureWidget.initAIFurnitureWidget) {
+        window.AIFurnitureWidget.initAIFurnitureWidget(window.FURNITURE_AI_CONFIG);
+      } else if (window.initAIFurnitureWidget) {
+        window.initAIFurnitureWidget(window.FURNITURE_AI_CONFIG);
+      }
+    };
+    document.head.appendChild(script);
+  })();
+</script>
+{% elsif block.settings.enabled and block.settings.domain_id == blank %}
+<script>
+  console.warn('AI Furniture Widget: add your Domain ID from aifurniture.app/user-dashboard in the block settings.');
+</script>
+{% endif %}
