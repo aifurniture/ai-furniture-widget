@@ -88,12 +88,13 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
      */
     const syncResultsBox = () => {
         if (!isResults) return;
-        const w = container.offsetWidth;
+
+        const previewBlock = container.closest('.aif-result-preview-block');
+        const w = previewBlock?.clientWidth || container.offsetWidth;
         if (w <= 0) return;
 
         let maxH = Math.floor((window.innerHeight || 640) * 0.58);
 
-        const previewBlock = container.closest('.aif-result-preview-block');
         const grid = container.closest('.aif-results-grid');
         const view = container.closest('.aif-results-view');
         const content = container.closest('.aif-content');
@@ -124,15 +125,25 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
             }
         }
 
+        const ratio = resultsRatio > 0 ? resultsRatio : 4 / 3;
+        const idealH = w / ratio;
+        const h = Math.max(160, Math.round(Math.min(maxH, idealH)));
+        const needsCover = idealH > h + 2;
+
         container.style.width = '100%';
-        container.style.height = `${Math.max(160, Math.round(maxH))}px`;
+        container.style.maxWidth = '100%';
+        container.style.height = `${h}px`;
         container.style.margin = '0';
+        container.classList.toggle('aif-slider--results-cover', needsCover);
     };
 
     const syncAfterImageWidth = () => {
         const w = container.offsetWidth;
         if (w > 0) {
             imgAfter.style.width = `${w}px`;
+            imgAfter.style.height = '100%';
+            imgAfter.style.left = '0';
+            imgAfter.style.top = '0';
         }
         syncResultsBox();
     };
@@ -269,9 +280,10 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
     if (resizeObserver) {
         resizeObserver.observe(container);
         if (isResults) {
-            const resultsView = () => container.closest('.aif-results-view');
-            const viewEl = resultsView();
+            const viewEl = container.closest('.aif-results-view');
+            const blockEl = container.closest('.aif-result-preview-block');
             if (viewEl) resizeObserver.observe(viewEl);
+            if (blockEl) resizeObserver.observe(blockEl);
         }
     }
 

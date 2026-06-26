@@ -224,8 +224,8 @@ export const styles = `
     min-height: 0;
     min-width: 0;
     width: 100%;
-    max-width: 480px;
-    margin: 0 auto;
+    max-width: 100%;
+    margin: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -356,7 +356,7 @@ export const styles = `
   }
 
   .aif-container[data-aif-view="RESULTS"] .aif-content {
-    padding: 12px 16px max(12px, var(--aif-safe-bottom, 0px));
+    padding: 10px 10px max(10px, var(--aif-safe-bottom, 0px));
     overflow-x: hidden;
     overflow-y: hidden;
     flex: 1 1 auto;
@@ -1212,8 +1212,9 @@ export const styles = `
     display: block;
     flex: 1 1 auto;
     width: 100%;
+    max-width: 100%;
     min-height: 160px;
-    margin: 0 auto;
+    margin: 0;
     opacity: 1;
     visibility: visible;
   }
@@ -1270,15 +1271,25 @@ export const styles = `
   }
 
   .aif-slider--results .aif-slider__img {
+    object-fit: contain;
+  }
+
+  /* When vertical space is tighter than the photo aspect, cover fills full width */
+  .aif-slider--results.aif-slider--results-cover .aif-slider__img {
     object-fit: cover;
   }
 
   .aif-slider__img--before {
     inset: 0;
     width: 100%;
+    height: 100%;
   }
 
   .aif-slider__img--after {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
     max-width: none;
   }
 
