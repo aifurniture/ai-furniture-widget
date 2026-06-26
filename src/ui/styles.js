@@ -88,9 +88,9 @@ export const styles = `
       transform: translateX(100%);
     }
 
-    /* Room for before/after on the results step */
+    /* Results: wider drawer so before/after uses full panel width */
     .aif-container[data-aif-view="RESULTS"] {
-      width: min(92vw, 600px);
+      width: min(96vw, 640px);
     }
     
     #ai-furniture-modal.open .aif-container {
@@ -356,13 +356,14 @@ export const styles = `
   }
 
   .aif-container[data-aif-view="RESULTS"] .aif-content {
-    padding: 10px 10px max(10px, var(--aif-safe-bottom, 0px));
+    padding: 8px 8px max(8px, var(--aif-safe-bottom, 0px));
     overflow-x: hidden;
-    overflow-y: hidden;
+    overflow-y: auto;
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
+    -webkit-overflow-scrolling: touch;
   }
 
   .aif-container[data-aif-view="RESULTS"] .aif-widget-footer {
@@ -1196,27 +1197,31 @@ export const styles = `
   .aif-result-preview-block {
     position: relative;
     flex: 1 1 auto;
-    min-height: 160px;
+    min-height: 180px;
     width: 100%;
-    padding: 2px;
-    border-radius: calc(var(--aif-radius-sm) + 2px);
-    background: linear-gradient(145deg, #ebe2d4 0%, #f7f1e8 50%, #e8dfd2 100%);
+    padding: 0;
+    border-radius: var(--aif-radius-sm);
+    background: #2c241c;
     box-shadow: 0 8px 22px -10px rgba(44, 36, 28, 0.18);
     display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
   }
 
-  /* Height is driven inline by Slider JS (fills leftover drawer space) */
+  /* Height driven by Slider JS — fills the flex preview area */
   .aif-result-preview-block .aif-slider,
   .aif-slider--results {
     display: block;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     width: 100%;
     max-width: 100%;
-    min-height: 160px;
-    margin: 0;
+    min-height: 120px;
+    margin: 0 auto;
     opacity: 1;
     visibility: visible;
+    border-radius: var(--aif-radius-sm);
   }
 
   .aif-result-preview-block .aif-results-fallback-img {
@@ -1252,7 +1257,7 @@ export const styles = `
     width: 100%;
     overflow: hidden;
     border-radius: var(--aif-radius-sm);
-    background: #f5f0e8;
+    background: #2c241c;
     user-select: none;
     -webkit-user-select: none;
     touch-action: none;
@@ -1272,11 +1277,7 @@ export const styles = `
 
   .aif-slider--results .aif-slider__img {
     object-fit: contain;
-  }
-
-  /* When vertical space is tighter than the photo aspect, cover fills full width */
-  .aif-slider--results.aif-slider--results-cover .aif-slider__img {
-    object-fit: cover;
+    object-position: center center;
   }
 
   .aif-slider__img--before {

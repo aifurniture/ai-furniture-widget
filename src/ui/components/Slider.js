@@ -45,9 +45,7 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
         const wa = imgAfter.naturalWidth;
         const ha = imgAfter.naturalHeight;
         if (isResults) {
-            if (wb > 0 && hb > 0 && wa > 0 && ha > 0) {
-                resultsRatio = Math.min(wb / hb, wa / ha);
-            } else if (wb > 0 && hb > 0) {
+            if (wb > 0 && hb > 0) {
                 resultsRatio = wb / hb;
             } else if (wa > 0 && ha > 0) {
                 resultsRatio = wa / ha;
@@ -90,54 +88,60 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
         if (!isResults) return;
 
         const previewBlock = container.closest('.aif-result-preview-block');
-        const w = previewBlock?.clientWidth || container.offsetWidth;
-        if (w <= 0) return;
+        if (!previewBlock) return;
 
-        let maxH = Math.floor((window.innerHeight || 640) * 0.58);
+        const availW = previewBlock.clientWidth;
+        let availH = previewBlock.clientHeight;
+        if (availW <= 0) return;
 
-        const grid = container.closest('.aif-results-grid');
-        const view = container.closest('.aif-results-view');
-        const content = container.closest('.aif-content');
-
-        if (grid && view && content) {
-            const cs = getComputedStyle(content);
-            const padY =
-                parseFloat(cs.paddingTop || '0') + parseFloat(cs.paddingBottom || '0');
-            const innerH = content.clientHeight - padY;
-
-            let others = 0;
-            Array.from(view.children).forEach((child) => {
-                if (child !== grid) others += child.offsetHeight;
-            });
-            const viewGap = Math.max(0, view.children.length - 1) * 10;
-
-            let blockPadding = 0;
-            if (previewBlock) {
-                const pbs = getComputedStyle(previewBlock);
-                blockPadding =
-                    parseFloat(pbs.paddingTop || '0') +
-                    parseFloat(pbs.paddingBottom || '0');
-            }
-
-            const avail = innerH - others - viewGap - blockPadding;
-            if (avail > 160) {
-                maxH = avail;
+        // If flex layout has not assigned height yet, derive from drawer content
+        if (availH < 80) {
+            const grid = container.closest('.aif-results-grid');
+            const view = container.closest('.aif-results-view');
+            const content = container.closest('.aif-content');
+            if (grid && view && content) {
+                const cs = getComputedStyle(content);
+                const padY =
+                    parseFloat(cs.paddingTop || '0') + parseFloat(cs.paddingBottom || '0');
+                const innerH = content.clientHeight - padY;
+                let others = 0;
+                Array.from(view.children).forEach((child) => {
+                    if (child !== grid) others += child.offsetHeight;
+                });
+                const viewGap = Math.max(0, view.children.length - 1) * 10;
+                availH = innerH - others - viewGap;
             }
         }
 
-        const ratio = resultsRatio > 0 ? resultsRatio : 4 / 3;
-        const idealH = w / ratio;
-        const h = Math.max(160, Math.round(Math.min(maxH, idealH)));
-        const needsCover = idealH > h + 2;
+        if (availH < 80) {
+            availH = Math.floor((window.innerHeight || 640) * 0.45);
+        }
 
-        container.style.width = '100%';
+        const ratio = resultsRatio > 0 ? resultsRatio : 4 / 3;
+        let boxW;
+        let boxH;
+
+        // Fit full image inside available rect (object-fit: contain sizing)
+        if (availW / availH > ratio) {
+            boxH = availH;
+            boxW = boxH * ratio;
+        } else {
+            boxW = availW;
+            boxH = boxW / ratio;
+        }
+
+        boxW = Math.round(boxW);
+        boxH = Math.max(120, Math.round(boxH));
+
+        container.style.width = boxW >= availW - 2 ? '100%' : `${boxW}px`;
         container.style.maxWidth = '100%';
-        container.style.height = `${h}px`;
-        container.style.margin = '0';
-        container.classList.toggle('aif-slider--results-cover', needsCover);
+        container.style.height = `${boxH}px`;
+        container.style.margin = '0 auto';
+        container.classList.remove('aif-slider--results-cover');
     };
 
     const syncAfterImageWidth = () => {
+        syncResultsBox();
         const w = container.offsetWidth;
         if (w > 0) {
             imgAfter.style.width = `${w}px`;
@@ -145,7 +149,6 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
             imgAfter.style.left = '0';
             imgAfter.style.top = '0';
         }
-        syncResultsBox();
     };
 
     imgBefore.onload = () => {
@@ -318,10 +321,19 @@ export const Slider = ({ beforeImage, afterImage, aspectRatio, fillParent = fals
     }
     syncAfterImageWidth();
     if (isResults && typeof requestAnimationFrame !== 'undefined') {
+        const relayout = () => {
+            syncAfterImageWidth();
+        };
         requestAnimationFrame(() => {
-            syncResultsBox();
-            requestAnimationFrame(syncResultsBox);
+            relayout();
+            requestAnimationFrame(() => {
+                relayout();
+                requestAnimationFrame(relayout);
+            });
         });
+        if (typeof setTimeout !== 'undefined') {
+            setTimeout(relayout, 120);
+        }
     }
 
     return container;
