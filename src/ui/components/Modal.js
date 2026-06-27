@@ -43,8 +43,8 @@ function getDrawerWidth(container) {
     return rect.width || clampDrawerWidth(420);
 }
 
-function initDrawerResize(container) {
-    if (typeof window === 'undefined' || !container) return;
+function initDrawerResize(container, modalOverlay) {
+    if (typeof window === 'undefined' || !container || !modalOverlay) return null;
 
     const mq = window.matchMedia(DRAWER_DESKTOP_MQ);
     const saved = readSavedDrawerWidth();
@@ -58,10 +58,29 @@ function initDrawerResize(container) {
     handle.setAttribute('aria-label', 'Drag to resize panel');
     handle.title = 'Drag to resize';
     handle.innerHTML = DRAWER_RESIZE_ICON;
+    handle.hidden = true;
 
     let dragging = false;
     let startX = 0;
     let startW = 0;
+
+    const positionHandle = () => {
+        const open = modalOverlay.classList.contains('open');
+        if (!mq.matches || !open) {
+            handle.hidden = true;
+            handle.style.display = 'none';
+            return;
+        }
+
+        handle.hidden = false;
+        handle.style.display = 'flex';
+        const rect = container.getBoundingClientRect();
+        handle.style.top = `${rect.top + rect.height / 2}px`;
+        handle.style.left = `${rect.left}px`;
+        handle.style.transform = dragging
+            ? 'translate(-58%, -50%) scale(1.03)'
+            : 'translate(-58%, -50%)';
+    };
 
     const onPointerMove = (e) => {
         if (!dragging) return;
@@ -70,6 +89,7 @@ function initDrawerResize(container) {
         const delta = startX - clientX;
         const next = clampDrawerWidth(startW + delta);
         container.style.setProperty('--aif-drawer-width', `${next}px`);
+        positionHandle();
     };
 
     const endDrag = () => {
@@ -82,11 +102,13 @@ function initDrawerResize(container) {
         window.removeEventListener('pointermove', onPointerMove);
         window.removeEventListener('pointerup', endDrag);
         window.removeEventListener('pointercancel', endDrag);
+        positionHandle();
     };
 
     handle.addEventListener('pointerdown', (e) => {
         if (!mq.matches) return;
         e.preventDefault();
+        e.stopPropagation();
         dragging = true;
         startX = e.clientX;
         startW = getDrawerWidth(container);
@@ -97,10 +119,12 @@ function initDrawerResize(container) {
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', endDrag);
         window.addEventListener('pointercancel', endDrag);
+        positionHandle();
     });
 
     handle.addEventListener('dblclick', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         if (!mq.matches) return;
         container.style.removeProperty('--aif-drawer-width');
         try {
@@ -108,17 +132,36 @@ function initDrawerResize(container) {
         } catch {
             /* ignore */
         }
+        positionHandle();
     });
 
     const syncHandleVisibility = () => {
-        handle.hidden = !mq.matches;
-        handle.style.display = mq.matches ? '' : 'none';
+        positionHandle();
     };
 
-    syncHandleVisibility();
     mq.addEventListener('change', syncHandleVisibility);
+    window.addEventListener('resize', positionHandle);
+    container.addEventListener('transitionend', positionHandle);
 
-    container.appendChild(handle);
+    let resizeObserver = null;
+    if (typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(() => positionHandle());
+        resizeObserver.observe(container);
+    }
+
+    modalOverlay.appendChild(handle);
+
+    return {
+        handle,
+        sync: positionHandle,
+        destroy() {
+            mq.removeEventListener('change', syncHandleVisibility);
+            window.removeEventListener('resize', positionHandle);
+            container.removeEventListener('transitionend', positionHandle);
+            resizeObserver?.disconnect();
+            handle.remove();
+        }
+    };
 }
 
 const FOCUSABLE_SELECTOR = [
@@ -176,7 +219,7 @@ export const Modal = () => {
     modalOverlay.appendChild(scrim);
     modalOverlay.appendChild(container);
 
-    initDrawerResize(container);
+    const drawerResize = initDrawerResize(container, modalOverlay);
 
     // Click anywhere outside the drawer to close (desktop + mobile).
     // Optional desktop scrim uses a flat tint only — no backdrop-filter (avoids blurring the store).
@@ -189,6 +232,7 @@ export const Modal = () => {
         if (!state.isOpen) return;
         if (!(e.target instanceof Element)) return;
         if (container.contains(e.target)) return;
+        if (drawerResize?.handle?.contains(e.target)) return;
         // Close and swallow the click so the underlying page doesn't accidentally activate something.
         e.preventDefault();
         e.stopPropagation();
@@ -315,14 +359,18 @@ export const Modal = () => {
             attachDocHandlers();
             requestAnimationFrame(() => {
                 syncMobileLayoutVars();
+                drawerResize?.sync();
             });
+            setTimeout(() => drawerResize?.sync(), 450);
         } else {
             modalOverlay.classList.remove('open');
+            drawerResize?.sync();
         }
 
         wasOpen = nowOpen;
 
         renderContent(state);
+        drawerResize?.sync();
 
         if (opening) {
             focusDrawer();
@@ -346,6 +394,8 @@ export const Modal = () => {
         attachDocHandlers();
         renderContent(initialState);
         focusDrawer();
+        requestAnimationFrame(() => drawerResize?.sync());
+        setTimeout(() => drawerResize?.sync(), 450);
     }
 
     return modalOverlay;

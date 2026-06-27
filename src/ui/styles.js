@@ -86,7 +86,6 @@ export const styles = `
       border-radius: var(--aif-radius) 0 0 var(--aif-radius);
       border-left: 1px solid var(--aif-border);
       transform: translateX(100%);
-      overflow: visible;
     }
 
     /* Results: wider default drawer so before/after uses full panel width */
@@ -123,34 +122,32 @@ export const styles = `
 
   @media (min-width: 769px) {
     .aif-drawer-resize {
-      display: flex;
+      display: none;
       align-items: center;
-      justify-content: flex-start;
-      position: absolute;
-      left: 0;
-      top: 50%;
-      transform: translate(calc(-100% + 10px), -50%);
-      z-index: 20;
-      width: 34px;
-      height: 68px;
-      padding: 0 6px 0 4px;
+      justify-content: center;
+      position: fixed;
+      z-index: 10000001;
+      width: 36px;
+      height: 72px;
+      margin: 0;
+      padding: 0;
       border: 2px solid var(--aif-primary);
-      border-right: none;
-      border-radius: 999px 0 0 999px;
+      border-radius: 999px;
       background: linear-gradient(180deg, #fffaf2 0%, var(--aif-accent-soft) 100%);
       color: var(--aif-primary-dark);
       box-shadow:
-        -4px 0 14px rgba(44, 36, 28, 0.14),
-        0 8px 22px rgba(44, 36, 28, 0.16);
+        0 0 0 3px rgba(255, 250, 242, 0.98),
+        -6px 0 20px rgba(44, 36, 28, 0.22),
+        0 10px 28px rgba(44, 36, 28, 0.18);
       cursor: ew-resize;
       touch-action: none;
-      transition: color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+      pointer-events: auto;
+      transition: color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
     .aif-drawer-resize svg {
       display: block;
       flex-shrink: 0;
-      margin-left: -1px;
       filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.65));
     }
 
@@ -160,9 +157,9 @@ export const styles = `
       border-color: var(--aif-primary-hover);
       background: linear-gradient(180deg, #ffffff 0%, #f8edd4 100%);
       box-shadow:
-        -6px 0 18px var(--aif-accent-glow),
-        0 10px 26px rgba(44, 36, 28, 0.18);
-      transform: translate(calc(-100% + 8px), -50%) scale(1.03);
+        0 0 0 3px rgba(255, 250, 242, 1),
+        -8px 0 24px var(--aif-accent-glow),
+        0 12px 30px rgba(44, 36, 28, 0.2);
     }
 
     .aif-drawer-resize:focus-visible {
@@ -262,20 +259,6 @@ export const styles = `
     overflow-x: hidden;
     overflow-y: hidden;
     box-sizing: border-box;
-    border-radius: inherit;
-  }
-
-  @media (min-width: 769px) {
-    .aif-drawer-chrome,
-    .aif-widget-footer {
-      border-top-left-radius: var(--aif-radius);
-      border-bottom-left-radius: var(--aif-radius);
-      overflow: hidden;
-    }
-
-    .aif-content {
-      border-bottom-left-radius: var(--aif-radius);
-    }
   }
 
   /* Fill the panel: one view root per screen, no outer scroll */
@@ -465,7 +448,7 @@ export const styles = `
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
   }
 
-  .aif-container > :not(.aif-close-btn):not(.aif-drawer-chrome):not(.aif-drawer-resize) {
+  .aif-container > :not(.aif-close-btn):not(.aif-drawer-chrome) {
     position: relative;
     z-index: 1;
   }
