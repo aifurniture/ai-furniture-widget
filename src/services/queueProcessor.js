@@ -8,6 +8,7 @@ import {
 } from '../utils/widgetShopperApi.js';
 import { getWidgetAnonymousClientId } from '../utils/persistStorage.js';
 import { compressRoomImage } from '../utils/compressRoomImage.js';
+import { buildShopifyPreScrapedPayload } from '../utils/shopifyProductImages.js';
 import { debugLog } from '../debug.js';
 
 const BACKEND_JOB_STATUS = {
@@ -415,7 +416,17 @@ async function fetchAsyncJobStatusOnce(id, apiEndpoint, domainForApi, domainIdFo
     }
 }
 
-async function submitAsyncJob(id, item, apiEndpoint, domainForApi, domainIdForApi, sessionIdForApi, uploaded) {
+function appendPreScrapedData(formData, mergedConfig) {
+    const preScraped = buildShopifyPreScrapedPayload(mergedConfig);
+    if (preScraped) {
+        formData.append('preScrapedData', JSON.stringify(preScraped));
+        debugLog('Using Shopify theme product images (skip scrape)', {
+            count: preScraped.images.length,
+        });
+    }
+}
+
+async function submitAsyncJob(id, item, apiEndpoint, domainForApi, domainIdForApi, sessionIdForApi, uploaded, mergedConfig) {
     if (!uploaded?.s3Key) {
         throw new Error('imageS3Key required for async generation');
     }
@@ -436,6 +447,7 @@ async function submitAsyncJob(id, item, apiEndpoint, domainForApi, domainIdForAp
     ) {
         formData.append('furnitureWidthCm', String(item.furnitureWidthCm));
     }
+    appendPreScrapedData(formData, mergedConfig);
 
     debugLog(`POST /widget/generate for ${id.slice(0, 8)}`);
     await startWidgetGeneration(apiEndpoint, formData);
@@ -446,7 +458,7 @@ async function submitAsyncJob(id, item, apiEndpoint, domainForApi, domainIdForAp
     });
 }
 
-async function runSyncGenerate(id, item, apiEndpoint, domainForApi, domainIdForApi, sessionIdForApi, uploaded, imageToUse) {
+async function runSyncGenerate(id, item, apiEndpoint, domainForApi, domainIdForApi, sessionIdForApi, uploaded, imageToUse, mergedConfig) {
     const formData = new FormData();
     formData.append('productUrl', item.productUrl);
     formData.append('model', 'slow');
@@ -465,6 +477,7 @@ async function runSyncGenerate(id, item, apiEndpoint, domainForApi, domainIdForA
     ) {
         formData.append('furnitureWidthCm', String(item.furnitureWidthCm));
     }
+    appendPreScrapedData(formData, mergedConfig);
 
     debugLog(`POST /generate for ${id.slice(0, 8)}`);
     const response = await fetch(`${apiEndpoint}/generate`, {
@@ -758,7 +771,8 @@ async function runQueueItemWork(item) {
                 domainIdForApi,
                 sessionIdForApi,
                 uploaded,
-                imageForGenerate
+                imageForGenerate,
+                mergedConfig
             );
             applyCompletedResult(id, latest, { result }, uploaded, mergedConfig);
             return;
@@ -767,7 +781,7 @@ async function runQueueItemWork(item) {
         const beforeSubmit = getFreshQueueItem(id) || latest;
         const submitDomain = getDomainForItem(beforeSubmit, mergedConfig);
         if (!beforeSubmit.backendJobSubmitted) {
-            await submitAsyncJob(id, beforeSubmit, apiEndpoint, submitDomain, domainIdForApi, sessionIdForApi, uploaded);
+            await submitAsyncJob(id, beforeSubmit, apiEndpoint, submitDomain, domainIdForApi, sessionIdForApi, uploaded, mergedConfig);
         }
 
         const finalOutcome = await pollAsyncJobUntilComplete(

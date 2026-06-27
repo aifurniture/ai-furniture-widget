@@ -48,7 +48,25 @@
     shopifyStore: true{% if product %},
     productId: {{ product.id | json }},
     productTitle: {{ product.title | json }},
-    productUrl: {{ shop.url | append: product.url | json }}{% endif %}
+    productUrl: {{ shop.url | append: product.url | json }},
+    productImages: [
+      {%- if product.images.size > 0 -%}
+        {%- for image in product.images limit: 4 -%}
+          {{ image | image_url: width: 1600 | json }}{% unless forloop.last %},{% endunless %}
+        {%- endfor -%}
+      {%- else -%}
+        {%- assign aif_media_images = product.media | where: 'media_type', 'image' -%}
+        {%- for media in aif_media_images limit: 4 -%}
+          {{ media | image_url: width: 1600 | json }}{% unless forloop.last %},{% endunless %}
+        {%- endfor -%}
+      {%- endif -%}
+    ],
+    productData: {
+      title: {{ product.title | json }},
+      description: {{ product.description | strip_html | truncate: 800 | json }},
+      vendor: {{ product.vendor | json }},
+      type: {{ product.type | json }}
+    }{% endif %}
   };
 
   (function () {
