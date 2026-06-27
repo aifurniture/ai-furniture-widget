@@ -1,3 +1,4 @@
+import { getDefaultApiEndpoints } from '../config.js';
 import { store, actions, QUEUE_STATUS, VIEWS, flushSessionSnapshot, fileToDataURL } from '../state/store.js';
 import { trackEvent } from '../tracking.js';
 import {
@@ -141,9 +142,7 @@ function getApiEndpoint(mergedConfig) {
         (window.location.hostname === 'localhost' ||
             window.location.hostname === '127.0.0.1' ||
             window.location.hostname === '0.0.0.0');
-    return isLocalMode
-        ? 'http://localhost:3000/api'
-        : 'https://ai-furniture-backend.vercel.app/api';
+    return getDefaultApiEndpoints(isLocalMode).apiEndpoint;
 }
 
 function getDomainIdForApi(mergedConfig) {
@@ -263,14 +262,12 @@ function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
         generatedImageUrl
     });
 
-    const userEmail = (store.getState().userEmail || '').trim().toLowerCase();
-    const emailOk = !!userEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail);
-    const anonKey = emailOk ? '' : getWidgetAnonymousClientId();
+    const anonKey = getWidgetAnonymousClientId();
     const apiEndpoint = mergedConfig?.apiEndpoint || getApiEndpoint(mergedConfig);
     const { productUrl } = item;
     const { furnitureWidthCm } = item;
 
-    if (generatedImageUrl && (emailOk || anonKey) && apiEndpoint) {
+    if (generatedImageUrl && anonKey && apiEndpoint) {
         const domainForHistory = getDomainForApi(mergedConfig);
         const payload = {
             domain: domainForHistory,
@@ -278,6 +275,7 @@ function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
             productName: (item.productName || document.title || '').slice(0, 500),
             previewImageUrl: generatedImageUrl,
             originalImageUrl: originalImageUrl || null,
+            anonymousClientKey: anonKey,
             metadata: {
                 queueId: id,
                 imageS3Key: uploaded?.s3Key || item.imageS3Key || null,
@@ -297,11 +295,6 @@ function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
                     result.generatedImages?.[0]?.originalHeight
             }
         };
-        if (emailOk) {
-            payload.email = userEmail;
-        } else {
-            payload.anonymousClientKey = anonKey;
-        }
         postWidgetGeneration(apiEndpoint, payload)
             .then((saved) => {
                 const stablePreviewUrl = pickStablePreviewUrl(saved, generatedImageUrl);

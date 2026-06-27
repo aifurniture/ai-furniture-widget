@@ -2,18 +2,16 @@
  * Simple pub/sub store for widget state management
  * Uses sessionStorage for cross-page persistence within the same session
  */
-import { createConfig } from '../config.js';
-import { getPersistedString, setPersistedString, getWidgetAnonymousClientId } from '../utils/persistStorage.js';
+import { createConfig, getDefaultApiEndpoints } from '../config.js';
+import { getWidgetAnonymousClientId } from '../utils/persistStorage.js';
 import {
     fetchWidgetGenerations,
     getStorefrontDomain,
-    postWidgetShopper
 } from '../utils/widgetShopperApi.js';
 import { debugLog } from '../debug.js';
 
 const STORAGE_KEY = 'ai_furniture_widget_state';
 const MODAL_STATE_KEY = 'ai_furniture_modal_state';
-const USER_EMAIL_KEY = 'aif_widget_user_email';
 
 function ensureApiEndpoint(config) {
     const c = { ...(config || {}) };
@@ -23,9 +21,7 @@ function ensureApiEndpoint(config) {
             (window.location.hostname === 'localhost' ||
                 window.location.hostname === '127.0.0.1' ||
                 window.location.hostname === '0.0.0.0');
-        c.apiEndpoint = isLocalMode
-            ? 'http://localhost:3000/api'
-            : 'https://ai-furniture-backend.vercel.app/api';
+        c.apiEndpoint = getDefaultApiEndpoints(isLocalMode).apiEndpoint;
     }
     return c;
 }
@@ -112,7 +108,6 @@ let isPageUnloading = false;
 // Dedupe + rate-limit remote history calls (prevents 429 spam)
 let remoteGenerationsInFlight = null;
 let nextRemoteGenerationsAllowedAt = 0;
-let nextShopperRegisterAllowedAt = 0;
 
 const saveState = async () => {
     if (isPageUnloading) return;
@@ -222,25 +217,13 @@ const loadModalState = () => {
     }
 };
 
-function loadPersistedEmail() {
-    if (typeof window === 'undefined') return '';
-    try {
-        const e = (getPersistedString(USER_EMAIL_KEY) || '').trim().toLowerCase();
-        return e;
-    } catch {
-        return '';
-    }
-}
-
 async function syncShopperGenerationsFromServer() {
     if (typeof window === 'undefined') return;
-    const { config, userEmail } = store.getState();
-    const emailTrim = (userEmail || '').trim().toLowerCase();
-    const emailOk = emailTrim && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim);
+    const { config } = store.getState();
     const anonKey = getWidgetAnonymousClientId();
     const anonOk = !!anonKey && /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(anonKey);
 
-    if (!emailOk && !anonOk) {
+    if (!anonOk) {
         store.setState({ remoteGenerations: [] });
         return;
     }
@@ -256,7 +239,7 @@ async function syncShopperGenerationsFromServer() {
 
         remoteGenerationsInFlight = fetchWidgetGenerations(api.apiEndpoint, {
             domain,
-            ...(emailOk ? { email: emailTrim } : { anonymousClientKey: anonKey })
+            anonymousClientKey: anonKey
         })
             .then((data) => {
                 store.setState({ remoteGenerations: data.generations || [] });
@@ -284,7 +267,6 @@ async function syncShopperGenerationsFromServer() {
 export const createStore = (initialState) => {
     const loaded = loadState();
     const modalState = loadModalState();
-    const persistedEmail = loadPersistedEmail();
     
     // Restore queue items with image data
     let restoredQueue = [];
@@ -302,7 +284,6 @@ export const createStore = (initialState) => {
     let state = {
         ...initialState,
         ...loaded,
-        userEmail: persistedEmail || loaded?.userEmail || initialState.userEmail,
         remoteGenerations: loaded?.remoteGenerations || initialState.remoteGenerations,
         config: ensureApiEndpoint({
             ...initialState.config,
@@ -362,8 +343,7 @@ export const initialState = {
     isMobile: typeof window !== 'undefined' ? window.innerWidth <= 768 : false,
     selectedModel: 'slow', // Always use high quality model
     queueTab: 'all', // Active tab in queue view
-    userEmail: '', // optional shopper email; persisted in localStorage
-    remoteGenerations: [] // from GET /api/widget/generations
+    remoteGenerations: [] // from GET /api/widget/generations (anonymous browser key)
 };
 
 export const store = createStore(initialState);
@@ -401,35 +381,7 @@ export const actions = {
             });
         }
     },
-    /** Optional shopper email (saved on this device + synced to backend for history). Returns a Promise when email is set (sync completes) or resolves immediately when cleared. */
-    setUserEmail: (raw) => {
-        const trimmed = (raw || '').trim().toLowerCase();
-        try {
-            setPersistedString(USER_EMAIL_KEY, trimmed);
-        } catch (e) {
-            debugLog('Could not persist email', e);
-        }
-        store.setState({ userEmail: trimmed });
-        if (trimmed) {
-            const api = ensureApiEndpoint(store.getState().config || {});
-            const domain = getStorefrontDomain();
-            const now = Date.now();
-            if (now >= nextShopperRegisterAllowedAt) {
-                postWidgetShopper(api.apiEndpoint, trimmed, domain).catch((e) => {
-                    if (e && e.status === 429) {
-                        nextShopperRegisterAllowedAt = Date.now() + 60_000;
-                    } else {
-                        nextShopperRegisterAllowedAt = Date.now() + 15_000;
-                    }
-                    debugLog('shopper register failed', e?.message || e);
-                });
-            }
-            return syncShopperGenerationsFromServer();
-        }
-        store.setState({ remoteGenerations: [] });
-        return Promise.resolve();
-    },
-    /** Refresh “My previews” from the server (same email + storefront domain). */
+    /** Refresh “My previews” from the server (anonymous browser key + storefront domain). */
     syncShopperGenerations: () => syncShopperGenerationsFromServer(),
     closeModal: () => {
         store.setState({ isOpen: false });

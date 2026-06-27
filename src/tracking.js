@@ -1,5 +1,6 @@
 // src/tracking.js
 import { getConfig, getSessionId, setSessionId } from './state.js';
+import { getDefaultApiEndpoints } from './config.js';
 import { debugLog } from './debug.js';
 import { isFurnitureProductPage } from './detection.js';
 
@@ -108,9 +109,7 @@ export function trackEvent(eventType, data = {}) {
                 (window.location.hostname === 'localhost' ||
                     window.location.hostname === '127.0.0.1' ||
                     window.location.hostname === '0.0.0.0');
-            trackingEndpoint = isLocalMode
-                ? 'http://localhost:3000/api/tracking/pixel'
-                : 'https://ai-furniture-backend.vercel.app/api/tracking/pixel';
+            trackingEndpoint = getDefaultApiEndpoints(isLocalMode).trackingEndpoint;
             console.warn('⚠️ trackingEndpoint was undefined in config, using fallback:', trackingEndpoint);
         }
     }

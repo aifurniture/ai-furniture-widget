@@ -1,5 +1,5 @@
 /**
- * End-customer (shopper) email + generation history — backend /api/widget/* routes.
+ * Anonymous shopper preview history — backend /api/widget/* routes.
  */
 
 export function getStorefrontDomain() {
@@ -11,29 +11,9 @@ function apiBase(apiEndpoint) {
     return (apiEndpoint || '').replace(/\/$/, '');
 }
 
-export async function postWidgetShopper(apiEndpoint, email, domain) {
-    const res = await fetch(`${apiBase(apiEndpoint)}/widget/shopper`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json'
-        },
-        body: JSON.stringify({ email, domain }),
-        credentials: 'omit'
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-        const err = new Error(data.error || `HTTP ${res.status}`);
-        err.status = res.status;
-        throw err;
-    }
-    return data;
-}
-
-export async function fetchWidgetGenerations(apiEndpoint, { domain, email, anonymousClientKey }) {
+export async function fetchWidgetGenerations(apiEndpoint, { domain, anonymousClientKey }) {
     const q = new URLSearchParams();
     if (domain) q.set('domain', domain);
-    if (email) q.set('email', email);
     if (anonymousClientKey) q.set('anonymousClientKey', anonymousClientKey);
     const res = await fetch(`${apiBase(apiEndpoint)}/widget/generations?${q}`, {
         method: 'GET',
