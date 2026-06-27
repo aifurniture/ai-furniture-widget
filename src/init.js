@@ -1,6 +1,6 @@
 // src/init.js
 import { actions, store, QUEUE_STATUS, flushSessionSnapshot } from './state/store.js';
-import { verifyDomain, verifyDomainWithServer } from './domainVerification.js';
+import { verifyDomain } from './domainVerification.js';
 import { debugLog } from './debug.js';
 import { initSession, trackEvent, onOrderAddedToDatabase, resetWidget, disconnectAllTracking, setRecreateWidgetButton } from './tracking.js';
 import { createWidgetButton, removeWidgetButton, removeWidgetModal, showWidgetModalShell } from './ui/widgetButton.js';
@@ -164,36 +164,8 @@ export async function initializeWidget(isInitialLoad = false) {
 
     debugLog('Initializing AI Furniture widget', { isInitialLoad });
 
-    // Check if domain was already verified (persist across script reloads)
-    // Normalize domain (remove www) so both www and non-www versions share verification state
-    const currentHostname = window.location.hostname;
-    const normalizedDomain = currentHostname.replace(/^www\./, '');
-    const domainVerifiedKey = 'aif_domain_verified_' + normalizedDomain;
-    let domainVerified = sessionStorage.getItem(domainVerifiedKey) === 'true';
-    
-    if (!domainVerified) {
-        if (!verifyDomain()) return;
+    verifyDomain();
 
-        const serverVerification = await verifyDomainWithServer();
-        if (!serverVerification) {
-            debugLog(
-                'Domain not authorized in backend database; widget will not initialize',
-                currentHostname
-            );
-            return;
-        }
-        
-        // Mark domain as verified (only if backend confirmed it's in database)
-        try {
-            sessionStorage.setItem(domainVerifiedKey, 'true');
-            domainVerified = true;
-        } catch (e) {
-            debugLog('Failed to save domain verification state', e);
-        }
-    } else {
-        debugLog('Domain already verified with backend database, skipping verification');
-    }
-    
     try {
         actions.syncThemeConfig();
     } catch (e) {

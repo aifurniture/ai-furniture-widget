@@ -86,10 +86,11 @@ export async function startWidgetGeneration(apiEndpoint, formData) {
 }
 
 /** Poll async generation status by widget queueId. */
-export async function fetchWidgetGenerationStatus(apiEndpoint, { queueId, domain }) {
+export async function fetchWidgetGenerationStatus(apiEndpoint, { queueId, domain, domainId }) {
     const q = new URLSearchParams();
     if (queueId) q.set('queueId', queueId);
     if (domain) q.set('domain', domain);
+    if (domainId) q.set('domainId', domainId);
     const res = await fetch(`${apiBase(apiEndpoint)}/widget/generate?${q}`, {
         method: 'GET',
         headers: { Accept: 'application/json' },

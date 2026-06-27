@@ -1,6 +1,6 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "3cc55081477354b163dca59758a5677b"
+client_id = "e0b1426335c5609d3cd44f143a029a7c"
 name = "furniture-ai"
 application_url = "https://aifurniture.app/shopify"
 embedded = true

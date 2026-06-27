@@ -2,7 +2,7 @@
 
 client_id = "e0b1426335c5609d3cd44f143a029a7c"
 name = "furniture-ai"
-application_url = "https://shopify.dev/apps/default-app-home"
+application_url = "https://aifurniture.app/shopify"
 embedded = true
 
 [build]
@@ -12,8 +12,7 @@ automatically_update_urls_on_dev = true
 api_version = "2026-07"
 
 [access_scopes]
-# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_products,read_themes"
 
 [auth]
-redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+redirect_urls = [ "https://aifurniture.app/auth/callback" ]

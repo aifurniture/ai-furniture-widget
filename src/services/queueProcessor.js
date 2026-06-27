@@ -145,11 +145,17 @@ function getApiEndpoint(mergedConfig) {
         : 'https://ai-furniture-backend.vercel.app/api';
 }
 
-async function uploadImageViaBackend({ apiEndpoint, domain, sessionId, fileOrBlob }) {
+function getDomainIdForApi(mergedConfig) {
+    const id = mergedConfig?.domainId;
+    return id ? String(id).trim() : '';
+}
+
+async function uploadImageViaBackend({ apiEndpoint, domain, domainId, sessionId, fileOrBlob }) {
     const compressed = await compressRoomImage(fileOrBlob);
     const formData = new FormData();
     formData.append('image', compressed, compressed.name || 'room.jpg');
     formData.append('domain', domain);
+    if (domainId) formData.append('domainId', domainId);
     if (sessionId) formData.append('sessionId', sessionId);
 
     const r = await fetch(`${apiEndpoint}/upload`, {
@@ -358,7 +364,7 @@ function handleAsyncJobStatus(id, item, statusPayload, uploaded, mergedConfig) {
     return 'unknown';
 }
 
-async function pollAsyncJobUntilComplete(id, item, apiEndpoint, domainForApi, uploaded, mergedConfig) {
+async function pollAsyncJobUntilComplete(id, item, apiEndpoint, domainForApi, domainIdForApi, uploaded, mergedConfig) {
     if (pollingItems.has(id)) return 'polling';
     pollingItems.add(id);
 
@@ -371,7 +377,8 @@ async function pollAsyncJobUntilComplete(id, item, apiEndpoint, domainForApi, up
             try {
                 statusPayload = await fetchWidgetGenerationStatus(apiEndpoint, {
                     queueId: id,
-                    domain: domainForApi
+                    domain: domainForApi,
+                    domainId: domainIdForApi
                 });
             } catch (e) {
                 if (e?.status === 404) return 'missing';
@@ -394,11 +401,12 @@ async function pollAsyncJobUntilComplete(id, item, apiEndpoint, domainForApi, up
     }
 }
 
-async function fetchAsyncJobStatusOnce(id, apiEndpoint, domainForApi) {
+async function fetchAsyncJobStatusOnce(id, apiEndpoint, domainForApi, domainIdForApi) {
     try {
         return await fetchWidgetGenerationStatus(apiEndpoint, {
             queueId: id,
-            domain: domainForApi
+            domain: domainForApi,
+            domainId: domainIdForApi
         });
     } catch (e) {
         if (e?.status === 404) return null;
@@ -407,7 +415,7 @@ async function fetchAsyncJobStatusOnce(id, apiEndpoint, domainForApi) {
     }
 }
 
-async function submitAsyncJob(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded) {
+async function submitAsyncJob(id, item, apiEndpoint, domainForApi, domainIdForApi, sessionIdForApi, uploaded) {
     if (!uploaded?.s3Key) {
         throw new Error('imageS3Key required for async generation');
     }
@@ -418,6 +426,7 @@ async function submitAsyncJob(id, item, apiEndpoint, domainForApi, sessionIdForA
     formData.append('productName', (item.productName || document.title || '').slice(0, 500));
     formData.append('model', 'slow');
     formData.append('domain', domainForApi);
+    if (domainIdForApi) formData.append('domainId', domainIdForApi);
     formData.append('imageS3Key', uploaded.s3Key);
     if (sessionIdForApi) formData.append('sessionId', sessionIdForApi);
     if (
@@ -437,11 +446,12 @@ async function submitAsyncJob(id, item, apiEndpoint, domainForApi, sessionIdForA
     });
 }
 
-async function runSyncGenerate(id, item, apiEndpoint, domainForApi, sessionIdForApi, uploaded, imageToUse) {
+async function runSyncGenerate(id, item, apiEndpoint, domainForApi, domainIdForApi, sessionIdForApi, uploaded, imageToUse) {
     const formData = new FormData();
     formData.append('productUrl', item.productUrl);
     formData.append('model', 'slow');
     formData.append('domain', domainForApi);
+    if (domainIdForApi) formData.append('domainId', domainIdForApi);
     if (sessionIdForApi) formData.append('sessionId', sessionIdForApi);
     if (uploaded?.s3Key) {
         formData.append('imageS3Key', uploaded.s3Key);
@@ -636,6 +646,7 @@ async function runQueueItemWork(item) {
 
     const apiEndpoint = getApiEndpoint(mergedConfig);
     const domainForApi = getDomainForItem(item, mergedConfig);
+    const domainIdForApi = getDomainIdForApi(mergedConfig);
     const sessionIdForApi = getSessionIdForApi(mergedConfig);
 
     try {
@@ -653,6 +664,7 @@ async function runQueueItemWork(item) {
                 uploaded = await uploadImageViaBackend({
                     apiEndpoint,
                     domain: domainForApi,
+                    domainId: domainIdForApi,
                     sessionId: sessionIdForApi,
                     fileOrBlob: imageToUse
                 });
@@ -681,6 +693,7 @@ async function runQueueItemWork(item) {
                 latest,
                 apiEndpoint,
                 pollDomain,
+                domainIdForApi,
                 uploaded,
                 mergedConfig
             );
@@ -697,7 +710,7 @@ async function runQueueItemWork(item) {
             }
         } else if (uploaded?.s3Key || latest.imageS3Key) {
             // Another tab/page may have submitted while we were uploading — check once before creating a job.
-            const existingStatus = await fetchAsyncJobStatusOnce(id, apiEndpoint, pollDomain);
+            const existingStatus = await fetchAsyncJobStatusOnce(id, apiEndpoint, pollDomain, domainIdForApi);
             if (existingStatus) {
                 const existingOutcome = handleAsyncJobStatus(
                     id,
@@ -718,6 +731,7 @@ async function runQueueItemWork(item) {
                         getFreshQueueItem(id) || latest,
                         apiEndpoint,
                         pollDomain,
+                        domainIdForApi,
                         uploaded,
                         mergedConfig
                     );
@@ -741,6 +755,7 @@ async function runQueueItemWork(item) {
                 latest,
                 apiEndpoint,
                 domainForApi,
+                domainIdForApi,
                 sessionIdForApi,
                 uploaded,
                 imageForGenerate
@@ -752,7 +767,7 @@ async function runQueueItemWork(item) {
         const beforeSubmit = getFreshQueueItem(id) || latest;
         const submitDomain = getDomainForItem(beforeSubmit, mergedConfig);
         if (!beforeSubmit.backendJobSubmitted) {
-            await submitAsyncJob(id, beforeSubmit, apiEndpoint, submitDomain, sessionIdForApi, uploaded);
+            await submitAsyncJob(id, beforeSubmit, apiEndpoint, submitDomain, domainIdForApi, sessionIdForApi, uploaded);
         }
 
         const finalOutcome = await pollAsyncJobUntilComplete(
@@ -760,6 +775,7 @@ async function runQueueItemWork(item) {
             getFreshQueueItem(id) || beforeSubmit,
             apiEndpoint,
             submitDomain,
+            domainIdForApi,
             uploaded,
             mergedConfig
         );
