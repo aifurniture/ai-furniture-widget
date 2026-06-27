@@ -455,6 +455,15 @@ export const actions = {
                 productTitle:
                     (window.FURNITURE_AI_CONFIG && window.FURNITURE_AI_CONFIG.productTitle) ||
                     document.title,
+                productImages:
+                    (window.FURNITURE_AI_CONFIG && window.FURNITURE_AI_CONFIG.productImages) ||
+                    cur.productImages,
+                productData:
+                    (window.FURNITURE_AI_CONFIG && window.FURNITURE_AI_CONFIG.productData) ||
+                    cur.productData,
+                shopifyStore:
+                    (window.FURNITURE_AI_CONFIG && window.FURNITURE_AI_CONFIG.shopifyStore) ||
+                    cur.shopifyStore,
             }),
         });
     },

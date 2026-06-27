@@ -71,7 +71,7 @@
 
   (function () {
     var script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js';
+    script.src = {{ 'widget.js' | asset_url | json }};
     script.async = true;
     script.onload = function () {
       if (window.AIFurnitureWidget && window.AIFurnitureWidget.initAIFurnitureWidget) {

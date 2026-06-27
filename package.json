@@ -7,7 +7,7 @@
   "module": "src/index.js",
   "license": "MIT",
   "scripts": {
-    "build": "rollup -c",
+    "build": "rollup -c && node scripts/copy-theme-asset.mjs",
     "watch": "rollup -c -w",
     "dev": "rollup -c -w",
     "purge:cdn": "node scripts/purge-jsdelivr.mjs"
