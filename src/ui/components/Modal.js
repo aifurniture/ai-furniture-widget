@@ -13,7 +13,7 @@ const DRAWER_MIN_WIDTH = 320;
 const DRAWER_MAX_WIDTH = 720;
 const DRAWER_DESKTOP_MQ = '(min-width: 769px)';
 const DRAWER_RESIZE_ICON =
-    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="14 8 10 12 14 16"/><polyline points="10 8 6 12 10 16"/></svg>';
+    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 7 11 12 15 17"/><polyline points="9 7 5 12 9 17"/></svg>';
 
 function clampDrawerWidth(px) {
     return Math.min(DRAWER_MAX_WIDTH, Math.max(DRAWER_MIN_WIDTH, Math.round(px)));
