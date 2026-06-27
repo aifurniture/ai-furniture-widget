@@ -8,6 +8,119 @@ import { QueueView } from './QueueView.js';
 import { WidgetFooter } from './WidgetFooter.js';
 import { syncMobileLayoutVars } from '../safeArea.js';
 
+const DRAWER_WIDTH_STORAGE_KEY = 'aif_drawer_width_px';
+const DRAWER_MIN_WIDTH = 320;
+const DRAWER_MAX_WIDTH = 720;
+const DRAWER_DESKTOP_MQ = '(min-width: 769px)';
+const DRAWER_RESIZE_ICON =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="14 8 10 12 14 16"/><polyline points="10 8 6 12 10 16"/></svg>';
+
+function clampDrawerWidth(px) {
+    return Math.min(DRAWER_MAX_WIDTH, Math.max(DRAWER_MIN_WIDTH, Math.round(px)));
+}
+
+function readSavedDrawerWidth() {
+    try {
+        const raw = localStorage.getItem(DRAWER_WIDTH_STORAGE_KEY);
+        if (!raw) return null;
+        const n = parseInt(raw, 10);
+        return Number.isFinite(n) ? clampDrawerWidth(n) : null;
+    } catch {
+        return null;
+    }
+}
+
+function saveDrawerWidth(px) {
+    try {
+        localStorage.setItem(DRAWER_WIDTH_STORAGE_KEY, String(clampDrawerWidth(px)));
+    } catch {
+        /* ignore */
+    }
+}
+
+function getDrawerWidth(container) {
+    const rect = container.getBoundingClientRect();
+    return rect.width || clampDrawerWidth(420);
+}
+
+function initDrawerResize(container) {
+    if (typeof window === 'undefined' || !container) return;
+
+    const mq = window.matchMedia(DRAWER_DESKTOP_MQ);
+    const saved = readSavedDrawerWidth();
+    if (saved) {
+        container.style.setProperty('--aif-drawer-width', `${saved}px`);
+    }
+
+    const handle = document.createElement('button');
+    handle.type = 'button';
+    handle.className = 'aif-drawer-resize';
+    handle.setAttribute('aria-label', 'Drag to resize panel');
+    handle.title = 'Drag to resize';
+    handle.innerHTML = DRAWER_RESIZE_ICON;
+
+    let dragging = false;
+    let startX = 0;
+    let startW = 0;
+
+    const onPointerMove = (e) => {
+        if (!dragging) return;
+        const clientX = e.clientX ?? e.touches?.[0]?.clientX;
+        if (clientX == null) return;
+        const delta = startX - clientX;
+        const next = clampDrawerWidth(startW + delta);
+        container.style.setProperty('--aif-drawer-width', `${next}px`);
+    };
+
+    const endDrag = () => {
+        if (!dragging) return;
+        dragging = false;
+        handle.classList.remove('aif-drawer-resize--active');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        saveDrawerWidth(getDrawerWidth(container));
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', endDrag);
+        window.removeEventListener('pointercancel', endDrag);
+    };
+
+    handle.addEventListener('pointerdown', (e) => {
+        if (!mq.matches) return;
+        e.preventDefault();
+        dragging = true;
+        startX = e.clientX;
+        startW = getDrawerWidth(container);
+        handle.classList.add('aif-drawer-resize--active');
+        document.body.style.cursor = 'ew-resize';
+        document.body.style.userSelect = 'none';
+        handle.setPointerCapture(e.pointerId);
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', endDrag);
+        window.addEventListener('pointercancel', endDrag);
+    });
+
+    handle.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        if (!mq.matches) return;
+        container.style.removeProperty('--aif-drawer-width');
+        try {
+            localStorage.removeItem(DRAWER_WIDTH_STORAGE_KEY);
+        } catch {
+            /* ignore */
+        }
+    });
+
+    const syncHandleVisibility = () => {
+        handle.hidden = !mq.matches;
+        handle.style.display = mq.matches ? '' : 'none';
+    };
+
+    syncHandleVisibility();
+    mq.addEventListener('change', syncHandleVisibility);
+
+    container.appendChild(handle);
+}
+
 const FOCUSABLE_SELECTOR = [
     'a[href]',
     'button:not([disabled])',
@@ -62,6 +175,8 @@ export const Modal = () => {
 
     modalOverlay.appendChild(scrim);
     modalOverlay.appendChild(container);
+
+    initDrawerResize(container);
 
     // Click anywhere outside the drawer to close (desktop + mobile).
     // Optional desktop scrim uses a flat tint only — no backdrop-filter (avoids blurring the store).
