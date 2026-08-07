@@ -1236,6 +1236,26 @@ export const styles = `
     animation: aif-results-in 0.5s ease 0.12s forwards;
   }
 
+  .aif-results-training {
+    flex-shrink: 0;
+    width: 100%;
+    margin-bottom: 10px;
+    animation: aif-results-in 0.5s ease 0.1s forwards;
+  }
+
+  .aif-results-training__info {
+    margin: 0 0 10px;
+    font-size: 12px;
+    color: var(--aif-text-muted, #64748b);
+  }
+
+  .aif-results-training__done {
+    margin: 0;
+    font-size: 13px;
+    color: #b45309;
+    font-weight: 600;
+  }
+
   .aif-results-footer {
     flex-shrink: 0;
     width: 100%;

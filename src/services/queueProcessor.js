@@ -10,6 +10,7 @@ import {
 import { getWidgetAnonymousClientId } from '../utils/persistStorage.js';
 import { compressRoomImage } from '../utils/compressRoomImage.js';
 import { buildShopifyPreScrapedPayload } from '../utils/shopifyProductImages.js';
+import { scheduleTrainingPairExport } from '../utils/trainingExport.js';
 import { debugLog } from '../debug.js';
 
 const BACKEND_JOB_STATUS = {
@@ -316,6 +317,7 @@ function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
             {
                 url: generatedImageUrl,
                 originalImageUrl: originalImageUrl || '',
+                queueId: id,
                 originalAspectRatio:
                     result.originalImageDimensions?.aspectRatio ||
                     result.generatedImages?.[0]?.originalAspectRatio,
@@ -326,6 +328,7 @@ function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
                     result.originalImageDimensions?.height ||
                     result.generatedImages?.[0]?.originalHeight,
                 imageS3Key: uploaded?.s3Key || item.imageS3Key || null,
+                generatedS3Key: result.generatedImages?.[0]?.s3Key || null,
                 furnitureWidthCm:
                     typeof item.furnitureWidthCm === 'number' &&
                     Number.isFinite(item.furnitureWidthCm) &&
@@ -335,6 +338,18 @@ function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
             }
         ]);
         actions.setView(VIEWS.RESULTS);
+
+        scheduleTrainingPairExport({
+            queueId: id,
+            item,
+            result,
+            uploaded,
+            mergedConfig,
+            apiEndpoint,
+            domain: getDomainForApi(mergedConfig),
+            originalImageUrl,
+            generatedImageUrl,
+        });
     }
 }
 

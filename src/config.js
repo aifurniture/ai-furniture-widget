@@ -44,8 +44,13 @@ export function createConfig(userConfig = {}) {
         Object.assign(config, getDefaultApiEndpoints(false));
     }
 
+    const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+    const trainingReview =
+        userConfig.trainingReview === true || urlParams?.get('aif_training') === '1';
+
     return {
         ...config,
-        ...userConfig
+        ...userConfig,
+        trainingReview,
     };
 }

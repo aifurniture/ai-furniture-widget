@@ -1,7 +1,7 @@
 /**
  * Results View Component
  */
-import { actions, VIEWS, QUEUE_STATUS } from '../../state/store.js';
+import { actions, store, VIEWS, QUEUE_STATUS } from '../../state/store.js';
 import { Slider } from './Slider.js';
 import { Button } from './Button.js';
 import {
@@ -10,6 +10,8 @@ import {
     getFilenameFromUrl,
     shareBeforeAfter,
 } from '../../utils/downloadImage.js';
+import { rejectTrainingItem } from '../../utils/trainingDataApi.js';
+import { isTrainingReviewEnabled } from '../../utils/trainingExport.js';
 
 function previewBlock(el) {
     const wrap = document.createElement('div');
@@ -159,6 +161,110 @@ function resolveBeforeUrl(imgData, afterUrl, state, uploadedBlobUrl) {
     return '';
 }
 
+function findTrainingMeta(state, imgData, afterUrl) {
+    if (imgData?.trainingItemNumber) {
+        return {
+            itemNumber: imgData.trainingItemNumber,
+            folderName: imgData.trainingFolderName,
+            rejected: !!imgData.trainingRejected,
+            queueId: imgData.queueId,
+        };
+    }
+
+    const after = typeof afterUrl === 'string' ? afterUrl : imgData?.url || '';
+    const matched = (state.queue || []).find((item) => {
+        const generated = item.result?.generatedImageUrl;
+        return generated && after && (generated === after || generated === imgData?.url);
+    });
+
+    if (matched?.result?.trainingItemNumber) {
+        return {
+            itemNumber: matched.result.trainingItemNumber,
+            folderName: matched.result.trainingFolderName,
+            rejected: !!matched.result.trainingRejected,
+            queueId: matched.id,
+        };
+    }
+
+    return null;
+}
+
+function createTrainingReviewSection(apiEndpoint, trainingMeta, state) {
+    const section = document.createElement('div');
+    section.className = 'aif-results-training';
+
+    const label = document.createElement('p');
+    label.className = 'aif-results-panel__label';
+    label.textContent = 'Training review';
+    section.appendChild(label);
+
+    const info = document.createElement('p');
+    info.className = 'aif-results-training__info';
+    info.textContent = trainingMeta.folderName
+        ? `${trainingMeta.folderName} · saved to raw_data`
+        : `item #${trainingMeta.itemNumber} · saved to raw_data`;
+    section.appendChild(info);
+
+    if (trainingMeta.rejected) {
+        const done = document.createElement('p');
+        done.className = 'aif-results-training__done';
+        done.textContent = 'Marked as reject — moved to rejects/';
+        section.appendChild(done);
+        return section;
+    }
+
+    const rejectBtn = makeActionButton({
+        label: 'Reject pair',
+        className: 'aif-result-actions__btn aif-result-actions__btn--secondary aif-result-actions__btn--full',
+        onClick: async () => {
+            rejectBtn.disabled = true;
+            setButtonLabel(rejectBtn, 'Rejecting…');
+            try {
+                await rejectTrainingItem(apiEndpoint, {
+                    itemNumber: trainingMeta.itemNumber,
+                    folderName: trainingMeta.folderName,
+                });
+
+                if (trainingMeta.queueId) {
+                    const current = store.getState().queue.find((q) => q.id === trainingMeta.queueId);
+                    actions.updateQueueItem(trainingMeta.queueId, {
+                        result: {
+                            ...(current?.result || {}),
+                            trainingRejected: true,
+                        },
+                    });
+                }
+
+                const { generatedImages } = store.getState();
+                if (generatedImages?.length) {
+                    actions.setGenerationResults(
+                        generatedImages.map((img) => ({
+                            ...img,
+                            trainingRejected: true,
+                        }))
+                    );
+                }
+
+                info.textContent = trainingMeta.folderName
+                    ? `${trainingMeta.folderName} · moved to rejects/`
+                    : `item #${trainingMeta.itemNumber} · moved to rejects/`;
+                rejectBtn.remove();
+                const done = document.createElement('p');
+                done.className = 'aif-results-training__done';
+                done.textContent = 'Marked as reject — moved to rejects/';
+                section.appendChild(done);
+            } catch (err) {
+                alert(err?.message || 'Could not reject training pair');
+                rejectBtn.disabled = false;
+                setButtonLabel(rejectBtn, 'Reject pair');
+            }
+        },
+    });
+    section.appendChild(rejectBtn);
+
+    return section;
+}
+
 function createSaveSection(beforeUrl, afterUrl, dlOpts, state) {
     const section = document.createElement('div');
     section.className = 'aif-results-save';
@@ -231,6 +337,7 @@ export const ResultsView = (state) => {
         'https://ai-furniture-backend.vercel.app/api';
 
     const dlOpts = { apiEndpoint };
+    const showTrainingReview = isTrainingReviewEnabled(state.config);
 
     const buildPairs = () => {
         const pairs = [];
@@ -252,6 +359,7 @@ export const ResultsView = (state) => {
     grid.className = 'aif-results-grid';
 
     let saveSection = null;
+    let trainingSection = null;
 
     pairs.forEach(({ beforeUrl, afterUrl, index: i }) => {
         const imgData = state.generatedImages[i];
@@ -283,10 +391,20 @@ export const ResultsView = (state) => {
                 grid.appendChild(previewBlock(img));
             }
             saveSection = createSaveSection(beforeUrl, generatedUrl, dlOpts, state);
+            if (showTrainingReview) {
+                const trainingMeta = findTrainingMeta(state, imgData, generatedUrl);
+                if (trainingMeta?.itemNumber) {
+                    trainingSection = createTrainingReviewSection(apiEndpoint, trainingMeta, state);
+                }
+            }
         }
     });
 
     container.appendChild(grid);
+
+    if (trainingSection) {
+        container.appendChild(trainingSection);
+    }
 
     if (saveSection) {
         container.appendChild(saveSection);
