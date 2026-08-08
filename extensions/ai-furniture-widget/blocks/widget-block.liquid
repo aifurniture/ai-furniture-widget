@@ -63,9 +63,23 @@
     ],
     productData: {
       title: {{ product.title | json }},
-      description: {{ product.description | strip_html | truncate: 800 | json }},
+      {%- comment -%} Keep enough description for "Product Size: …" specs (often past 800 chars) {%- endcomment -%}
+      description: {{ product.description | strip_html | truncate: 4000 | json }},
       vendor: {{ product.vendor | json }},
       type: {{ product.type | json }}
+      {%- assign aif_dim = product.metafields.custom.dimensions.value
+        | default: product.metafields.custom.product_dimensions.value
+        | default: product.metafields.custom.size.value
+        | default: product.metafields.descriptors.subtitle.value -%}
+      {%- if aif_dim != blank -%}
+      ,dimensions: {{ aif_dim | strip_html | json }}
+      {%- endif -%}
+      {%- assign aif_w = product.metafields.custom.width.value | default: product.metafields.custom.product_width.value -%}
+      {%- assign aif_d = product.metafields.custom.depth.value | default: product.metafields.custom.product_depth.value -%}
+      {%- assign aif_h = product.metafields.custom.height.value | default: product.metafields.custom.product_height.value -%}
+      {%- if aif_dim == blank and aif_w != blank and aif_d != blank and aif_h != blank -%}
+      ,dimensions: {{ aif_w | append: ' x ' | append: aif_d | append: ' x ' | append: aif_h | json }}
+      {%- endif -%}
     }{% endif %}
   };
 
