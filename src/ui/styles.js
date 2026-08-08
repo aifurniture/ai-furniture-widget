@@ -1256,6 +1256,16 @@ export const styles = `
     font-weight: 600;
   }
 
+  .aif-results-training__actions {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .aif-results-training__actions .aif-result-actions__btn {
+    flex: 1;
+  }
+
   .aif-results-footer {
     flex-shrink: 0;
     width: 100%;

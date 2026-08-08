@@ -10,7 +10,7 @@ import {
 import { getWidgetAnonymousClientId } from '../utils/persistStorage.js';
 import { compressRoomImage } from '../utils/compressRoomImage.js';
 import { buildShopifyPreScrapedPayload } from '../utils/shopifyProductImages.js';
-import { scheduleTrainingPairExport } from '../utils/trainingExport.js';
+import { scheduleTrainingPairExport, isTrainingReviewEnabled } from '../utils/trainingExport.js';
 import { debugLog } from '../debug.js';
 
 const BACKEND_JOB_STATUS = {
@@ -339,17 +339,20 @@ function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
         ]);
         actions.setView(VIEWS.RESULTS);
 
-        scheduleTrainingPairExport({
-            queueId: id,
-            item,
-            result,
-            uploaded,
-            mergedConfig,
-            apiEndpoint,
-            domain: getDomainForApi(mergedConfig),
-            originalImageUrl,
-            generatedImageUrl,
-        });
+        // Only collect training pairs when review mode is on (?aif_training=1 or config.trainingReview)
+        if (isTrainingReviewEnabled(mergedConfig)) {
+            scheduleTrainingPairExport({
+                queueId: id,
+                item,
+                result,
+                uploaded,
+                mergedConfig,
+                apiEndpoint,
+                domain: getDomainForApi(mergedConfig),
+                originalImageUrl,
+                generatedImageUrl,
+            });
+        }
     }
 }
 

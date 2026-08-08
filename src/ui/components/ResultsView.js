@@ -167,6 +167,7 @@ function findTrainingMeta(state, imgData, afterUrl) {
             itemNumber: imgData.trainingItemNumber,
             folderName: imgData.trainingFolderName,
             rejected: !!imgData.trainingRejected,
+            approved: !!imgData.trainingApproved,
             queueId: imgData.queueId,
         };
     }
@@ -174,7 +175,10 @@ function findTrainingMeta(state, imgData, afterUrl) {
     const after = typeof afterUrl === 'string' ? afterUrl : imgData?.url || '';
     const matched = (state.queue || []).find((item) => {
         const generated = item.result?.generatedImageUrl;
-        return generated && after && (generated === after || generated === imgData?.url);
+        return (
+            (generated && after && (generated === after || generated === imgData?.url)) ||
+            item.id === imgData?.queueId
+        );
     });
 
     if (matched?.result?.trainingItemNumber) {
@@ -182,11 +186,24 @@ function findTrainingMeta(state, imgData, afterUrl) {
             itemNumber: matched.result.trainingItemNumber,
             folderName: matched.result.trainingFolderName,
             rejected: !!matched.result.trainingRejected,
+            approved: !!matched.result.trainingApproved,
             queueId: matched.id,
         };
     }
 
-    return null;
+    // Training mode: show pending UI while export finishes
+    if (matched || imgData?.queueId) {
+        return {
+            itemNumber: null,
+            folderName: null,
+            rejected: false,
+            approved: false,
+            queueId: matched?.id || imgData?.queueId || null,
+            pending: true,
+        };
+    }
+
+    return { itemNumber: null, folderName: null, rejected: false, approved: false, pending: true };
 }
 
 function createTrainingReviewSection(apiEndpoint, trainingMeta, state) {
@@ -195,11 +212,18 @@ function createTrainingReviewSection(apiEndpoint, trainingMeta, state) {
 
     const label = document.createElement('p');
     label.className = 'aif-results-panel__label';
-    label.textContent = 'Training review';
+    label.textContent = 'Was this preview good?';
     section.appendChild(label);
 
     const info = document.createElement('p');
     info.className = 'aif-results-training__info';
+
+    if (!trainingMeta?.itemNumber) {
+        info.textContent = 'Saving pair for review…';
+        section.appendChild(info);
+        return section;
+    }
+
     info.textContent = trainingMeta.folderName
         ? `${trainingMeta.folderName} · saved to raw_data`
         : `item #${trainingMeta.itemNumber} · saved to raw_data`;
@@ -213,11 +237,55 @@ function createTrainingReviewSection(apiEndpoint, trainingMeta, state) {
         return section;
     }
 
+    if (trainingMeta.approved) {
+        const done = document.createElement('p');
+        done.className = 'aif-results-training__done';
+        done.style.color = '#047857';
+        done.textContent = 'Marked as good — kept in raw_data';
+        section.appendChild(done);
+        return section;
+    }
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'aif-results-training__actions';
+
+    const goodBtn = makeActionButton({
+        label: 'Looks good',
+        className: 'aif-result-actions__btn aif-result-actions__btn--primary',
+        onClick: () => {
+            if (trainingMeta.queueId) {
+                const current = store.getState().queue.find((q) => q.id === trainingMeta.queueId);
+                actions.updateQueueItem(trainingMeta.queueId, {
+                    result: {
+                        ...(current?.result || {}),
+                        trainingApproved: true,
+                    },
+                });
+            }
+            const { generatedImages } = store.getState();
+            if (generatedImages?.length) {
+                actions.setGenerationResults(
+                    generatedImages.map((img) => ({
+                        ...img,
+                        trainingApproved: true,
+                    }))
+                );
+            }
+            btnRow.remove();
+            const done = document.createElement('p');
+            done.className = 'aif-results-training__done';
+            done.style.color = '#047857';
+            done.textContent = 'Marked as good — kept in raw_data';
+            section.appendChild(done);
+        },
+    });
+
     const rejectBtn = makeActionButton({
-        label: 'Reject pair',
-        className: 'aif-result-actions__btn aif-result-actions__btn--secondary aif-result-actions__btn--full',
+        label: 'Reject',
+        className: 'aif-result-actions__btn aif-result-actions__btn--secondary',
         onClick: async () => {
             rejectBtn.disabled = true;
+            goodBtn.disabled = true;
             setButtonLabel(rejectBtn, 'Rejecting…');
             try {
                 await rejectTrainingItem(apiEndpoint, {
@@ -248,7 +316,7 @@ function createTrainingReviewSection(apiEndpoint, trainingMeta, state) {
                 info.textContent = trainingMeta.folderName
                     ? `${trainingMeta.folderName} · moved to rejects/`
                     : `item #${trainingMeta.itemNumber} · moved to rejects/`;
-                rejectBtn.remove();
+                btnRow.remove();
                 const done = document.createElement('p');
                 done.className = 'aif-results-training__done';
                 done.textContent = 'Marked as reject — moved to rejects/';
@@ -256,11 +324,15 @@ function createTrainingReviewSection(apiEndpoint, trainingMeta, state) {
             } catch (err) {
                 alert(err?.message || 'Could not reject training pair');
                 rejectBtn.disabled = false;
-                setButtonLabel(rejectBtn, 'Reject pair');
+                goodBtn.disabled = false;
+                setButtonLabel(rejectBtn, 'Reject');
             }
         },
     });
-    section.appendChild(rejectBtn);
+
+    btnRow.appendChild(goodBtn);
+    btnRow.appendChild(rejectBtn);
+    section.appendChild(btnRow);
 
     return section;
 }
@@ -393,9 +465,7 @@ export const ResultsView = (state) => {
             saveSection = createSaveSection(beforeUrl, generatedUrl, dlOpts, state);
             if (showTrainingReview) {
                 const trainingMeta = findTrainingMeta(state, imgData, generatedUrl);
-                if (trainingMeta?.itemNumber) {
-                    trainingSection = createTrainingReviewSection(apiEndpoint, trainingMeta, state);
-                }
+                trainingSection = createTrainingReviewSection(apiEndpoint, trainingMeta, state);
             }
         }
     });
