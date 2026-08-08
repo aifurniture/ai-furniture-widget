@@ -105,9 +105,14 @@ export const UploadView = (state) => {
         title.textContent = 'Add a room photo';
         dropzoneContainer.appendChild(title);
 
+        const isMobile =
+            /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+
         const note = document.createElement('p');
         note.className = 'aif-dropzone-note';
-        note.textContent = 'Natural light and a straight-on angle work best.';
+        note.textContent = isMobile
+            ? 'Tip: a fresh camera photo usually beats an old gallery shot (lighting + sharpness).'
+            : 'Natural light and a straight-on angle work best.';
         dropzoneContainer.appendChild(note);
 
         const fileInput = document.createElement('input');
@@ -142,9 +147,6 @@ export const UploadView = (state) => {
                 }
             }
         };
-
-        const isMobile =
-            /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
 
         const buttonContainer = document.createElement('div');
         buttonContainer.className = 'aif-upload-actions';
