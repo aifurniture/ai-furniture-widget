@@ -163,10 +163,8 @@ const ANALYZE_STEPS = [
     {
         atMs: 8000,
         label: 'Calibrating product size',
-        detail: (item) =>
-            typeof item.furnitureWidthCm === 'number' && item.furnitureWidthCm > 0
-                ? `Using your ${item.furnitureWidthCm} cm scale cue`
-                : 'Matching catalog dimensions to the scene',
+        detailText: 'Matching catalog dimensions to the scene',
+        detailWithCue: (cm) => `Using your ${cm} cm scale cue`,
     },
     { atMs: 14000, label: 'Aligning lighting & shadows', detail: 'Colour temperature, contact & cast shadows' },
     { atMs: 21000, label: 'Compositing into your photo', detail: 'Placing the piece with correct occlusion' },
@@ -174,9 +172,15 @@ const ANALYZE_STEPS = [
 ];
 
 function analyzeProgressRatio(elapsedMs) {
-    // Ease toward ~92% over ~40s so it never looks “stuck at 100%” before completion
     const t = Math.max(0, elapsedMs) / 40000;
     return Math.min(0.92, 1 - Math.exp(-2.1 * t));
+}
+
+function stepDetailText(step, item) {
+    if (step.detailWithCue && typeof item?.furnitureWidthCm === 'number' && item.furnitureWidthCm > 0) {
+        return step.detailWithCue(item.furnitureWidthCm);
+    }
+    return step.detailText || step.detail || '';
 }
 
 function createProgressView(item) {
@@ -233,12 +237,13 @@ function createProgressView(item) {
     stepsEl.className = 'aif-analyze-steps';
     stepsEl.setAttribute('aria-live', 'polite');
 
-    const stepNodes = ANALYZE_STEPS.map((step, index) => {
+    const stepNodes = [];
+    for (let index = 0; index < ANALYZE_STEPS.length; index++) {
+        const step = ANALYZE_STEPS[index];
         const li = document.createElement('li');
-        li.className = 'aif-analyze-step';
+        li.className = 'aif-analyze-step is-pending';
         li.dataset.stepIndex = String(index);
-        const detail =
-            typeof step.detail === 'function' ? step.detail(item) : step.detail;
+        const detail = stepDetailText(step, item);
         li.innerHTML = `
           <span class="aif-analyze-step__mark" aria-hidden="true"></span>
           <span class="aif-analyze-step__body">
@@ -247,8 +252,8 @@ function createProgressView(item) {
           </span>
         `;
         stepsEl.appendChild(li);
-        return li;
-    });
+        stepNodes.push(li);
+    }
     wrap.appendChild(stepsEl);
 
     const hint = document.createElement('p');
@@ -258,13 +263,13 @@ function createProgressView(item) {
     wrap.appendChild(hint);
 
     const startedAt = item.startedAt || item.queuedAt || Date.now();
+    let intervalId = 0;
 
-    // Use `let` + null so the first paint (before mount) cannot TDZ on `timer`
-    let timer = null;
-    const tick = () => {
-        if (timer != null && !wrap.isConnected) {
-            clearInterval(timer);
-            timer = null;
+    // Function declaration (hoisted) — avoids const/TDZ clashes with minified names
+    function paintAnalyzeProgress() {
+        if (intervalId && !wrap.isConnected) {
+            clearInterval(intervalId);
+            intervalId = 0;
             return;
         }
         const elapsed = Date.now() - startedAt;
@@ -277,17 +282,19 @@ function createProgressView(item) {
             if (elapsed >= ANALYZE_STEPS[i].atMs) activeIndex = i;
         }
 
-        stepNodes.forEach((li, i) => {
+        for (let i = 0; i < stepNodes.length; i++) {
+            const li = stepNodes[i];
             li.classList.remove('is-done', 'is-active', 'is-pending');
             if (i < activeIndex) li.classList.add('is-done');
             else if (i === activeIndex) li.classList.add('is-active');
             else li.classList.add('is-pending');
-        });
-    };
+        }
+    }
 
-    tick();
-    timer = setInterval(tick, 400);
-    wrap._aifAnalyzeTimer = timer;
+    intervalId = setInterval(paintAnalyzeProgress, 400);
+    wrap._aifAnalyzeTimer = intervalId;
+    // Paint after interval is assigned (and after the node is typically mounted next frame)
+    requestAnimationFrame(paintAnalyzeProgress);
 
     return wrap;
 }
