@@ -272,6 +272,7 @@ function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
         const domainForHistory = getDomainForApi(mergedConfig);
         const payload = {
             domain: domainForHistory,
+            ...(mergedConfig?.domainId ? { domainId: mergedConfig.domainId } : {}),
             productUrl,
             productName: (item.productName || document.title || '').slice(0, 500),
             previewImageUrl: generatedImageUrl,

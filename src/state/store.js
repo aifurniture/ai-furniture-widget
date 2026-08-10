@@ -239,6 +239,7 @@ async function syncShopperGenerationsFromServer() {
 
         remoteGenerationsInFlight = fetchWidgetGenerations(api.apiEndpoint, {
             domain,
+            domainId: api.domainId,
             anonymousClientKey: anonKey
         })
             .then((data) => {

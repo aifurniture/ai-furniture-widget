@@ -11,13 +11,18 @@ function apiBase(apiEndpoint) {
     return (apiEndpoint || '').replace(/\/$/, '');
 }
 
-export async function fetchWidgetGenerations(apiEndpoint, { domain, anonymousClientKey }) {
+export async function fetchWidgetGenerations(apiEndpoint, { domain, domainId, anonymousClientKey }) {
     const q = new URLSearchParams();
     if (domain) q.set('domain', domain);
+    if (domainId) q.set('domainId', domainId);
     if (anonymousClientKey) q.set('anonymousClientKey', anonymousClientKey);
     const res = await fetch(`${apiBase(apiEndpoint)}/widget/generations?${q}`, {
         method: 'GET',
-        headers: { Accept: 'application/json' },
+        headers: {
+            Accept: 'application/json',
+            ...(domain ? { 'x-domain': domain } : {}),
+            ...(domainId ? { 'x-domain-id': domainId } : {}),
+        },
         credentials: 'omit'
     });
     const data = await res.json().catch(() => ({}));

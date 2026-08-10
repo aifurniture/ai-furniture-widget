@@ -2,7 +2,7 @@
 import { getConfig, getSessionId, setSessionId } from './state.js';
 import { getDefaultApiEndpoints } from './config.js';
 import { debugLog } from './debug.js';
-import { isFurnitureProductPage } from './detection.js';
+// Do NOT import detection.js here — detection imports tracking (circular TDZ risk).
 
 function isTrackingDebugEnabled(config) {
     try {
@@ -207,10 +207,19 @@ export function resetWidget() {
 
     showResetMessage();
 
-    if (typeof recreateWidgetButtonFn === 'function' && isFurnitureProductPage()) {
-        setTimeout(() => {
-            recreateWidgetButtonFn();
-        }, 1000);
+    if (typeof recreateWidgetButtonFn === 'function') {
+        // Lazy import avoids tracking ↔ detection circular init
+        import('./detection.js')
+            .then(({ isFurnitureProductPage }) => {
+                if (isFurnitureProductPage()) {
+                    setTimeout(() => {
+                        recreateWidgetButtonFn();
+                    }, 1000);
+                }
+            })
+            .catch(() => {
+                /* ignore */
+            });
     }
 }
 

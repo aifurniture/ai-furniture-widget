@@ -259,9 +259,12 @@ function createProgressView(item) {
 
     const startedAt = item.startedAt || item.queuedAt || Date.now();
 
+    // Use `let` + null so the first paint (before mount) cannot TDZ on `timer`
+    let timer = null;
     const tick = () => {
-        if (!wrap.isConnected) {
+        if (timer != null && !wrap.isConnected) {
             clearInterval(timer);
+            timer = null;
             return;
         }
         const elapsed = Date.now() - startedAt;
@@ -283,7 +286,7 @@ function createProgressView(item) {
     };
 
     tick();
-    const timer = setInterval(tick, 400);
+    timer = setInterval(tick, 400);
     wrap._aifAnalyzeTimer = timer;
 
     return wrap;
