@@ -318,6 +318,7 @@ export const createStore = (initialState) => {
 
 export const VIEWS = {
     UPLOAD: 'UPLOAD',
+    MEASURE: 'MEASURE',
     GENERATING: 'GENERATING',
     RESULTS: 'RESULTS',
     ERROR: 'ERROR',
@@ -335,6 +336,8 @@ export const initialState = {
     isOpen: false,
     view: VIEWS.UPLOAD,
     uploadedImage: null,
+    /** User-estimated width (cm) of the existing piece in the room photo — optional scale cue */
+    furnitureWidthCm: null,
     generatedImages: [],
     queue: [], // Array of { id, productId, status, result, timestamp }
     error: null,
@@ -422,9 +425,33 @@ export const actions = {
     setUploadedImage: (file) => {
         const updates = { uploadedImage: file };
         if (file) {
+            // Keep current view if caller advances (e.g. to MEASURE); default to upload preview
+            updates.error = null;
+        } else {
+            updates.furnitureWidthCm = null;
             updates.view = VIEWS.UPLOAD;
         }
         store.setState(updates);
+    },
+    setFurnitureWidthCm: (cm) => {
+        if (cm == null || cm === '') {
+            store.setState({ furnitureWidthCm: null });
+            return;
+        }
+        const n = typeof cm === 'number' ? cm : parseFloat(String(cm).replace(',', '.'));
+        if (!Number.isFinite(n) || n <= 0) {
+            store.setState({ furnitureWidthCm: null });
+            return;
+        }
+        store.setState({ furnitureWidthCm: Math.round(n * 10) / 10 });
+    },
+    goToMeasure: () => {
+        const { uploadedImage } = store.getState();
+        if (!uploadedImage) {
+            store.setState({ view: VIEWS.UPLOAD });
+            return;
+        }
+        store.setState({ view: VIEWS.MEASURE, error: null });
     },
     beginPreviewGeneration: (item) => {
         const queue = store.getState().queue;
@@ -451,6 +478,7 @@ export const actions = {
         store.setState({
             queue: [...queue, queueItem],
             uploadedImage: null,
+            furnitureWidthCm: null,
             view: VIEWS.QUEUE,
             error: null
         });
@@ -474,6 +502,7 @@ export const actions = {
         store.setState({
             view: VIEWS.UPLOAD,
             uploadedImage: null,
+            furnitureWidthCm: null,
             generatedImages: [],
             error: null
         });

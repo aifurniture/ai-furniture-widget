@@ -486,7 +486,7 @@ export const ResultsView = (state) => {
     const disclaimer = document.createElement('p');
     disclaimer.className = 'aif-results-disclaimer';
     disclaimer.textContent =
-        'Sizing in the preview may vary from real life — always double-check dimensions before purchasing.';
+        'Preview sizing is guided by product specs and any width you provided — still double-check dimensions before buying.';
     actionsDiv.appendChild(disclaimer);
 
     actionsDiv.appendChild(

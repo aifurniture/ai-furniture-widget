@@ -157,48 +157,134 @@ export const QueueView = (state) => {
     return container;
 };
 
+const ANALYZE_STEPS = [
+    { atMs: 0, label: 'Reading room geometry', detail: 'Walls, floor plane & camera angle' },
+    { atMs: 3500, label: 'Finding scale anchors', detail: 'Doors, seating height & perspective cues' },
+    {
+        atMs: 8000,
+        label: 'Calibrating product size',
+        detail: (item) =>
+            typeof item.furnitureWidthCm === 'number' && item.furnitureWidthCm > 0
+                ? `Using your ${item.furnitureWidthCm} cm scale cue`
+                : 'Matching catalog dimensions to the scene',
+    },
+    { atMs: 14000, label: 'Aligning lighting & shadows', detail: 'Colour temperature, contact & cast shadows' },
+    { atMs: 21000, label: 'Compositing into your photo', detail: 'Placing the piece with correct occlusion' },
+    { atMs: 30000, label: 'Refining edges & realism', detail: 'Final photoreal polish' },
+];
+
+function analyzeProgressRatio(elapsedMs) {
+    // Ease toward ~92% over ~40s so it never looks “stuck at 100%” before completion
+    const t = Math.max(0, elapsedMs) / 40000;
+    return Math.min(0.92, 1 - Math.exp(-2.1 * t));
+}
+
 function createProgressView(item) {
     const wrap = document.createElement('div');
-    wrap.style.flex = '1';
-    wrap.style.display = 'flex';
-    wrap.style.flexDirection = 'column';
-    wrap.style.alignItems = 'center';
-    wrap.style.justifyContent = 'center';
-    wrap.style.textAlign = 'center';
-    wrap.style.padding = '24px 16px';
-    wrap.style.gap = '16px';
+    wrap.className = 'aif-analyze-view';
 
-    const spinner = document.createElement('div');
-    spinner.className = 'aif-spinner';
-    spinner.style.width = '48px';
-    spinner.style.height = '48px';
-    spinner.style.borderWidth = '4px';
+    const header = document.createElement('div');
+    header.className = 'aif-header aif-analyze-header';
+    header.innerHTML = `
+      <span class="aif-eyebrow">Room analysis</span>
+      <h2>Placing it accurately…</h2>
+      <p>We’re measuring your space and matching the product to real-world scale.</p>
+    `;
+    wrap.appendChild(header);
 
-    const title = document.createElement('h2');
-    title.style.margin = '0';
-    title.style.fontSize = '18px';
-    title.style.fontWeight = '600';
-    title.style.color = '#0f172a';
-    title.textContent = 'Creating your preview…';
+    const visual = document.createElement('div');
+    visual.className = 'aif-analyze-visual';
 
-    const subtitle = document.createElement('p');
-    subtitle.style.margin = '0';
-    subtitle.style.fontSize = '14px';
-    subtitle.style.color = '#64748b';
-    subtitle.style.maxWidth = '260px';
-    subtitle.textContent =
-        "This usually takes about 20 seconds. You can keep browsing — we'll show the result when it's ready.";
+    const roomFrame = document.createElement('div');
+    roomFrame.className = 'aif-analyze-room';
+    const roomSrc = item.userImageDataUrl || item.userImageUrl || item.result?.originalImageUrl;
+    if (roomSrc) {
+        const img = document.createElement('img');
+        img.src = roomSrc;
+        img.alt = '';
+        roomFrame.appendChild(img);
+    } else {
+        roomFrame.classList.add('aif-analyze-room--empty');
+    }
+    const scan = document.createElement('div');
+    scan.className = 'aif-analyze-scan';
+    roomFrame.appendChild(scan);
+    const grid = document.createElement('div');
+    grid.className = 'aif-analyze-grid';
+    roomFrame.appendChild(grid);
+    visual.appendChild(roomFrame);
+
+    const meter = document.createElement('div');
+    meter.className = 'aif-analyze-meter';
+    const meterTrack = document.createElement('div');
+    meterTrack.className = 'aif-analyze-meter__track';
+    const meterFill = document.createElement('div');
+    meterFill.className = 'aif-analyze-meter__fill';
+    meterTrack.appendChild(meterFill);
+    const meterLabel = document.createElement('div');
+    meterLabel.className = 'aif-analyze-meter__label';
+    meter.appendChild(meterTrack);
+    meter.appendChild(meterLabel);
+    visual.appendChild(meter);
+
+    wrap.appendChild(visual);
+
+    const stepsEl = document.createElement('ol');
+    stepsEl.className = 'aif-analyze-steps';
+    stepsEl.setAttribute('aria-live', 'polite');
+
+    const stepNodes = ANALYZE_STEPS.map((step, index) => {
+        const li = document.createElement('li');
+        li.className = 'aif-analyze-step';
+        li.dataset.stepIndex = String(index);
+        const detail =
+            typeof step.detail === 'function' ? step.detail(item) : step.detail;
+        li.innerHTML = `
+          <span class="aif-analyze-step__mark" aria-hidden="true"></span>
+          <span class="aif-analyze-step__body">
+            <span class="aif-analyze-step__label">${step.label}</span>
+            <span class="aif-analyze-step__detail">${detail}</span>
+          </span>
+        `;
+        stepsEl.appendChild(li);
+        return li;
+    });
+    wrap.appendChild(stepsEl);
 
     const hint = document.createElement('p');
-    hint.style.margin = '8px 0 0';
-    hint.style.fontSize = '12px';
-    hint.style.color = '#94a3b8';
-    hint.textContent = 'You can browse other pages — we’ll keep working in the background.';
-
-    wrap.appendChild(spinner);
-    wrap.appendChild(title);
-    wrap.appendChild(subtitle);
+    hint.className = 'aif-analyze-hint';
+    hint.textContent =
+        'Usually about 20–40 seconds. You can keep browsing — we’ll finish in the background.';
     wrap.appendChild(hint);
+
+    const startedAt = item.startedAt || item.queuedAt || Date.now();
+
+    const tick = () => {
+        if (!wrap.isConnected) {
+            clearInterval(timer);
+            return;
+        }
+        const elapsed = Date.now() - startedAt;
+        const ratio = analyzeProgressRatio(elapsed);
+        meterFill.style.width = `${Math.round(ratio * 100)}%`;
+        meterLabel.textContent = `${Math.round(ratio * 100)}% calibrated`;
+
+        let activeIndex = 0;
+        for (let i = 0; i < ANALYZE_STEPS.length; i++) {
+            if (elapsed >= ANALYZE_STEPS[i].atMs) activeIndex = i;
+        }
+
+        stepNodes.forEach((li, i) => {
+            li.classList.remove('is-done', 'is-active', 'is-pending');
+            if (i < activeIndex) li.classList.add('is-done');
+            else if (i === activeIndex) li.classList.add('is-active');
+            else li.classList.add('is-pending');
+        });
+    };
+
+    tick();
+    const timer = setInterval(tick, 400);
+    wrap._aifAnalyzeTimer = timer;
 
     return wrap;
 }

@@ -113,7 +113,7 @@ export function createWidgetButton() {
         if (!label) return;
 
         if (processingCount > 0) {
-            label.textContent = 'Creating preview…';
+            label.textContent = 'Analysing room…';
             button.dataset.aifState = 'processing';
         } else if (completedCount > 0) {
             label.textContent = 'View preview';

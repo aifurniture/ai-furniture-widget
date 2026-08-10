@@ -1,7 +1,7 @@
 /**
  * Upload View Component
  */
-import { actions, VIEWS, store, fileToDataURL, flushSessionSnapshot } from '../../state/store.js';
+import { actions, store } from '../../state/store.js';
 import { Button } from './Button.js';
 import { trackEvent } from '../../tracking.js';
 import { compressRoomImage } from '../../utils/compressRoomImage.js';
@@ -23,6 +23,10 @@ async function handleRoomPhotoSelected(file, source) {
         source,
         originalSize: file.size
     });
+
+    // Fluid next step: scale cue before generation
+    trackEvent('measure_step_opened', { productUrl, source });
+    actions.goToMeasure();
 }
 
 export const UploadView = (state) => {
@@ -180,59 +184,25 @@ export const UploadView = (state) => {
     const footer = document.createElement('div');
     footer.style.marginTop = 'auto';
 
-    const generateBtn = Button({
-        text: 'Create preview',
+    const continueBtn = Button({
+        text: 'Continue',
         disabled: !state.uploadedImage,
-        onClick: async () => {
+        onClick: () => {
             if (!state.uploadedImage) return;
-
-            const image = state.uploadedImage;
-            const currentState = store.getState();
-            const productUrl = currentState.config?.productUrl || window.location.href;
-            const productName =
-                currentState.config?.productTitle || document.title || productUrl;
-            const queueId = `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-            generateBtn.disabled = true;
-            const originalLabel = generateBtn.textContent;
-            generateBtn.textContent = 'Preparing…';
-
-            try {
-                const userImageDataUrl = await fileToDataURL(image);
-                actions.beginPreviewGeneration({
-                    id: queueId,
-                    productUrl,
-                    productName,
-                    userImage: image,
-                    userImageDataUrl,
-                    selectedModel: 'slow',
-                    config: currentState.config || {},
-                    queuedAt: Date.now()
-                });
-                flushSessionSnapshot();
-
-                trackEvent('ai_generation_started', {
-                    queueId,
-                    productUrl,
-                    productName,
-                    model: 'slow',
-                    imageSize: image?.size || 0
-                });
-            } catch (err) {
-                console.error('Failed to prepare room photo:', err);
-                actions.setError(err.message || 'Could not prepare image');
-            } finally {
-                generateBtn.disabled = false;
-                generateBtn.textContent = originalLabel;
-            }
-        }
+            trackEvent('measure_step_opened', {
+                productUrl: store.getState().config?.productUrl || window.location.href,
+            });
+            actions.goToMeasure();
+        },
     });
 
-    footer.appendChild(generateBtn);
+    footer.appendChild(continueBtn);
 
     const note = document.createElement('p');
     note.className = 'aif-upload-privacy';
-    note.textContent = 'Your photo is only used to generate this preview.';
+    note.textContent = state.uploadedImage
+        ? 'Next: a quick size check so placement matches your room.'
+        : 'Your photo is only used to generate this preview.';
     footer.appendChild(note);
 
     container.appendChild(footer);

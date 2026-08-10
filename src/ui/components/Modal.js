@@ -1,8 +1,9 @@
 /**
  * Main Modal Container
  */
-import { store, actions, VIEWS } from '../../state/store.js';
+import { store, actions, VIEWS, QUEUE_STATUS } from '../../state/store.js';
 import { UploadView } from './UploadView.js';
+import { MeasureView } from './MeasureView.js';
 import { ResultsView } from './ResultsView.js';
 import { QueueView } from './QueueView.js';
 import { WidgetFooter } from './WidgetFooter.js';
@@ -310,23 +311,47 @@ export const Modal = () => {
 
     // Render content based on view
     const renderContent = (state) => {
+        const activeProcessing = state.queue.find(
+            (i) => i.status === QUEUE_STATUS.PROCESSING || i.status === QUEUE_STATUS.PENDING
+        );
+        const activeId = activeProcessing?.id || '';
+        const analyzing =
+            (state.view === VIEWS.QUEUE || state.view === VIEWS.GENERATING) &&
+            activeId &&
+            contentArea.querySelector('.aif-analyze-view');
+
+        // Keep the analyze UI mounted so step animations don't reset on every poll tick
+        if (
+            analyzing &&
+            contentArea.dataset.aifActiveQueueId === activeId &&
+            contentArea.dataset.aifRenderedView === VIEWS.QUEUE
+        ) {
+            container.setAttribute('data-aif-view', state.view || '');
+            syncChromeForView(state.view);
+            return;
+        }
+
+        // Preserve measure chip selection focus churn only when width changes mid-type —
+        // still remount MeasureView from state (furnitureWidthCm lives in store).
+
         contentArea.innerHTML = '';
         container.setAttribute('data-aif-view', state.view || '');
         syncChromeForView(state.view);
+        contentArea.dataset.aifRenderedView = state.view || '';
+        if (activeId) contentArea.dataset.aifActiveQueueId = activeId;
+        else delete contentArea.dataset.aifActiveQueueId;
 
         if (state.view === VIEWS.UPLOAD) {
             contentArea.appendChild(UploadView(state));
+        } else if (state.view === VIEWS.MEASURE) {
+            contentArea.appendChild(MeasureView(state));
         } else if (state.view === VIEWS.GENERATING) {
-            // In the new flow, GENERATING might just be a state in the queue, 
-            // but if we want a dedicated "generating" view, we can keep it.
-            // For now, let's redirect to QueueView if generating
             contentArea.appendChild(QueueView(state));
         } else if (state.view === VIEWS.RESULTS) {
             contentArea.appendChild(ResultsView(state));
         } else if (state.view === VIEWS.QUEUE) {
             contentArea.appendChild(QueueView(state));
         } else if (state.view === VIEWS.ERROR) {
-            // Error view can be simple or reuse upload with error
             contentArea.appendChild(UploadView(state));
         }
     };
