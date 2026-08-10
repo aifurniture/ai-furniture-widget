@@ -1,8 +1,17 @@
 // src/state.js
 import { store } from './state/store.js';
+import { bindDebugEnabled } from './debug.js';
 
 let config = null;
 let sessionId = null;
+
+bindDebugEnabled(() => {
+    try {
+        return !!(config?.debug || store.getState()?.config?.debug);
+    } catch {
+        return false;
+    }
+});
 
 export function setConfig(newConfig) {
     config = newConfig;
