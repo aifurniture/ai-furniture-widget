@@ -1821,11 +1821,25 @@ export const styles = `
     white-space: nowrap;
   }
 
+  .aif-measure-chip-heading {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--aif-text-muted);
+  }
+
   .aif-measure-chips {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     align-items: center;
+  }
+
+  .aif-measure-view .aif-header p strong {
+    font-weight: 650;
+    color: var(--aif-text-main);
   }
 
   .aif-measure-chip {

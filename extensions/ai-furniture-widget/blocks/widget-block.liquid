@@ -86,7 +86,7 @@
   (function () {
     var script = document.createElement('script');
     {%- comment -%} Bump v= when widget.js changes so stores don't keep a stale cached build {%- endcomment -%}
-    script.src = {{ 'widget.js' | asset_url | append: '&v=32' | json }};
+    script.src = {{ 'widget.js' | asset_url | append: '&v=33' | json }};
     script.async = true;
     script.onload = function () {
       if (window.AIFurnitureWidget && window.AIFurnitureWidget.initAIFurnitureWidget) {

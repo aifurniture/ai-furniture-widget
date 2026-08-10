@@ -11,6 +11,8 @@ const CHIP_SETS = {
     bed: [90, 120, 135, 150, 180],
     diningTable: [120, 140, 160, 180, 200, 220],
     coffeeTable: [80, 100, 120, 140],
+    sideboard: [100, 120, 140, 160, 180, 200],
+    diningChair: [40, 45, 50, 55],
     default: [100, 120, 140, 160, 180, 200, 220],
 };
 
@@ -20,11 +22,16 @@ function inferPieceKind(productName = '', productUrl = '') {
     if (/\b(bed|mattress|headboard)\b/.test(text)) return 'bed';
     if (/\b(coffee\s+table|cocktail\s+table)\b/.test(text)) return 'coffeeTable';
     if (/\b(dining\s+table|kitchen\s+table|dining\s+set)\b/.test(text)) return 'diningTable';
+    if (/\b(sideboard|credenza|buffet|dresser|chest\s+of\s+drawers|tv\s+stand|media)\b/.test(text)) {
+        return 'sideboard';
+    }
+    if (/\b(dining\s+chair|kitchen\s+chair|bar\s+stool)\b/.test(text)) return 'diningChair';
     if (/\btable\b/.test(text)) return 'diningTable';
     return 'default';
 }
 
-function pieceLabel(kind) {
+/** Short noun for the product they’re buying (shown in copy). */
+function productNoun(kind) {
     switch (kind) {
         case 'sofa':
             return 'sofa';
@@ -33,9 +40,33 @@ function pieceLabel(kind) {
         case 'coffeeTable':
             return 'coffee table';
         case 'diningTable':
-            return 'table';
+            return 'dining table';
+        case 'sideboard':
+            return 'sideboard';
+        case 'diningChair':
+            return 'dining chair';
         default:
-            return 'piece';
+            return 'item';
+    }
+}
+
+/** What to measure in their photo. */
+function measureTarget(kind) {
+    switch (kind) {
+        case 'sofa':
+            return 'the sofa in your photo';
+        case 'bed':
+            return 'the bed in your photo';
+        case 'coffeeTable':
+            return 'the coffee table in your photo';
+        case 'diningTable':
+            return 'the dining table in your photo';
+        case 'sideboard':
+            return 'the sideboard or chest in your photo';
+        case 'diningChair':
+            return 'one dining chair in your photo';
+        default:
+            return 'the furniture you’re replacing in your photo';
     }
 }
 
@@ -95,16 +126,17 @@ export const MeasureView = (state) => {
     const productName = state.config?.productTitle || document.title || '';
     const productUrl = state.config?.productUrl || '';
     const kind = inferPieceKind(productName, productUrl);
-    const label = pieceLabel(kind);
+    const noun = productNoun(kind);
+    const target = measureTarget(kind);
     const chips = CHIP_SETS[kind] || CHIP_SETS.default;
     const selected = state.furnitureWidthCm;
 
     const header = document.createElement('div');
     header.className = 'aif-header';
     header.innerHTML = `
-      <span class="aif-eyebrow">Scale check</span>
-      <h2>How wide is your current ${label}?</h2>
-      <p>One quick number helps us place the new piece at a true-to-life size in your photo.</p>
+      <span class="aif-eyebrow">Size check</span>
+      <h2>Roughly how wide is ${target}?</h2>
+      <p>Measure <strong>left to right</strong> across the furniture you’ll replace — in centimetres. A close guess is fine; we use it so this ${noun} isn’t shown too big or too small.</p>
     `;
     container.appendChild(header);
 
@@ -125,16 +157,21 @@ export const MeasureView = (state) => {
           <span class="aif-measure-span__cap"></span>
           <span class="aif-measure-span__line"></span>
           <span class="aif-measure-span__cap"></span>
-          <span class="aif-measure-span__label">${selected ? `${selected} cm` : 'width'}</span>
+          <span class="aif-measure-span__label">${selected ? `${selected} cm wide` : 'left → right'}</span>
         `;
         thumbWrap.appendChild(overlay);
         stage.appendChild(thumbWrap);
     }
 
+    const chipHeading = document.createElement('p');
+    chipHeading.className = 'aif-measure-chip-heading';
+    chipHeading.textContent = 'Width (cm)';
+    stage.appendChild(chipHeading);
+
     const chipSection = document.createElement('div');
     chipSection.className = 'aif-measure-chips';
     chipSection.setAttribute('role', 'group');
-    chipSection.setAttribute('aria-label', `Approximate ${label} width in centimetres`);
+    chipSection.setAttribute('aria-label', `Width of ${target} in centimetres`);
 
     const unsureBtn = document.createElement('button');
     unsureBtn.type = 'button';
@@ -148,6 +185,7 @@ export const MeasureView = (state) => {
         btn.type = 'button';
         btn.className = `aif-measure-chip${selected === cm ? ' is-selected' : ''}`;
         btn.textContent = `${cm}`;
+        btn.title = `${cm} cm wide`;
         btn.setAttribute('aria-pressed', selected === cm ? 'true' : 'false');
         btn.onclick = () => actions.setFurnitureWidthCm(cm);
         chipSection.appendChild(btn);
@@ -166,7 +204,7 @@ export const MeasureView = (state) => {
     const customLabel = document.createElement('label');
     customLabel.className = 'aif-measure-custom__label';
     customLabel.htmlFor = 'aif-measure-custom-input';
-    customLabel.textContent = 'Or type exact width';
+    customLabel.textContent = 'Or type the width';
 
     const customField = document.createElement('div');
     customField.className = 'aif-measure-custom__field';
@@ -178,7 +216,7 @@ export const MeasureView = (state) => {
     customInput.min = '30';
     customInput.max = '600';
     customInput.step = '1';
-    customInput.placeholder = 'e.g. 195';
+    customInput.placeholder = kind === 'diningChair' ? 'e.g. 48' : 'e.g. 180';
     customInput.className = 'aif-measure-custom__input';
     if (selected != null && !chips.includes(selected)) {
         customInput.value = String(selected);
@@ -209,7 +247,7 @@ export const MeasureView = (state) => {
     const tip = document.createElement('p');
     tip.className = 'aif-measure-tip';
     tip.textContent =
-        'Tip: measure the piece you’re replacing (left to right), or estimate — even a close guess improves scale.';
+        'Only the width — left edge to right edge of that furniture in your photo. Height is worked out from the product pictures.';
     stage.appendChild(tip);
 
     container.appendChild(stage);
@@ -236,17 +274,17 @@ export const MeasureView = (state) => {
             busy = false;
             continueBtn.disabled = false;
             skipBtn.disabled = false;
-            continueBtn.textContent = selected ? 'Place at this size' : 'Continue';
+            continueBtn.textContent = selected ? `Use ${selected} cm` : 'Continue';
         }
     };
 
     const continueBtn = Button({
-        text: selected ? 'Place at this size' : 'Continue',
+        text: selected ? `Use ${selected} cm` : 'Continue',
         onClick: () => run(selected),
     });
 
     const skipBtn = Button({
-        text: 'Skip — estimate from photo',
+        text: 'Skip — I’ll let you estimate',
         variant: 'text',
         onClick: () => run(null),
     });
