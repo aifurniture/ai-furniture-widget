@@ -53,16 +53,41 @@ function hasActiveGeneration() {
     );
 }
 
+/** User has opened / used the widget this session — keep floating control off-PDP. */
+function hasEngagedSession() {
+    try {
+        if (sessionStorage.getItem('ai_furniture_user') === 'true') return true;
+    } catch {
+        /* ignore */
+    }
+    const state = store.getState();
+    const queue = state.queue || [];
+    if (
+        queue.some(
+            (item) =>
+                item.status === QUEUE_STATUS.PENDING ||
+                item.status === QUEUE_STATUS.PROCESSING ||
+                item.status === QUEUE_STATUS.COMPLETED ||
+                item.status === QUEUE_STATUS.ERROR
+        )
+    ) {
+        return true;
+    }
+    return (state.remoteGenerations || []).length > 0;
+}
+
 export function isProductPageContext() {
-    return isFurnitureProductPage() || hasActiveGeneration();
+    return isFurnitureProductPage() || hasActiveGeneration() || hasEngagedSession();
 }
 
 export function shouldShowWidgetUi() {
     return isProductPageContext();
 }
 
+/** Floating button: always on PDP; elsewhere only after they’ve used the widget. */
 export function shouldShowWidgetButton() {
-    return isFurnitureProductPage();
+    if (isFurnitureProductPage()) return true;
+    return hasActiveGeneration() || hasEngagedSession();
 }
 
 export function ensureWidgetUiMounted() {
@@ -87,10 +112,6 @@ export function ensureWidgetRuntimeActive() {
         window.__AIFurniturePopstateBound = true;
         window.addEventListener('popstate', () => {
             syncWidgetUiForPage();
-            const state = store.getState();
-            if (state.isOpen && shouldShowWidgetUi()) {
-                actions.openModal();
-            }
         });
     }
 
@@ -118,6 +139,12 @@ export function syncWidgetUiForPage() {
     ensureWidgetRuntimeActive();
     ensureWidgetUiMounted();
     showWidgetModalShell();
+
+    // Leaving a product page (e.g. catalogue browse): close the drawer so the storefront
+    // stays usable, but keep the floating “View preview” / Analysing control if engaged.
+    if (store.getState().isOpen && !isFurnitureProductPage()) {
+        actions.closeModal();
+    }
 
     if (shouldShowWidgetButton()) {
         createWidgetButton();

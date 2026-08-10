@@ -291,7 +291,10 @@ export const createStore = (initialState) => {
             ...(loaded?.config || {})
         }),
         queue: restoredQueue.length > 0 ? restoredQueue : (loaded?.queue || initialState.queue),
-        ...modalState // Restore modal state
+        // Restore last view (upload/results/queue) but never auto-open the drawer on load —
+        // shopper reopens via the floating button after they’ve used it.
+        view: modalState?.view || initialState.view,
+        isOpen: false,
     };
     
     const listeners = new Set();

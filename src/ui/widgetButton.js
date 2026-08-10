@@ -1,6 +1,5 @@
 // src/ui/widgetButton.js
 import { debugLog } from '../debug.js';
-import { isFurnitureProductPage } from '../detection.js';
 import { actions, store, QUEUE_STATUS, VIEWS } from '../state/store.js';
 import { trackEvent } from '../tracking.js';
 import { syncMobileLayoutVars } from './safeArea.js';
@@ -29,7 +28,8 @@ export function showWidgetModalShell() {
 }
 
 export function createWidgetButton() {
-    if (!isFurnitureProductPage()) return;
+    // Caller (syncWidgetUiForPage / shouldShowWidgetButton) decides visibility —
+    // including catalogue pages after the shopper has used the widget.
 
     if (document.getElementById('ai-furniture-trigger-btn')) return;
 
