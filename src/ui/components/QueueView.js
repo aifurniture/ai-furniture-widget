@@ -330,7 +330,14 @@ function createErrorView(item) {
     const retryBtn = Button({
         text: 'Try again',
         onClick: () => {
-            actions.updateQueueItem(item.id, { status: QUEUE_STATUS.PENDING, error: null });
+            actions.updateQueueItem(item.id, {
+                status: QUEUE_STATUS.PENDING,
+                error: null,
+                backendJobSubmitted: false,
+                pollMissCount: 0,
+                completedAt: null,
+                result: null
+            });
         }
     });
 
