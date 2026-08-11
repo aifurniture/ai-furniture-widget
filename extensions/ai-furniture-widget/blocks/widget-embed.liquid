@@ -1,0 +1,110 @@
+{% comment %}
+  AI Furniture — App embed (loads on every page so “See in my room” / Analysing
+  stays available on catalogue & other pages after the shopper has used it).
+  Enable once: Theme settings → App embeds → AI Furniture.
+{% endcomment %}
+
+{% schema %}
+{
+  "name": "AI Furniture",
+  "target": "body",
+  "settings": [
+    {
+      "type": "text",
+      "id": "domain_id",
+      "label": "Domain ID",
+      "info": "From aifurniture.app/user-dashboard after registering your store"
+    },
+    {
+      "type": "checkbox",
+      "id": "enabled",
+      "label": "Enable Widget",
+      "default": true
+    },
+    {
+      "type": "select",
+      "id": "button_position",
+      "label": "Button Position",
+      "options": [
+        {
+          "value": "bottom-right",
+          "label": "Bottom Right"
+        },
+        {
+          "value": "bottom-left",
+          "label": "Bottom Left"
+        }
+      ],
+      "default": "bottom-right"
+    }
+  ]
+}
+{% endschema %}
+
+{% if block.settings.enabled and block.settings.domain_id != blank %}
+<script>
+  window.FURNITURE_AI_CONFIG = Object.assign({}, window.FURNITURE_AI_CONFIG || {}, {
+    domain: {{ shop.domain | json }},
+    domainId: {{ block.settings.domain_id | json }},
+    position: {{ block.settings.button_position | json }},
+    shopifyStore: true
+  });
+  {%- if product -%}
+  window.FURNITURE_AI_CONFIG.productId = {{ product.id | json }};
+  window.FURNITURE_AI_CONFIG.productTitle = {{ product.title | json }};
+  window.FURNITURE_AI_CONFIG.productUrl = {{ shop.url | append: product.url | json }};
+  window.FURNITURE_AI_CONFIG.productImages = [
+    {%- if product.images.size > 0 -%}
+      {%- for image in product.images limit: 4 -%}
+        {{ image | image_url: width: 1600 | json }}{% unless forloop.last %},{% endunless %}
+      {%- endfor -%}
+    {%- else -%}
+      {%- assign aif_media_images = product.media | where: 'media_type', 'image' -%}
+      {%- for media in aif_media_images limit: 4 -%}
+        {{ media | image_url: width: 1600 | json }}{% unless forloop.last %},{% endunless %}
+      {%- endfor -%}
+    {%- endif -%}
+  ];
+  window.FURNITURE_AI_CONFIG.productData = {
+    title: {{ product.title | json }},
+    description: {{ product.description | strip_html | truncate: 4000 | json }},
+    vendor: {{ product.vendor | json }},
+    type: {{ product.type | json }}
+    {%- assign aif_dim = product.metafields.custom.dimensions.value
+      | default: product.metafields.custom.product_dimensions.value
+      | default: product.metafields.custom.size.value
+      | default: product.metafields.descriptors.subtitle.value -%}
+    {%- if aif_dim != blank -%}
+    ,dimensions: {{ aif_dim | strip_html | json }}
+    {%- endif -%}
+    {%- assign aif_w = product.metafields.custom.width.value | default: product.metafields.custom.product_width.value -%}
+    {%- assign aif_d = product.metafields.custom.depth.value | default: product.metafields.custom.product_depth.value -%}
+    {%- assign aif_h = product.metafields.custom.height.value | default: product.metafields.custom.product_height.value -%}
+    {%- if aif_dim == blank and aif_w != blank and aif_d != blank and aif_h != blank -%}
+    ,dimensions: {{ aif_w | append: ' x ' | append: aif_d | append: ' x ' | append: aif_h | json }}
+    {%- endif -%}
+  };
+  {%- endif -%}
+
+  (function () {
+    if (window.__AIFurnitureEmbedScriptLoading) return;
+    window.__AIFurnitureEmbedScriptLoading = true;
+    var script = document.createElement('script');
+    script.src = {{ 'widget.js' | asset_url | append: '&v=36' | json }};
+    script.async = true;
+    script.onload = function () {
+      var cfg = window.FURNITURE_AI_CONFIG;
+      if (window.AIFurnitureWidget && window.AIFurnitureWidget.initAIFurnitureWidget) {
+        window.AIFurnitureWidget.initAIFurnitureWidget(cfg);
+      } else if (window.initAIFurnitureWidget) {
+        window.initAIFurnitureWidget(cfg);
+      }
+    };
+    document.head.appendChild(script);
+  })();
+</script>
+{% elsif block.settings.enabled and block.settings.domain_id == blank %}
+<script>
+  console.warn('AI Furniture: add your Domain ID in Theme settings → App embeds → AI Furniture.');
+</script>
+{% endif %}

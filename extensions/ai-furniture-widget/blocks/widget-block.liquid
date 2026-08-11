@@ -84,9 +84,19 @@
   };
 
   (function () {
+    if (window.__AIFurnitureEmbedScriptLoading) {
+      {%- comment -%} App embed already loading widget.js — just refresh config {%- endcomment -%}
+      if (window.AIFurnitureWidget && window.AIFurnitureWidget.initAIFurnitureWidget) {
+        window.AIFurnitureWidget.initAIFurnitureWidget(window.FURNITURE_AI_CONFIG);
+      } else if (window.initAIFurnitureWidget) {
+        window.initAIFurnitureWidget(window.FURNITURE_AI_CONFIG);
+      }
+      return;
+    }
+    window.__AIFurnitureEmbedScriptLoading = true;
     var script = document.createElement('script');
     {%- comment -%} Bump v= when widget.js changes so stores don't keep a stale cached build {%- endcomment -%}
-    script.src = {{ 'widget.js' | asset_url | append: '&v=34' | json }};
+    script.src = {{ 'widget.js' | asset_url | append: '&v=36' | json }};
     script.async = true;
     script.onload = function () {
       if (window.AIFurnitureWidget && window.AIFurnitureWidget.initAIFurnitureWidget) {

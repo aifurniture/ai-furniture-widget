@@ -118,6 +118,7 @@ export const QueueView = (state) => {
     list.style.flex = '1';
     list.style.minHeight = '0';
     list.style.overflow = 'auto';
+    list.style.overscrollBehavior = 'contain';
 
     if (readyEntries.length === 0) {
         const empty = document.createElement('div');
@@ -192,7 +193,7 @@ function createProgressView(item) {
     header.innerHTML = `
       <span class="aif-eyebrow">Room analysis</span>
       <h2>Placing it accurately…</h2>
-      <p>We’re measuring your space and matching the product to real-world scale.</p>
+      <p>Matching scale, lighting and perspective to your photo.</p>
     `;
     wrap.appendChild(header);
 
@@ -258,8 +259,7 @@ function createProgressView(item) {
 
     const hint = document.createElement('p');
     hint.className = 'aif-analyze-hint';
-    hint.textContent =
-        'Usually about 20–40 seconds. You can keep browsing — we’ll finish in the background.';
+    hint.textContent = 'Usually 20–40s. Keep browsing — we’ll finish in the background.';
     wrap.appendChild(hint);
 
     const startedAt = item.startedAt || item.queuedAt || Date.now();

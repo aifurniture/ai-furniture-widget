@@ -135,8 +135,8 @@ export const MeasureView = (state) => {
     header.className = 'aif-header';
     header.innerHTML = `
       <span class="aif-eyebrow">Size check</span>
-      <h2>Roughly how wide is ${target}?</h2>
-      <p>Measure <strong>left to right</strong> across the furniture you’ll replace — in centimetres. A close guess is fine; we use it so this ${noun} isn’t shown too big or too small.</p>
+      <h2>How wide is ${target}?</h2>
+      <p>Left→right in cm — a close guess is enough so this ${noun} isn’t shown too big or too small.</p>
     `;
     container.appendChild(header);
 

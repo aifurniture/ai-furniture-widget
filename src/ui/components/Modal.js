@@ -382,6 +382,9 @@ export const Modal = () => {
         if (nowOpen) {
             modalOverlay.classList.add('open');
             attachDocHandlers();
+            document.getElementById('ai-furniture-trigger-btn')?.classList.add('aif-trigger-btn--hidden');
+            document.documentElement.classList.add('aif-drawer-open');
+            document.body.classList.add('aif-drawer-open');
             requestAnimationFrame(() => {
                 syncMobileLayoutVars();
                 drawerResize?.sync();
@@ -389,6 +392,9 @@ export const Modal = () => {
             setTimeout(() => drawerResize?.sync(), 450);
         } else {
             modalOverlay.classList.remove('open');
+            document.getElementById('ai-furniture-trigger-btn')?.classList.remove('aif-trigger-btn--hidden');
+            document.documentElement.classList.remove('aif-drawer-open');
+            document.body.classList.remove('aif-drawer-open');
             drawerResize?.sync();
         }
 
@@ -417,6 +423,9 @@ export const Modal = () => {
         }
         modalOverlay.classList.add('open');
         attachDocHandlers();
+        document.documentElement.classList.add('aif-drawer-open');
+        document.body.classList.add('aif-drawer-open');
+        document.getElementById('ai-furniture-trigger-btn')?.classList.add('aif-trigger-btn--hidden');
         renderContent(initialState);
         focusDrawer();
         requestAnimationFrame(() => drawerResize?.sync());

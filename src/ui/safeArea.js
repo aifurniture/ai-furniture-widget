@@ -31,19 +31,20 @@ function isAndroidMobile() {
 function applyInsetFallbacks(insets) {
     let { top, bottom, left, right } = insets;
 
+    // Only pad top/bottom when the theme lacks viewport-fit=cover — never invent
+    // left/right gutters (those look like buggy side borders on the open drawer).
     if (isNotchIphone() && top === 0 && bottom === 0) {
         top = 47;
         bottom = 34;
     }
 
     if (isAndroidMobile()) {
-        if (top === 0) top = 32;
-        if (right === 0) right = 12;
-        if (left === 0) left = 12;
+        if (top === 0) top = 24;
+        if (bottom === 0) bottom = 16;
     }
 
     if (window.visualViewport && window.visualViewport.offsetTop > 0) {
-        top = Math.max(top, Math.round(window.visualViewport.offsetTop));
+        top = Math.max(top, 0);
     }
 
     return { top, bottom, left, right };
@@ -62,8 +63,11 @@ export function syncMobileLayoutVars() {
     const { top: safeTop, bottom: safeBottom, left: safeLeft, right: safeRight } =
         applyInsetFallbacks(raw);
 
-    const vvh = Math.round(window.visualViewport?.height || window.innerHeight);
-    const drawerHeight = Math.max(320, vvh - safeTop);
+    const vv = window.visualViewport;
+    const vvh = Math.round(vv?.height || window.innerHeight);
+    const offsetTop = Math.round(vv?.offsetTop || 0);
+    // Full visual viewport; safe areas are padding inside the drawer (not side gaps).
+    const drawerHeight = Math.max(280, vvh);
 
     root.style.setProperty('--aif-safe-top', `${safeTop}px`);
     root.style.setProperty('--aif-safe-bottom', `${safeBottom}px`);
@@ -71,22 +75,31 @@ export function syncMobileLayoutVars() {
     root.style.setProperty('--aif-safe-right', `${safeRight}px`);
     root.style.setProperty('--aif-vvh', `${vvh}px`);
     root.style.setProperty('--aif-drawer-height', `${drawerHeight}px`);
+    root.style.setProperty('--aif-vv-offset-top', `${offsetTop}px`);
 
     const container = document.querySelector('#ai-furniture-modal .aif-container');
     if (container && window.innerWidth <= 768) {
-        container.style.top = `${safeTop}px`;
-        container.style.left = `${safeLeft}px`;
-        container.style.right = `${safeRight}px`;
-        container.style.width = 'auto';
+        container.style.top = `${offsetTop}px`;
+        container.style.left = '0';
+        container.style.right = '0';
+        container.style.bottom = 'auto';
+        container.style.width = '100%';
         container.style.height = `${drawerHeight}px`;
         container.style.maxHeight = `${drawerHeight}px`;
+        container.style.borderRadius = '0';
+        container.style.border = 'none';
+        container.style.boxShadow = 'none';
     } else if (container) {
         container.style.top = '';
         container.style.left = '';
         container.style.right = '';
+        container.style.bottom = '';
         container.style.width = '';
         container.style.height = '';
         container.style.maxHeight = '';
+        container.style.borderRadius = '';
+        container.style.border = '';
+        container.style.boxShadow = '';
     }
 
     const trigger = document.getElementById('ai-furniture-trigger-btn');
