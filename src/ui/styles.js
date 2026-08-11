@@ -2058,6 +2058,47 @@ export const styles = `
     color: var(--aif-text-muted);
   }
 
+  .aif-measure-fit {
+    margin: 4px 0 0;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid #fed7aa;
+    background: #fff7ed;
+  }
+
+  .aif-measure-fit--warn {
+    border-color: #fdba74;
+    background: #fff7ed;
+  }
+
+  .aif-measure-fit--notice {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+  }
+
+  .aif-measure-fit__title {
+    margin: 0 0 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #9a3412;
+    line-height: 1.35;
+  }
+
+  .aif-measure-fit--notice .aif-measure-fit__title {
+    color: #1e40af;
+  }
+
+  .aif-measure-fit__body {
+    margin: 0;
+    font-size: 12px;
+    color: #7c2d12;
+    line-height: 1.45;
+  }
+
+  .aif-measure-fit--notice .aif-measure-fit__body {
+    color: #1e3a8a;
+  }
+
   .aif-measure-footer {
     margin-top: auto;
     flex-shrink: 0;

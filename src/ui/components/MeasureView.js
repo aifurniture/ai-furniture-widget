@@ -1,25 +1,28 @@
 /**
  * Scale cue step — ask for width of the matching piece in the room photo,
- * with copy/chips driven by the product they’re buying.
+ * warn when catalog product is much larger/smaller than what they measured.
  */
 import { actions, store, VIEWS, fileToDataURL, flushSessionSnapshot } from '../../state/store.js';
 import { Button } from './Button.js';
 import { trackEvent } from '../../tracking.js';
 import {
+    assessSizeFit,
     getMeasureChips,
     getMeasureCopy,
     inferMeasureKind,
     isAccessoryMeasureKind,
+    parseCatalogWidthCm,
 } from '../../utils/measureCue.js';
 
 function parseCustomCm(raw) {
     if (raw == null || raw === '') return null;
     const n = parseFloat(String(raw).replace(/[^\d.,]/g, '').replace(',', '.'));
-    if (!Number.isFinite(n) || n < 30 || n > 600) return null;
+    // Allow small side tables / stools (~20cm); reject tiny/noise and huge outliers
+    if (!Number.isFinite(n) || n < 15 || n > 600) return null;
     return Math.round(n * 10) / 10;
 }
 
-async function startGeneration({ furnitureWidthCm }) {
+async function startGeneration({ furnitureWidthCm, sizeFitMode = null }) {
     const currentState = store.getState();
     const image = currentState.uploadedImage;
     if (!image) {
@@ -46,6 +49,9 @@ async function startGeneration({ furnitureWidthCm }) {
     if (typeof furnitureWidthCm === 'number' && furnitureWidthCm > 0) {
         payload.furnitureWidthCm = furnitureWidthCm;
     }
+    if (sizeFitMode === 'room_adapt') {
+        payload.sizeFitMode = 'room_adapt';
+    }
 
     actions.beginPreviewGeneration(payload);
     flushSessionSnapshot();
@@ -58,6 +64,7 @@ async function startGeneration({ furnitureWidthCm }) {
         imageSize: image?.size || 0,
         furnitureWidthCm: payload.furnitureWidthCm || null,
         hasScaleCue: Boolean(payload.furnitureWidthCm),
+        sizeFitMode: payload.sizeFitMode || null,
         measureKind: inferMeasureKind(currentState.config || {}),
     });
 }
@@ -73,6 +80,11 @@ export const MeasureView = (state) => {
     const chips = getMeasureChips(kind);
     const selected = state.furnitureWidthCm;
     const accessory = isAccessoryMeasureKind(kind) || copy.isAccessory;
+    const catalogWidthCm = parseCatalogWidthCm(config);
+    const fit =
+        selected != null && catalogWidthCm != null
+            ? assessSizeFit(selected, catalogWidthCm)
+            : null;
 
     const header = document.createElement('div');
     header.className = 'aif-header';
@@ -199,7 +211,7 @@ export const MeasureView = (state) => {
     customInput.id = 'aif-measure-custom-input';
     customInput.type = 'number';
     customInput.inputMode = 'decimal';
-    customInput.min = '30';
+    customInput.min = '15';
     customInput.max = '600';
     customInput.step = '1';
     customInput.placeholder = copy.examplePlaceholder;
@@ -230,6 +242,17 @@ export const MeasureView = (state) => {
     customRow.appendChild(customField);
     stage.appendChild(customRow);
 
+    if (fit && fit.severity !== 'ok') {
+        const banner = document.createElement('div');
+        banner.className = `aif-measure-fit aif-measure-fit--${fit.severity}`;
+        banner.setAttribute('role', 'status');
+        banner.innerHTML = `
+          <p class="aif-measure-fit__title">${fit.title}</p>
+          <p class="aif-measure-fit__body">${fit.body}</p>
+        `;
+        stage.appendChild(banner);
+    }
+
     if (copy.tip) {
         const tip = document.createElement('p');
         tip.className = 'aif-measure-tip';
@@ -249,24 +272,39 @@ export const MeasureView = (state) => {
             actions.setView(VIEWS.UPLOAD);
             return;
         }
+        const nextFit =
+            widthCm != null && catalogWidthCm != null
+                ? assessSizeFit(widthCm, catalogWidthCm)
+                : null;
         busy = true;
         continueBtn.disabled = true;
         skipBtn.disabled = true;
         continueBtn.textContent = 'Starting…';
         try {
-            await startGeneration({ furnitureWidthCm: widthCm });
+            await startGeneration({
+                furnitureWidthCm: widthCm,
+                sizeFitMode: nextFit?.mode === 'room_adapt' ? 'room_adapt' : null,
+            });
         } catch (err) {
             console.error('Failed to start generation:', err);
             actions.setError(err.message || 'Could not start preview');
             busy = false;
             continueBtn.disabled = false;
             skipBtn.disabled = false;
-            continueBtn.textContent = copy.continueWith(selected);
+            continueBtn.textContent =
+                fit && fit.severity !== 'ok' && selected != null
+                    ? fit.cta
+                    : copy.continueWith(selected);
         }
     };
 
+    const continueLabel =
+        fit && fit.severity !== 'ok' && selected != null
+            ? fit.cta
+            : copy.continueWith(selected);
+
     const continueBtn = Button({
-        text: copy.continueWith(selected),
+        text: continueLabel,
         onClick: () => run(selected),
     });
 

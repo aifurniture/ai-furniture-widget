@@ -227,7 +227,7 @@ export function getMeasureCopy(kind, productTitle = '') {
         isAccessory: false,
         eyebrow: productLabel ? `Sizing ·${productBit}` : `Sizing your ${buying}`,
         title: `How wide is the ${oldNoun} in your photo?`,
-        body: `You’re previewing a new ${buying}. Measure the existing ${oldNoun} already in the photo (${measureHint}) in cm — a close guess is fine.`,
+        body: `You’re previewing a new ${buying}. Measure the existing ${oldNoun} already in the photo (${measureHint}) in cm — a close guess is fine. If you’re measuring a different piece (e.g. a side table while buying a coffee table), sizes won’t match.`,
         chipHeading: `Width of ${oldNoun} in photo (cm)`,
         spanIdle: 'left → right',
         spanSelected: (cm) => `${cm} cm wide`,
@@ -240,5 +240,114 @@ export function getMeasureCopy(kind, productTitle = '') {
             kind === 'diningChair' || kind === 'sideTable' || kind === 'armchair'
                 ? 'e.g. 50'
                 : 'e.g. 180',
+    };
+}
+
+function toCm(num, unit) {
+    const n = parseFloat(String(num).replace(',', '.'));
+    if (!Number.isFinite(n) || n <= 0) return null;
+    const u = String(unit || 'cm').toLowerCase();
+    if (u === 'mm') return n / 10;
+    if (u === 'm') return n * 100;
+    if (u === 'in' || u === 'in.' || u === '"' || u === 'inches' || u === 'inch') return n * 2.54;
+    return n;
+}
+
+/**
+ * Best-effort catalog width (cm) from theme productData / description.
+ */
+export function parseCatalogWidthCm(config = {}) {
+    const pd = config.productData && typeof config.productData === 'object' ? config.productData : {};
+    const blobs = [pd.dimensions, pd.description, pd.title, config.productTitle]
+        .filter(Boolean)
+        .map(String);
+
+    for (const text of blobs) {
+        const productSize = text.match(
+            /\bProduct\s*Size\s*[:\-]\s*([0-9]+(?:[.,][0-9]+)?)\s*(cm|mm|m|in\.?|")?\s*[x×]/i
+        );
+        if (productSize) {
+            const cm = toCm(productSize[1], productSize[2] || 'cm');
+            if (cm && cm >= 15 && cm <= 600) return Math.round(cm * 10) / 10;
+        }
+
+        const labeled = text.match(
+            /\b(?:overall\s*)?(?:width|w)\s*[:\-]?\s*([0-9]+(?:[.,][0-9]+)?)\s*(cm|mm|m|in\.?|")?/i
+        );
+        if (labeled) {
+            const cm = toCm(labeled[1], labeled[2] || 'cm');
+            if (cm && cm >= 15 && cm <= 600) return Math.round(cm * 10) / 10;
+        }
+
+        const triple = text.match(
+            /\b([0-9]+(?:[.,][0-9]+)?)\s*(cm|mm|m|in\.?|")?\s*[x×]\s*[0-9]+(?:[.,][0-9]+)?\s*(?:cm|mm|m|in\.?|")?\s*[x×]\s*[0-9]+(?:[.,][0-9]+)?\s*(cm|mm|m|in\.?|")?/i
+        );
+        if (triple) {
+            const unit = triple[2] || triple[3] || 'cm';
+            const cm = toCm(triple[1], unit);
+            if (cm && cm >= 15 && cm <= 600) return Math.round(cm * 10) / 10;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Compare measured piece in photo vs catalog product width.
+ * @returns {null | { severity: 'ok'|'notice'|'warn', mode: null|'room_adapt', ratio: number, oldWidthCm: number, catalogWidthCm: number, title: string, body: string, cta: string }}
+ */
+export function assessSizeFit(oldWidthCm, catalogWidthCm) {
+    const oldW = Number(oldWidthCm);
+    const newW = Number(catalogWidthCm);
+    if (!Number.isFinite(oldW) || oldW <= 0 || !Number.isFinite(newW) || newW <= 0) return null;
+
+    const ratio = newW / oldW;
+    const oldLabel = Math.round(oldW);
+    const newLabel = Math.round(newW);
+    const times = ratio >= 1 ? ratio.toFixed(1) : (1 / ratio).toFixed(1);
+
+    if (ratio >= 2.0 || ratio <= 0.5) {
+        const wider = ratio >= 1;
+        return {
+            severity: 'warn',
+            mode: 'room_adapt',
+            ratio,
+            oldWidthCm: oldW,
+            catalogWidthCm: newW,
+            title: wider
+                ? `This product won’t fit that ${oldLabel} cm spot as-is`
+                : `This product is much narrower than what you measured`,
+            body: wider
+                ? `You measured ~${oldLabel} cm in the photo, but this product is about ${newLabel} cm wide (~${times}× larger). We’ll rearrange that area of the room so it can sit at real size — not squeezed into the small piece.`
+                : `You measured ~${oldLabel} cm, but this product is about ${newLabel} cm (~${times}× smaller). We’ll place it at true size and leave empty space — not stretch it to fill the old span.`,
+            cta: wider ? 'Continue — adapt my room' : 'Continue — place at true size',
+        };
+    }
+
+    if (ratio >= 1.4 || ratio <= 0.72) {
+        const wider = ratio >= 1;
+        return {
+            severity: 'notice',
+            mode: 'room_adapt',
+            ratio,
+            oldWidthCm: oldW,
+            catalogWidthCm: newW,
+            title: wider ? 'New piece is noticeably wider' : 'New piece is noticeably narrower',
+            body: wider
+                ? `Photo piece ~${oldLabel} cm → product ~${newLabel} cm. We’ll clear a bit of space so it fits at real size.`
+                : `Photo piece ~${oldLabel} cm → product ~${newLabel} cm. We’ll keep true size and leave empty floor.`,
+            cta: 'Continue',
+        };
+    }
+
+    return {
+        severity: 'ok',
+        mode: null,
+        ratio,
+        oldWidthCm: oldW,
+        catalogWidthCm: newW,
+        title: '',
+        body: '',
+        cta: '',
     };
 }

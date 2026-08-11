@@ -459,6 +459,9 @@ async function submitAsyncJob(id, item, apiEndpoint, domainForApi, domainIdForAp
     ) {
         formData.append('furnitureWidthCm', String(item.furnitureWidthCm));
     }
+    if (item.sizeFitMode === 'room_adapt') {
+        formData.append('sizeFitMode', 'room_adapt');
+    }
     appendPreScrapedData(formData, mergedConfig);
 
     debugLog(`POST /widget/generate for ${id.slice(0, 8)}`);
@@ -488,6 +491,9 @@ async function runSyncGenerate(id, item, apiEndpoint, domainForApi, domainIdForA
         item.furnitureWidthCm > 0
     ) {
         formData.append('furnitureWidthCm', String(item.furnitureWidthCm));
+    }
+    if (item.sizeFitMode === 'room_adapt') {
+        formData.append('sizeFitMode', 'room_adapt');
     }
     appendPreScrapedData(formData, mergedConfig);
 
