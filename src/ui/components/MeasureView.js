@@ -8,6 +8,7 @@ import { Button } from './Button.js';
 import { trackEvent } from '../../tracking.js';
 import {
     assessSizeFit,
+    assessChoseProductWidth,
     getMeasureChips,
     getMeasureCopy,
     getPlacementIntentCopy,
@@ -122,6 +123,13 @@ export const MeasureView = (state) => {
     const fit =
         !asRoomRuler && selected != null && catalogWidthCm != null
             ? assessSizeFit(selected, catalogWidthCm)
+            : null;
+    const choseProductWidth =
+        !asRoomRuler &&
+        (!fit || fit.severity === 'ok') &&
+        selected != null &&
+        catalogWidthCm != null
+            ? assessChoseProductWidth(selected, catalogWidthCm, kind)
             : null;
 
     const header = document.createElement('div');
@@ -323,6 +331,15 @@ export const MeasureView = (state) => {
         banner.innerHTML = `
               <p class="aif-measure-fit__title">${fit.title}</p>
               <p class="aif-measure-fit__body">${fit.body}</p>
+            `;
+        stage.appendChild(banner);
+    } else if (choseProductWidth) {
+        const banner = document.createElement('div');
+        banner.className = 'aif-measure-fit aif-measure-fit--notice';
+        banner.setAttribute('role', 'status');
+        banner.innerHTML = `
+              <p class="aif-measure-fit__title">${choseProductWidth.title}</p>
+              <p class="aif-measure-fit__body">${choseProductWidth.body}</p>
             `;
         stage.appendChild(banner);
     }

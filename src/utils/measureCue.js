@@ -5,7 +5,7 @@
  */
 
 const CHIP_SETS = {
-    sofa: [140, 160, 180, 200, 220, 240, 280, 300],
+    sofa: [140, 160, 180, 200, 220, 240, 280, 300, 320, 340, 360, 380, 400],
     armchair: [70, 80, 90, 100, 110],
     bed: [90, 120, 135, 150, 180, 200],
     diningTable: [120, 140, 160, 180, 200, 220, 240],
@@ -403,7 +403,9 @@ export function getMeasureCopy(kind, productTitle = '', { asRoomRuler = false, i
         : `${listedLead} Measure the ${matchingNoun} if you see one (${measureHint}). If you don’t, tap Add it so we don’t swap the wrong piece.`;
     const replaceBody = isStorageSpot
         ? `${listedLead} Measure the sideboard (or chest) you want to replace, left to right. Close guess is fine.`
-        : `${listedLead} Measure the ${matchingNoun} already in the photo (${measureHint}). Close guess is fine.`;
+        : kind === 'sofa'
+          ? `${listedLead} Measure the sofa already in the photo, left to right — not this product’s listed size. Close guess is fine.`
+          : `${listedLead} Measure the ${matchingNoun} already in the photo (${measureHint}). Close guess is fine.`;
 
     const title = isStorageSpot
         ? 'How wide is the sideboard in your photo?'
@@ -538,5 +540,25 @@ export function assessSizeFit(oldWidthCm, catalogWidthCm) {
         title: '',
         body: '',
         cta: '',
+    };
+}
+
+/**
+ * Shopper tapped a width that matches the PRODUCT, not the piece in the photo.
+ * That makes the model treat old≈new and stretch into the real (larger) sofa.
+ */
+export function assessChoseProductWidth(selectedCm, catalogWidthCm, kind) {
+    const selected = Number(selectedCm);
+    const catalog = Number(catalogWidthCm);
+    if (!Number.isFinite(selected) || selected <= 0 || !Number.isFinite(catalog) || catalog <= 0) {
+        return null;
+    }
+    const ratio = selected / catalog;
+    if (ratio < 0.88 || ratio > 1.12) return null;
+    const noun = kind === 'sofa' ? 'sofa' : 'piece';
+    const cat = Math.round(catalog);
+    return {
+        title: 'That matches this product’s listed size',
+        body: `This item is about ${cat} cm wide. Measure the ${noun} already in your photo instead — if that’s bigger (e.g. a corner sofa), type that width. Using ${cat} cm here makes the new one stretch to fill the old one.`,
     };
 }
