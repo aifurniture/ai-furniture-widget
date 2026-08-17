@@ -11,6 +11,7 @@ const CHIP_SETS = {
     diningTable: [120, 140, 160, 180, 200, 220, 240],
     coffeeTable: [80, 100, 120, 140, 160],
     sideTable: [40, 45, 50, 55, 60, 70],
+    consoleTable: [80, 100, 120, 140, 160, 180],
     sideboard: [100, 120, 140, 160, 180, 200, 220],
     wardrobe: [80, 100, 120, 150, 180, 200],
     diningChair: [40, 45, 50, 55, 60],
@@ -22,6 +23,32 @@ const CHIP_SETS = {
 
 /** Categories where a room-width cue is weak / confusing — soft-skip UX. */
 const ACCESSORY_KINDS = new Set(['lamp', 'plant', 'decor', 'accessory']);
+
+/**
+ * Kinds where product type often collides with a different piece in the photo
+ * (e.g. coffee table vs dining table). Show placement-intent chips.
+ */
+const COLLISION_KINDS = new Set([
+    'coffeeTable',
+    'diningTable',
+    'sideTable',
+    'consoleTable',
+    'desk',
+    'diningChair',
+    'armchair',
+]);
+
+export const PLACEMENT_INTENTS = ['replace', 'add', 'unsure'];
+
+export function isCollisionMeasureKind(kind) {
+    return COLLISION_KINDS.has(kind);
+}
+
+export function normalizePlacementIntent(raw) {
+    const v = String(raw || '').trim().toLowerCase();
+    if (v === 'replace' || v === 'add' || v === 'unsure') return v;
+    return null;
+}
 
 function textBlob(config = {}) {
     const pd = config.productData || {};
@@ -63,6 +90,7 @@ export function inferMeasureKind(config = {}) {
     if (/\b(side\s+table|end\s+table|lamp\s+table|bedside|nightstand|night\s+table)\b/.test(text)) {
         return 'sideTable';
     }
+    if (/\b(console\s+table|hall\s+table)\b/.test(text)) return 'consoleTable';
     if (/\b(dining\s+table|kitchen\s+table|dining\s+set)\b/.test(text)) return 'diningTable';
     if (/\b(desk|writing\s+desk|office\s+desk)\b/.test(text)) return 'desk';
     if (/\b(dining\s+chair|kitchen\s+chair|bar\s+stool|counter\s+stool)\b/.test(text)) {
@@ -130,6 +158,8 @@ function newProductNoun(kind) {
             return 'coffee table';
         case 'sideTable':
             return 'side table';
+        case 'consoleTable':
+            return 'console table';
         case 'sideboard':
             return 'sideboard';
         case 'wardrobe':
@@ -168,6 +198,8 @@ function oldPieceNoun(kind) {
             return 'coffee table';
         case 'sideTable':
             return 'side table or nightstand';
+        case 'consoleTable':
+            return 'console table';
         case 'sideboard':
             return 'sideboard or chest';
         case 'wardrobe':
@@ -183,6 +215,46 @@ function oldPieceNoun(kind) {
         default:
             return 'piece';
     }
+}
+
+/**
+ * Placement-intent copy for collision-prone kinds (any room photo still allowed).
+ * @returns {null | { heading: string, hint: string, options: Array<{ id: string, label: string }> }}
+ */
+export function getPlacementIntentCopy(kind) {
+    if (!isCollisionMeasureKind(kind)) return null;
+    const buying = newProductNoun(kind);
+    const oldNoun = oldPieceNoun(kind);
+
+    let hint = `If your photo doesn’t have a matching ${oldNoun}, choose “add it” so we don’t swap the wrong piece.`;
+    if (kind === 'coffeeTable') {
+        hint =
+            'Don’t measure a dining table when buying a coffee table — pick “add it” if there’s no low coffee table.';
+    } else if (kind === 'diningTable') {
+        hint =
+            'Don’t measure a coffee or side table when buying a dining table — pick “add it” if there’s no dining table.';
+    } else if (kind === 'sideTable') {
+        hint =
+            'Don’t measure the coffee table or dining table — only a small side/end table or nightstand.';
+    } else if (kind === 'diningChair') {
+        hint =
+            'Replace dining seats around the table — not a separate lounge armchair across the room.';
+    } else if (kind === 'armchair') {
+        hint =
+            'Replace a lounge/accent chair — not every dining chair around a table unless that’s what you’re buying.';
+    }
+
+    return {
+        heading: 'What should we do in your photo?',
+        hint,
+        options: [
+            { id: 'replace', label: `Replace the ${oldNoun}` },
+            { id: 'add', label: `No ${oldNoun} — add it` },
+            { id: 'unsure', label: 'Not sure' },
+        ],
+        buying,
+        oldNoun,
+    };
 }
 
 /**

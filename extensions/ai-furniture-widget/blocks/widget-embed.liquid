@@ -90,7 +90,7 @@
     if (window.__AIFurnitureEmbedScriptLoading) return;
     window.__AIFurnitureEmbedScriptLoading = true;
     var script = document.createElement('script');
-    script.src = {{ 'widget.js' | asset_url | append: '&v=38' | json }};
+    script.src = {{ 'widget.js' | asset_url | append: '&v=39' | json }};
     script.async = true;
     script.onload = function () {
       var cfg = window.FURNITURE_AI_CONFIG;

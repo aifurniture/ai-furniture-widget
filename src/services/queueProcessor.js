@@ -462,6 +462,9 @@ async function submitAsyncJob(id, item, apiEndpoint, domainForApi, domainIdForAp
     if (item.sizeFitMode === 'room_adapt') {
         formData.append('sizeFitMode', 'room_adapt');
     }
+    if (item.placementIntent === 'replace' || item.placementIntent === 'add' || item.placementIntent === 'unsure') {
+        formData.append('placementIntent', item.placementIntent);
+    }
     appendPreScrapedData(formData, mergedConfig);
 
     debugLog(`POST /widget/generate for ${id.slice(0, 8)}`);
@@ -494,6 +497,9 @@ async function runSyncGenerate(id, item, apiEndpoint, domainForApi, domainIdForA
     }
     if (item.sizeFitMode === 'room_adapt') {
         formData.append('sizeFitMode', 'room_adapt');
+    }
+    if (item.placementIntent === 'replace' || item.placementIntent === 'add' || item.placementIntent === 'unsure') {
+        formData.append('placementIntent', item.placementIntent);
     }
     appendPreScrapedData(formData, mergedConfig);
 

@@ -342,6 +342,11 @@ export const initialState = {
     uploadedImage: null,
     /** User-estimated width (cm) of the existing piece in the room photo — optional scale cue */
     furnitureWidthCm: null,
+    /**
+     * Collision-prone placement intent from measure step:
+     * 'replace' | 'add' | 'unsure' | null
+     */
+    placementIntent: null,
     generatedImages: [],
     queue: [], // Array of { id, productId, status, result, timestamp }
     error: null,
@@ -433,6 +438,7 @@ export const actions = {
             updates.error = null;
         } else {
             updates.furnitureWidthCm = null;
+            updates.placementIntent = null;
             updates.view = VIEWS.UPLOAD;
         }
         store.setState(updates);
@@ -449,13 +455,21 @@ export const actions = {
         }
         store.setState({ furnitureWidthCm: Math.round(n * 10) / 10 });
     },
+    setPlacementIntent: (intent) => {
+        const v = String(intent || '').trim().toLowerCase();
+        if (v === 'replace' || v === 'add' || v === 'unsure') {
+            store.setState({ placementIntent: v });
+            return;
+        }
+        store.setState({ placementIntent: null });
+    },
     goToMeasure: () => {
         const { uploadedImage } = store.getState();
         if (!uploadedImage) {
             store.setState({ view: VIEWS.UPLOAD });
             return;
         }
-        store.setState({ view: VIEWS.MEASURE, error: null });
+        store.setState({ view: VIEWS.MEASURE, error: null, placementIntent: null });
     },
     beginPreviewGeneration: (item) => {
         const queue = store.getState().queue;
@@ -483,6 +497,7 @@ export const actions = {
             queue: [...queue, queueItem],
             uploadedImage: null,
             furnitureWidthCm: null,
+            placementIntent: null,
             view: VIEWS.QUEUE,
             error: null
         });
@@ -507,6 +522,7 @@ export const actions = {
             view: VIEWS.UPLOAD,
             uploadedImage: null,
             furnitureWidthCm: null,
+            placementIntent: null,
             generatedImages: [],
             error: null
         });

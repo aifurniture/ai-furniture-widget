@@ -1955,6 +1955,19 @@ export const styles = `
     align-items: center;
   }
 
+  .aif-measure-chips--intent {
+    gap: 8px;
+  }
+
+  .aif-measure-chip--intent {
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.25;
+    text-align: left;
+    max-width: 100%;
+  }
+
   .aif-measure-view .aif-header p strong {
     font-weight: 650;
     color: var(--aif-text-main);
