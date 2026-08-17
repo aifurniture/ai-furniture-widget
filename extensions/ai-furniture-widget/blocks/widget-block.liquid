@@ -96,7 +96,7 @@
     window.__AIFurnitureEmbedScriptLoading = true;
     var script = document.createElement('script');
     {%- comment -%} Bump v= when widget.js changes so stores don't keep a stale cached build {%- endcomment -%}
-    script.src = {{ 'widget.js' | asset_url | append: '&v=43' | json }};
+    script.src = {{ 'widget.js' | asset_url | append: '&v=44' | json }};
     script.async = true;
     script.onload = function () {
       if (window.AIFurnitureWidget && window.AIFurnitureWidget.initAIFurnitureWidget) {

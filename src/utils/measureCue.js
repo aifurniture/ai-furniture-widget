@@ -64,33 +64,20 @@ export function normalizePlacementIntent(raw) {
     return null;
 }
 
-function textBlob(config = {}) {
+function identityBlob(config = {}) {
     const pd = config.productData || {};
-    return [
-        config.productTitle,
-        config.productUrl,
-        pd.title,
-        pd.type,
-        pd.vendor,
-        pd.category,
-        pd.description,
-    ]
+    return [config.productTitle, pd.title, pd.type, pd.category, config.productUrl]
         .filter(Boolean)
         .join(' ')
         .toLowerCase();
 }
 
-/**
- * Infer a stable measure kind from product title / type / url / description.
- */
-export function inferMeasureKind(config = {}) {
-    const text = textBlob(config);
+function descriptionBlob(config = {}) {
+    return String(config.productData?.description || '').toLowerCase();
+}
 
-    if (/\b(floor\s+lamp|table\s+lamp|lamp|pendant|sconce|light\s+fitting)\b/.test(text)) {
-        return 'lamp';
-    }
-    if (/\b(plant|planter|pot\s+plant|vase)\b/.test(text)) return 'plant';
-    if (/\b(cushion|throw|pillow|artwork|mirror|clock|decor)\b/.test(text)) return 'decor';
+function matchFurnitureKind(text) {
+    if (!text) return null;
 
     if (/\b(rug|carpet|runner)\b/.test(text)) return 'rug';
     if (/\b(wardrobe|armoire|closet)\b/.test(text)) return 'wardrobe';
@@ -99,7 +86,8 @@ export function inferMeasureKind(config = {}) {
     }
     if (
         /\b(chest\s+of\s+drawers|drawer\s+chest|chest-of-drawers)\b/.test(text) ||
-        /\bdresser\b/.test(text)
+        /\bdresser\b/.test(text) ||
+        (/\bchest\b/.test(text) && /\bdrawers?\b/.test(text))
     ) {
         return 'chest';
     }
@@ -123,8 +111,30 @@ export function inferMeasureKind(config = {}) {
     if (/\b(bed|mattress|headboard|bedstead)\b/.test(text)) return 'bed';
     if (/\btable\b/.test(text)) return 'diningTable';
     if (/\bchair\b/.test(text)) return 'armchair';
+    if (/\bdrawers?\b/.test(text)) return 'chest';
+    return null;
+}
 
-    // Shopify product type alone
+function matchAccessoryKind(text) {
+    if (!text) return null;
+    if (/\b(floor\s+lamp|table\s+lamp|lamp|pendant|sconce|light\s+fitting)\b/.test(text)) {
+        return 'lamp';
+    }
+    if (/\b(plant|planter|pot\s+plant|vase)\b/.test(text)) return 'plant';
+    if (/\b(cushion|throw|pillow|artwork|mirror|clock|decor)\b/.test(text)) return 'decor';
+    return null;
+}
+
+/**
+ * Infer a stable measure kind from product title / type / url.
+ * Description is only a furniture fallback — never used to mark accessories
+ * (PDP copy like “matches your decor” was skipping the width step).
+ */
+export function inferMeasureKind(config = {}) {
+    const identity = identityBlob(config);
+    const fromIdentity = matchFurnitureKind(identity);
+    if (fromIdentity) return fromIdentity;
+
     const type = String(config.productData?.type || '').toLowerCase();
     if (type) {
         if (/sofa|couch/.test(type)) return 'sofa';
@@ -132,11 +142,18 @@ export function inferMeasureKind(config = {}) {
         if (/chair/.test(type)) return 'armchair';
         if (/table/.test(type)) return 'diningTable';
         if (/wardrobe/.test(type)) return 'wardrobe';
-        if (/chest|dresser/.test(type)) return 'chest';
+        if (/chest|dresser|drawer/.test(type)) return 'chest';
         if (/sideboard|credenza|buffet/.test(type)) return 'sideboard';
         if (/rug|carpet/.test(type)) return 'rug';
-        if (/lamp|light/.test(type)) return 'lamp';
     }
+
+    const fromDescription = matchFurnitureKind(descriptionBlob(config));
+    if (fromDescription) return fromDescription;
+
+    const accessory = matchAccessoryKind(identity);
+    if (accessory) return accessory;
+
+    if (/lamp|light/.test(type)) return 'lamp';
 
     return 'default';
 }
