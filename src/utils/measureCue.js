@@ -123,7 +123,16 @@ export function isAccessoryMeasureKind(kind) {
     return ACCESSORY_KINDS.has(kind);
 }
 
-export function getMeasureChips(kind) {
+export function getMeasureChips(kind, { asRoomRuler = false } = {}) {
+    if (asRoomRuler) {
+        if (kind === 'coffeeTable' || kind === 'sideTable' || kind === 'armchair') {
+            return CHIP_SETS.sofa;
+        }
+        if (kind === 'diningChair' || kind === 'diningTable') {
+            return CHIP_SETS.diningTable;
+        }
+        return CHIP_SETS.default;
+    }
     return CHIP_SETS[kind] || CHIP_SETS.default;
 }
 
@@ -184,6 +193,26 @@ function newProductNoun(kind) {
 }
 
 /** Name for the EXISTING piece in the photo they should measure. */
+/** Visible room piece to use as a cm ruler when the matching product isn’t in the photo. */
+function roomRulerNoun(kind) {
+    switch (kind) {
+        case 'coffeeTable':
+        case 'sideTable':
+        case 'armchair':
+            return 'sofa';
+        case 'diningChair':
+            return 'dining table';
+        case 'consoleTable':
+            return 'sofa';
+        case 'desk':
+            return 'table nearby';
+        case 'diningTable':
+            return 'largest piece';
+        default:
+            return 'largest piece';
+    }
+}
+
 function oldPieceNoun(kind) {
     switch (kind) {
         case 'sofa':
@@ -219,38 +248,19 @@ function oldPieceNoun(kind) {
 
 /**
  * Placement-intent copy for collision-prone kinds (any room photo still allowed).
- * @returns {null | { heading: string, hint: string, options: Array<{ id: string, label: string }> }}
+ * @returns {null | { heading: string, options: Array<{ id: string, label: string, meta?: string }>, buying: string, oldNoun: string }}
  */
 export function getPlacementIntentCopy(kind) {
     if (!isCollisionMeasureKind(kind)) return null;
     const buying = newProductNoun(kind);
     const oldNoun = oldPieceNoun(kind);
 
-    let hint = `If your photo doesn’t have a matching ${oldNoun}, choose “add it” so we don’t swap the wrong piece.`;
-    if (kind === 'coffeeTable') {
-        hint =
-            'Don’t measure a dining table when buying a coffee table — pick “add it” if there’s no low coffee table.';
-    } else if (kind === 'diningTable') {
-        hint =
-            'Don’t measure a coffee or side table when buying a dining table — pick “add it” if there’s no dining table.';
-    } else if (kind === 'sideTable') {
-        hint =
-            'Don’t measure the coffee table or dining table — only a small side/end table or nightstand.';
-    } else if (kind === 'diningChair') {
-        hint =
-            'Replace dining seats around the table — not a separate lounge armchair across the room.';
-    } else if (kind === 'armchair') {
-        hint =
-            'Replace a lounge/accent chair — not every dining chair around a table unless that’s what you’re buying.';
-    }
-
     return {
-        heading: 'What should we do in your photo?',
-        hint,
+        heading: 'In your photo',
         options: [
-            { id: 'replace', label: `Replace the ${oldNoun}` },
-            { id: 'add', label: `No ${oldNoun} — add it` },
-            { id: 'unsure', label: 'Not sure' },
+            { id: 'replace', label: 'Replace', meta: oldNoun },
+            { id: 'add', label: 'Add it', meta: `no ${oldNoun}` },
+            { id: 'unsure', label: 'Not sure', meta: 'you pick' },
         ],
         buying,
         oldNoun,
@@ -260,11 +270,13 @@ export function getPlacementIntentCopy(kind) {
 /**
  * User-facing copy for the measure step — always ties question to this product type.
  */
-export function getMeasureCopy(kind, productTitle = '') {
+export function getMeasureCopy(kind, productTitle = '', { asRoomRuler = false, intent = null } = {}) {
     const buying = newProductNoun(kind);
-    const oldNoun = oldPieceNoun(kind);
+    const matchingNoun = oldPieceNoun(kind);
+    const oldNoun = asRoomRuler ? roomRulerNoun(kind) : matchingNoun;
     const productLabel = escapeHtml(shortProductLabel(productTitle));
     const productBit = productLabel ? ` “${productLabel}”` : '';
+    const continueWith = (cm) => (cm ? `Use ${cm} cm` : 'Place in my room');
 
     if (isAccessoryMeasureKind(kind)) {
         return {
@@ -272,42 +284,64 @@ export function getMeasureCopy(kind, productTitle = '') {
             isAccessory: true,
             eyebrow: productLabel ? `Placing${productBit}` : `Placing your ${buying}`,
             title: 'Ready to place',
-            body: `No size check needed for this ${buying} — we’ll fit it naturally in your room.`,
+            body: `We’ll fit this ${buying} into your photo — no width needed.`,
             chipHeading: '',
             spanIdle: '',
             spanSelected: (cm) => `${cm} cm`,
             customLabel: '',
             tip: '',
-            continueWith: (cm) => (cm ? `Use ${cm} cm` : 'Continue'),
-            skipLabel: 'Continue without a size',
+            continueWith,
+            skipLabel: 'Place in my room',
             ariaGroup: 'Size (optional)',
+            examplePlaceholder: 'e.g. 180',
+        };
+    }
+
+    if (asRoomRuler) {
+        return {
+            kind,
+            isAccessory: false,
+            eyebrow: productLabel ? `Sizing ·${productBit}` : `Sizing your ${buying}`,
+            title: `How wide is the ${oldNoun}?`,
+            body: `We’ll add the ${buying} — measure the ${oldNoun} left to right so the new piece looks the right size. Close guess is fine.`,
+            chipHeading: `${oldNoun} width`,
+            spanIdle: 'left → right',
+            spanSelected: (cm) => `${cm} cm wide`,
+            customLabel: `Or type ${oldNoun} width`,
+            tip: '',
+            continueWith,
+            skipLabel: 'Skip — guess for me',
+            ariaGroup: `Width of ${oldNoun} in photo, centimetres`,
             examplePlaceholder: 'e.g. 180',
         };
     }
 
     const measureHint =
         kind === 'diningChair'
-            ? 'one chair’s seat width'
+            ? 'one chair’s seat, left to right'
             : kind === 'rug'
-              ? 'the rug’s shorter side (width across)'
+              ? 'the shorter side across the floor'
               : kind === 'bed'
-                ? 'the bed left→right (across the headboard)'
-                : `${oldNoun} left→right`;
+                ? 'across the headboard'
+                : `${matchingNoun}, left to right`;
+
+    const unsureBody = `Measure the ${matchingNoun} if you see one (${measureHint}). If you don’t, tap Add it so we don’t swap the wrong piece.`;
+    const replaceBody = `Measure the ${matchingNoun} already in the photo (${measureHint}). Close guess is fine.`;
 
     return {
         kind,
         isAccessory: false,
         eyebrow: productLabel ? `Sizing ·${productBit}` : `Sizing your ${buying}`,
-        title: `How wide is the ${oldNoun} in your photo?`,
-        body: `You’re previewing a new ${buying}. Measure the existing ${oldNoun} already in the photo (${measureHint}) in cm — a close guess is fine. If you’re measuring a different piece (e.g. a side table while buying a coffee table), sizes won’t match.`,
-        chipHeading: `Width of ${oldNoun} in photo (cm)`,
+        title: `How wide is the ${matchingNoun}?`,
+        body: intent === 'unsure' || !intent ? unsureBody : replaceBody,
+        chipHeading: `${matchingNoun} width`,
         spanIdle: 'left → right',
         spanSelected: (cm) => `${cm} cm wide`,
-        customLabel: `Or type ${oldNoun} width`,
-        tip: `Only width of that ${oldNoun} in the photo — not the new ${buying}’s listed size. Height comes from the product photos.`,
-        continueWith: (cm) => (cm ? `Use ${cm} cm` : 'Continue'),
-        skipLabel: 'Skip — estimate for me',
-        ariaGroup: `Width of ${oldNoun} in photo, centimetres`,
+        customLabel: `Or type ${matchingNoun} width`,
+        tip: '',
+        continueWith,
+        skipLabel: 'Skip — guess for me',
+        ariaGroup: `Width of ${matchingNoun} in photo, centimetres`,
         examplePlaceholder:
             kind === 'diningChair' || kind === 'sideTable' || kind === 'armchair'
                 ? 'e.g. 50'

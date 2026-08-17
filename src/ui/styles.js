@@ -1669,7 +1669,7 @@ export const styles = `
     }
 
     .aif-measure-stage {
-      overflow: hidden;
+      overflow: auto;
       gap: 10px;
     }
 
@@ -1687,6 +1687,15 @@ export const styles = `
       padding: 8px 10px;
       font-size: 13px;
       min-height: 40px;
+    }
+
+    .aif-measure-chip--intent {
+      min-height: 52px;
+      padding: 8px 9px;
+    }
+
+    .aif-measure-choice__label {
+      font-size: 12px;
     }
 
     .aif-measure-tip {
@@ -1733,7 +1742,6 @@ export const styles = `
       font-size: 15px;
     }
 
-    .aif-measure-chip-heading,
     .aif-upload-privacy {
       display: none;
     }
@@ -1872,11 +1880,12 @@ export const styles = `
   .aif-measure-stage {
     flex: 1;
     min-height: 0;
-    overflow: hidden;
+    overflow: auto;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
     padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
   }
 
   .aif-measure-thumb {
@@ -1956,16 +1965,44 @@ export const styles = `
   }
 
   .aif-measure-chips--intent {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 8px;
+    align-items: stretch;
   }
 
   .aif-measure-chip--intent {
-    border-radius: 12px;
-    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 2px;
+    border-radius: 14px;
+    padding: 10px 11px;
+    min-height: 58px;
     font-size: 13px;
-    line-height: 1.25;
+    line-height: 1.2;
     text-align: left;
-    max-width: 100%;
+    white-space: normal;
+    max-width: none;
+    width: 100%;
+  }
+
+  .aif-measure-choice__label {
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: -0.01em;
+  }
+
+  .aif-measure-choice__meta {
+    font-weight: 500;
+    font-size: 11px;
+    line-height: 1.25;
+    color: var(--aif-text-muted);
+  }
+
+  .aif-measure-chip--intent.is-selected .aif-measure-choice__meta {
+    color: rgba(255, 250, 242, 0.88);
   }
 
   .aif-measure-view .aif-header p strong {
@@ -1996,6 +2033,11 @@ export const styles = `
     border-color: var(--aif-primary);
     color: #fff;
     box-shadow: 0 6px 16px rgba(139, 105, 20, 0.28);
+  }
+
+  .aif-measure-chip--intent {
+    border-radius: 14px;
+    padding: 10px 11px;
   }
 
   .aif-measure-chip--ghost {
