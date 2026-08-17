@@ -13,6 +13,7 @@ const CHIP_SETS = {
     sideTable: [40, 45, 50, 55, 60, 70],
     consoleTable: [80, 100, 120, 140, 160, 180],
     sideboard: [100, 120, 140, 160, 180, 200, 220],
+    chest: [80, 100, 120, 140, 160, 180, 200],
     wardrobe: [80, 100, 120, 150, 180, 200],
     diningChair: [40, 45, 50, 55, 60],
     desk: [100, 120, 140, 160, 180],
@@ -36,12 +37,25 @@ const COLLISION_KINDS = new Set([
     'desk',
     'diningChair',
     'armchair',
+    'sideboard',
+    'chest',
+    'wardrobe',
+    'tvStand',
 ]);
 
 export const PLACEMENT_INTENTS = ['replace', 'add', 'unsure'];
 
 export function isCollisionMeasureKind(kind) {
     return COLLISION_KINDS.has(kind);
+}
+
+/** Implicit intent when the shopper hasn’t tapped a choice yet. */
+export function defaultPlacementIntent(kind) {
+    if (kind === 'chest' || kind === 'sideboard' || kind === 'wardrobe' || kind === 'tvStand') {
+        return 'replace';
+    }
+    if (isCollisionMeasureKind(kind)) return 'unsure';
+    return null;
 }
 
 export function normalizePlacementIntent(raw) {
@@ -83,7 +97,13 @@ export function inferMeasureKind(config = {}) {
     if (/\b(tv\s+stand|media\s+unit|media\s+console|entertainment\s+unit)\b/.test(text)) {
         return 'tvStand';
     }
-    if (/\b(sideboard|credenza|buffet|dresser|chest\s+of\s+drawers|lowboard|side\s+cabinet)\b/.test(text)) {
+    if (
+        /\b(chest\s+of\s+drawers|drawer\s+chest|chest-of-drawers)\b/.test(text) ||
+        /\bdresser\b/.test(text)
+    ) {
+        return 'chest';
+    }
+    if (/\b(sideboard|credenza|buffet|lowboard|side\s+cabinet)\b/.test(text)) {
         return 'sideboard';
     }
     if (/\b(coffee\s+table|cocktail\s+table)\b/.test(text)) return 'coffeeTable';
@@ -111,7 +131,9 @@ export function inferMeasureKind(config = {}) {
         if (/bed/.test(type)) return 'bed';
         if (/chair/.test(type)) return 'armchair';
         if (/table/.test(type)) return 'diningTable';
-        if (/wardrobe|storage/.test(type)) return 'wardrobe';
+        if (/wardrobe/.test(type)) return 'wardrobe';
+        if (/chest|dresser/.test(type)) return 'chest';
+        if (/sideboard|credenza|buffet/.test(type)) return 'sideboard';
         if (/rug|carpet/.test(type)) return 'rug';
         if (/lamp|light/.test(type)) return 'lamp';
     }
@@ -171,6 +193,8 @@ function newProductNoun(kind) {
             return 'console table';
         case 'sideboard':
             return 'sideboard';
+        case 'chest':
+            return 'chest of drawers';
         case 'wardrobe':
             return 'wardrobe';
         case 'diningChair':
@@ -230,7 +254,9 @@ function oldPieceNoun(kind) {
         case 'consoleTable':
             return 'console table';
         case 'sideboard':
-            return 'sideboard or chest';
+            return 'sideboard';
+        case 'chest':
+            return 'sideboard';
         case 'wardrobe':
             return 'wardrobe';
         case 'diningChair':
@@ -254,6 +280,32 @@ export function getPlacementIntentCopy(kind) {
     if (!isCollisionMeasureKind(kind)) return null;
     const buying = newProductNoun(kind);
     const oldNoun = oldPieceNoun(kind);
+
+    if (kind === 'chest') {
+        return {
+            heading: 'In your photo',
+            options: [
+                { id: 'replace', label: 'Replace', meta: 'the sideboard' },
+                { id: 'add', label: 'Add it', meta: 'no storage there' },
+                { id: 'unsure', label: 'Not sure', meta: 'you pick' },
+            ],
+            buying,
+            oldNoun,
+        };
+    }
+
+    if (kind === 'sideboard') {
+        return {
+            heading: 'In your photo',
+            options: [
+                { id: 'replace', label: 'Replace', meta: 'sideboard' },
+                { id: 'add', label: 'Add it', meta: 'none there' },
+                { id: 'unsure', label: 'Not sure', meta: 'you pick' },
+            ],
+            buying,
+            oldNoun,
+        };
+    }
 
     return {
         heading: 'In your photo',
@@ -303,7 +355,7 @@ export function getMeasureCopy(kind, productTitle = '', { asRoomRuler = false, i
             isAccessory: false,
             eyebrow: productLabel ? `Sizing ·${productBit}` : `Sizing your ${buying}`,
             title: `How wide is the ${oldNoun}?`,
-            body: `We’ll add the ${buying} — measure the ${oldNoun} left to right so the new piece looks the right size. Close guess is fine.`,
+            body: `We already have this ${buying}’s listed size. Measure the ${oldNoun} in your photo so the new piece is to scale. Close guess is fine.`,
             chipHeading: `${oldNoun} width`,
             spanIdle: 'left → right',
             spanSelected: (cm) => `${cm} cm wide`,
@@ -316,6 +368,7 @@ export function getMeasureCopy(kind, productTitle = '', { asRoomRuler = false, i
         };
     }
 
+    const isStorageSpot = kind === 'chest' || kind === 'sideboard';
     const measureHint =
         kind === 'diningChair'
             ? 'one chair’s seat, left to right'
@@ -323,21 +376,34 @@ export function getMeasureCopy(kind, productTitle = '', { asRoomRuler = false, i
               ? 'the shorter side across the floor'
               : kind === 'bed'
                 ? 'across the headboard'
-                : `${matchingNoun}, left to right`;
+                : isStorageSpot
+                  ? 'left to right along the wall'
+                  : `${matchingNoun}, left to right`;
 
-    const unsureBody = `Measure the ${matchingNoun} if you see one (${measureHint}). If you don’t, tap Add it so we don’t swap the wrong piece.`;
-    const replaceBody = `Measure the ${matchingNoun} already in the photo (${measureHint}). Close guess is fine.`;
+    const listedLead = `We already have this ${buying}’s listed size — we need the piece in your photo.`;
+    const unsureBody = isStorageSpot
+        ? `${listedLead} Measure the sideboard (or chest) against the wall. If there isn’t one, tap Add it.`
+        : `${listedLead} Measure the ${matchingNoun} if you see one (${measureHint}). If you don’t, tap Add it so we don’t swap the wrong piece.`;
+    const replaceBody = isStorageSpot
+        ? `${listedLead} Measure the sideboard (or chest) you want to replace, left to right. Close guess is fine.`
+        : `${listedLead} Measure the ${matchingNoun} already in the photo (${measureHint}). Close guess is fine.`;
+
+    const title = isStorageSpot
+        ? 'How wide is the sideboard in your photo?'
+        : `How wide is the ${matchingNoun}?`;
+    const chipHeading = isStorageSpot ? 'Sideboard width in photo' : `${matchingNoun} width`;
+    const customLabel = isStorageSpot ? 'Or type that width' : `Or type ${matchingNoun} width`;
 
     return {
         kind,
         isAccessory: false,
         eyebrow: productLabel ? `Sizing ·${productBit}` : `Sizing your ${buying}`,
-        title: `How wide is the ${matchingNoun}?`,
+        title,
         body: intent === 'unsure' || !intent ? unsureBody : replaceBody,
-        chipHeading: `${matchingNoun} width`,
+        chipHeading,
         spanIdle: 'left → right',
         spanSelected: (cm) => `${cm} cm wide`,
-        customLabel: `Or type ${matchingNoun} width`,
+        customLabel,
         tip: '',
         continueWith,
         skipLabel: 'Skip — guess for me',

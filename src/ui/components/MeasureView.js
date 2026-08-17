@@ -14,6 +14,7 @@ import {
     inferMeasureKind,
     isAccessoryMeasureKind,
     isCollisionMeasureKind,
+    defaultPlacementIntent,
     normalizePlacementIntent,
     parseCatalogWidthCm,
 } from '../../utils/measureCue.js';
@@ -106,11 +107,13 @@ export const MeasureView = (state) => {
     const collision = !accessory && isCollisionMeasureKind(kind);
     const intentCopy = collision ? getPlacementIntentCopy(kind) : null;
     const explicitIntent = normalizePlacementIntent(state.placementIntent);
-    const placementIntent = explicitIntent || (collision ? 'unsure' : null);
-    const asRoomRuler = collision && explicitIntent === 'add';
+    const implicitIntent = defaultPlacementIntent(kind);
+    const placementIntent = explicitIntent || implicitIntent;
+    const visualIntent = explicitIntent || (implicitIntent === 'replace' ? 'replace' : null);
+    const asRoomRuler = collision && placementIntent === 'add';
     const copy = getMeasureCopy(kind, productTitle, {
         asRoomRuler,
-        intent: explicitIntent || (collision ? 'unsure' : null),
+        intent: placementIntent,
     });
     const chips = getMeasureChips(kind, { asRoomRuler });
     const selected = state.furnitureWidthCm;
@@ -212,7 +215,7 @@ export const MeasureView = (state) => {
         intentSection.setAttribute('aria-label', intentCopy.heading);
 
         intentCopy.options.forEach((opt) => {
-            const selectedIntent = explicitIntent === opt.id;
+            const selectedIntent = visualIntent === opt.id;
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = `aif-measure-chip aif-measure-chip--intent${
