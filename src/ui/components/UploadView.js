@@ -3,6 +3,7 @@
  */
 import { actions, store } from '../../state/store.js';
 import { Button } from './Button.js';
+import { createModelPicker } from './ModelPicker.js';
 import { trackEvent } from '../../tracking.js';
 import { compressRoomImage } from '../../utils/compressRoomImage.js';
 
@@ -47,6 +48,8 @@ export const UploadView = (state) => {
     <p>Snap your room once — we'll place this piece where it belongs.</p>
   `;
     container.appendChild(header);
+
+    container.appendChild(createModelPicker(state.selectedModel));
 
     if (state.error) {
         const errorBox = document.createElement('div');

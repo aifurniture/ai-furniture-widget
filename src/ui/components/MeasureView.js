@@ -5,6 +5,7 @@
  */
 import { actions, store, VIEWS, fileToDataURL, flushSessionSnapshot } from '../../state/store.js';
 import { Button } from './Button.js';
+import { createModelPicker } from './ModelPicker.js';
 import { trackEvent } from '../../tracking.js';
 import {
     assessSizeFit,
@@ -58,6 +59,7 @@ async function startGeneration({ furnitureWidthCm, sizeFitMode = null, placement
     const queueId = `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const userImageDataUrl = await fileToDataURL(image);
     const intent = normalizePlacementIntent(placementIntent);
+    const selectedModel = currentState.selectedModel === 'fast' ? 'fast' : 'slow';
 
     const payload = {
         id: queueId,
@@ -65,7 +67,7 @@ async function startGeneration({ furnitureWidthCm, sizeFitMode = null, placement
         productName,
         userImage: image,
         userImageDataUrl,
-        selectedModel: 'slow',
+        selectedModel,
         config: currentState.config || {},
         queuedAt: Date.now(),
     };
@@ -87,7 +89,7 @@ async function startGeneration({ furnitureWidthCm, sizeFitMode = null, placement
         queueId,
         productUrl,
         productName,
-        model: 'slow',
+        model: selectedModel,
         imageSize: image?.size || 0,
         furnitureWidthCm: payload.furnitureWidthCm || null,
         hasScaleCue: Boolean(payload.furnitureWidthCm),
@@ -189,6 +191,7 @@ export const MeasureView = (state) => {
         backBtn.textContent = '← Change photo';
         backBtn.onclick = () => actions.setUploadedImage(null);
 
+        footer.appendChild(createModelPicker(state.selectedModel, { compact: true }));
         footer.appendChild(continueBtn);
         footer.appendChild(backBtn);
         container.appendChild(footer);
@@ -404,6 +407,7 @@ export const MeasureView = (state) => {
     backBtn.textContent = '← Change photo';
     backBtn.onclick = () => actions.setUploadedImage(null);
 
+    footer.appendChild(createModelPicker(state.selectedModel, { compact: true }));
     footer.appendChild(continueBtn);
     if (skipBtn) footer.appendChild(skipBtn);
     footer.appendChild(backBtn);

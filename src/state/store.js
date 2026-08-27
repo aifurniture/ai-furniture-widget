@@ -353,7 +353,7 @@ export const initialState = {
     sessionId: null,
     config: {},
     isMobile: typeof window !== 'undefined' ? window.innerWidth <= 768 : false,
-    selectedModel: 'slow', // Always use high quality model
+    selectedModel: 'slow',
     queueTab: 'all', // Active tab in queue view
     remoteGenerations: [] // from GET /api/widget/generations (anonymous browser key)
 };
@@ -574,7 +574,8 @@ export const actions = {
         store.setState({ view });
     },
     setSelectedModel: (model) => {
-        store.setState({ selectedModel: model });
+        const v = model === 'fast' ? 'fast' : 'slow';
+        store.setState({ selectedModel: v });
     },
     setQueueTab: (tab) => {
         store.setState({ queueTab: tab });

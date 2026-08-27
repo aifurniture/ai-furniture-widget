@@ -447,7 +447,7 @@ async function submitAsyncJob(id, item, apiEndpoint, domainForApi, domainIdForAp
     formData.append('queueId', id);
     formData.append('productUrl', item.productUrl);
     formData.append('productName', (item.productName || document.title || '').slice(0, 500));
-    formData.append('model', 'slow');
+    formData.append('model', item.selectedModel === 'fast' ? 'fast' : 'slow');
     formData.append('domain', domainForApi);
     if (domainIdForApi) formData.append('domainId', domainIdForApi);
     formData.append('imageS3Key', uploaded.s3Key);
@@ -479,7 +479,7 @@ async function submitAsyncJob(id, item, apiEndpoint, domainForApi, domainIdForAp
 async function runSyncGenerate(id, item, apiEndpoint, domainForApi, domainIdForApi, sessionIdForApi, uploaded, imageToUse, mergedConfig) {
     const formData = new FormData();
     formData.append('productUrl', item.productUrl);
-    formData.append('model', 'slow');
+    formData.append('model', item.selectedModel === 'fast' ? 'fast' : 'slow');
     formData.append('domain', domainForApi);
     if (domainIdForApi) formData.append('domainId', domainIdForApi);
     if (sessionIdForApi) formData.append('sessionId', sessionIdForApi);

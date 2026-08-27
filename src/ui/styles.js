@@ -2163,6 +2163,91 @@ export const styles = `
     padding-top: 4px;
   }
 
+  .aif-model-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .aif-model-picker__heading {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--aif-text-muted);
+  }
+
+  .aif-model-picker__options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .aif-model-picker__option {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    border: 1px solid var(--aif-border);
+    background: var(--aif-bg-elevated);
+    color: var(--aif-text-main);
+    border-radius: 14px;
+    padding: 10px 12px;
+    min-height: 58px;
+    font-family: var(--aif-font);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.15s ease;
+  }
+
+  .aif-model-picker__option:hover {
+    border-color: #cbb894;
+    transform: translateY(-1px);
+  }
+
+  .aif-model-picker__option.is-selected {
+    background: var(--aif-primary);
+    border-color: var(--aif-primary);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(139, 105, 20, 0.28);
+  }
+
+  .aif-model-picker__label {
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: -0.01em;
+  }
+
+  .aif-model-picker__meta {
+    font-weight: 600;
+    font-size: 11px;
+    line-height: 1.25;
+    opacity: 0.9;
+  }
+
+  .aif-model-picker__hint {
+    font-weight: 500;
+    font-size: 11px;
+    line-height: 1.25;
+    opacity: 0.85;
+  }
+
+  .aif-model-picker__option:not(.is-selected) .aif-model-picker__meta,
+  .aif-model-picker__option:not(.is-selected) .aif-model-picker__hint {
+    color: var(--aif-text-muted);
+  }
+
+  .aif-model-picker--compact .aif-model-picker__option {
+    min-height: 48px;
+    padding: 8px 10px;
+  }
+
+  .aif-model-picker--compact .aif-model-picker__label {
+    font-size: 12px;
+  }
+
   .aif-measure-back {
     align-self: center;
     color: var(--aif-text-muted) !important;

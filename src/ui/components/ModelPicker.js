@@ -1,0 +1,74 @@
+/**
+ * Fast (Gemini) vs slow (Seedream) preview quality toggle.
+ */
+import { actions } from '../../state/store.js';
+
+const OPTIONS = [
+    {
+        id: 'slow',
+        label: 'Best quality',
+        meta: 'Seedream 5.0',
+        hint: 'Sharper detail & sizing',
+    },
+    {
+        id: 'fast',
+        label: 'Fast',
+        meta: 'Google Gemini',
+        hint: 'Quicker preview',
+    },
+];
+
+export function createModelPicker(selectedModel = 'slow', { compact = false } = {}) {
+    const current = selectedModel === 'fast' ? 'fast' : 'slow';
+    const wrap = document.createElement('div');
+    wrap.className = `aif-model-picker${compact ? ' aif-model-picker--compact' : ''}`;
+    wrap.setAttribute('role', 'radiogroup');
+    wrap.setAttribute('aria-label', 'Preview quality');
+
+    if (!compact) {
+        const heading = document.createElement('p');
+        heading.className = 'aif-model-picker__heading';
+        heading.textContent = 'Preview quality';
+        wrap.appendChild(heading);
+    }
+
+    const row = document.createElement('div');
+    row.className = 'aif-model-picker__options';
+
+    OPTIONS.forEach((opt) => {
+        const selected = current === opt.id;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `aif-model-picker__option${selected ? ' is-selected' : ''}`;
+        btn.setAttribute('role', 'radio');
+        btn.setAttribute('aria-checked', selected ? 'true' : 'false');
+        btn.setAttribute('aria-label', `${opt.label}, ${opt.meta}`);
+
+        const label = document.createElement('span');
+        label.className = 'aif-model-picker__label';
+        label.textContent = opt.label;
+        btn.appendChild(label);
+
+        const meta = document.createElement('span');
+        meta.className = 'aif-model-picker__meta';
+        meta.textContent = opt.meta;
+        btn.appendChild(meta);
+
+        if (!compact) {
+            const hint = document.createElement('span');
+            hint.className = 'aif-model-picker__hint';
+            hint.textContent = opt.hint;
+            btn.appendChild(hint);
+        }
+
+        btn.onclick = () => {
+            if (current !== opt.id) {
+                actions.setSelectedModel(opt.id);
+            }
+        };
+        row.appendChild(btn);
+    });
+
+    wrap.appendChild(row);
+    return wrap;
+}
