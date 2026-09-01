@@ -1,5 +1,5 @@
 /**
- * Fast (Gemini) vs slow (Seedream) preview quality toggle.
+ * Fast vs Best quality (slow) preview toggle.
  */
 import { actions } from '../../state/store.js';
 
@@ -7,13 +7,11 @@ const OPTIONS = [
     {
         id: 'slow',
         label: 'Best quality',
-        meta: 'Seedream 5.0',
-        hint: 'Sharper detail & sizing',
+        hint: 'Slower · sharper detail',
     },
     {
         id: 'fast',
         label: 'Fast',
-        meta: 'Google Gemini',
         hint: 'Quicker preview',
     },
 ];
@@ -23,12 +21,12 @@ export function createModelPicker(selectedModel = 'slow', { compact = false } = 
     const wrap = document.createElement('div');
     wrap.className = `aif-model-picker${compact ? ' aif-model-picker--compact' : ''}`;
     wrap.setAttribute('role', 'radiogroup');
-    wrap.setAttribute('aria-label', 'Preview quality');
+    wrap.setAttribute('aria-label', 'Preview speed');
 
     if (!compact) {
         const heading = document.createElement('p');
         heading.className = 'aif-model-picker__heading';
-        heading.textContent = 'Preview quality';
+        heading.textContent = 'Preview speed';
         wrap.appendChild(heading);
     }
 
@@ -42,17 +40,12 @@ export function createModelPicker(selectedModel = 'slow', { compact = false } = 
         btn.className = `aif-model-picker__option${selected ? ' is-selected' : ''}`;
         btn.setAttribute('role', 'radio');
         btn.setAttribute('aria-checked', selected ? 'true' : 'false');
-        btn.setAttribute('aria-label', `${opt.label}, ${opt.meta}`);
+        btn.setAttribute('aria-label', `${opt.label}. ${opt.hint}`);
 
         const label = document.createElement('span');
         label.className = 'aif-model-picker__label';
         label.textContent = opt.label;
         btn.appendChild(label);
-
-        const meta = document.createElement('span');
-        meta.className = 'aif-model-picker__meta';
-        meta.textContent = opt.meta;
-        btn.appendChild(meta);
 
         if (!compact) {
             const hint = document.createElement('span');

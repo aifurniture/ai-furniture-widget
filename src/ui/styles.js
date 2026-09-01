@@ -333,7 +333,8 @@ export const styles = `
 
   .aif-header p {
     font-size: 13px;
-    color: var(--aif-text-muted);
+    color: #4a4038;
+    line-height: 1.45;
     margin: 0;
     line-height: 1.45;
   }
@@ -1950,11 +1951,10 @@ export const styles = `
 
   .aif-measure-chip-heading {
     margin: 0;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--aif-text-muted);
+    letter-spacing: 0.02em;
+    color: var(--aif-text-main);
   }
 
   .aif-measure-chips {
@@ -1996,13 +1996,13 @@ export const styles = `
 
   .aif-measure-choice__meta {
     font-weight: 500;
-    font-size: 11px;
-    line-height: 1.25;
-    color: var(--aif-text-muted);
+    font-size: 12px;
+    line-height: 1.3;
+    color: #4a4038;
   }
 
   .aif-measure-chip--intent.is-selected .aif-measure-choice__meta {
-    color: rgba(255, 250, 242, 0.88);
+    color: #fffaf2;
   }
 
   .aif-measure-view .aif-header p strong {
@@ -2108,9 +2108,9 @@ export const styles = `
 
   .aif-measure-tip {
     margin: 0;
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.45;
-    color: var(--aif-text-muted);
+    color: #4a4038;
   }
 
   .aif-measure-fit {
@@ -2172,11 +2172,9 @@ export const styles = `
 
   .aif-model-picker__heading {
     margin: 0;
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--aif-text-muted);
+    color: var(--aif-text-main);
   }
 
   .aif-model-picker__options {
@@ -2189,13 +2187,13 @@ export const styles = `
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 2px;
+    gap: 3px;
     border: 1px solid var(--aif-border);
     background: var(--aif-bg-elevated);
     color: var(--aif-text-main);
     border-radius: 14px;
     padding: 10px 12px;
-    min-height: 58px;
+    min-height: 52px;
     font-family: var(--aif-font);
     cursor: pointer;
     text-align: left;
@@ -2210,42 +2208,36 @@ export const styles = `
   .aif-model-picker__option.is-selected {
     background: var(--aif-primary);
     border-color: var(--aif-primary);
-    color: #fff;
+    color: #fffaf2;
     box-shadow: 0 6px 16px rgba(139, 105, 20, 0.28);
   }
 
   .aif-model-picker__label {
     font-weight: 700;
-    font-size: 13px;
+    font-size: 14px;
     letter-spacing: -0.01em;
-  }
-
-  .aif-model-picker__meta {
-    font-weight: 600;
-    font-size: 11px;
-    line-height: 1.25;
-    opacity: 0.9;
+    color: inherit;
   }
 
   .aif-model-picker__hint {
     font-weight: 500;
-    font-size: 11px;
-    line-height: 1.25;
-    opacity: 0.85;
+    font-size: 12px;
+    line-height: 1.3;
+    color: #4a4038;
   }
 
-  .aif-model-picker__option:not(.is-selected) .aif-model-picker__meta,
-  .aif-model-picker__option:not(.is-selected) .aif-model-picker__hint {
-    color: var(--aif-text-muted);
+  .aif-model-picker__option.is-selected .aif-model-picker__hint {
+    color: #fffaf2;
   }
 
   .aif-model-picker--compact .aif-model-picker__option {
-    min-height: 48px;
-    padding: 8px 10px;
+    min-height: 44px;
+    padding: 9px 12px;
+    align-items: center;
   }
 
   .aif-model-picker--compact .aif-model-picker__label {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .aif-measure-back {
