@@ -9,6 +9,7 @@ export const styles = `
 
   :root {
     --aif-primary: #8b6914;
+    --aif-primary-mid: #a67c1a;
     --aif-primary-hover: #6f5310;
     --aif-primary-dark: #4a3810;
     --aif-accent-soft: #f3ead8;
@@ -611,7 +612,7 @@ export const styles = `
   }
 
   .aif-upload-cta--primary {
-    background: linear-gradient(165deg, #a67c1a 0%, var(--aif-primary) 55%, var(--aif-primary-hover) 100%);
+    background: linear-gradient(165deg, var(--aif-primary-mid) 0%, var(--aif-primary) 55%, var(--aif-primary-hover) 100%);
     color: #fffaf2;
     box-shadow: 0 6px 20px var(--aif-accent-glow);
   }
@@ -1132,13 +1133,13 @@ export const styles = `
 
   .aif-result-actions__btn--primary {
     border: 1px solid var(--aif-primary-hover);
-    background: linear-gradient(165deg, #a67c1a 0%, var(--aif-primary) 55%, var(--aif-primary-hover) 100%);
+    background: linear-gradient(165deg, var(--aif-primary-mid) 0%, var(--aif-primary) 55%, var(--aif-primary-hover) 100%);
     color: #fffaf2;
     box-shadow: 0 4px 14px var(--aif-accent-glow);
   }
 
   .aif-result-actions__btn--primary:hover:not(:disabled) {
-    background: linear-gradient(165deg, #b8891f 0%, #967515 55%, var(--aif-primary-hover) 100%);
+    background: linear-gradient(165deg, var(--aif-primary-mid) 0%, var(--aif-primary) 55%, var(--aif-primary-hover) 100%);
     border-color: var(--aif-primary-hover);
   }
 
@@ -1824,7 +1825,7 @@ export const styles = `
   }
 
   #ai-furniture-trigger-btn.aif-trigger-btn[data-aif-state="ready"] {
-    background: linear-gradient(155deg, #a67c1a 0%, var(--aif-primary) 50%, var(--aif-primary-hover) 100%);
+    background: linear-gradient(155deg, var(--aif-primary-mid) 0%, var(--aif-primary) 50%, var(--aif-primary-hover) 100%);
     box-shadow: 0 14px 36px var(--aif-accent-glow);
   }
 
@@ -2340,7 +2341,7 @@ export const styles = `
     height: 100%;
     width: 0%;
     border-radius: 999px;
-    background: linear-gradient(90deg, var(--aif-primary), #c4a35a);
+    background: linear-gradient(90deg, var(--aif-primary), var(--aif-primary-mid));
     box-shadow: 0 0 12px var(--aif-accent-glow);
     transition: width 0.45s ease;
   }

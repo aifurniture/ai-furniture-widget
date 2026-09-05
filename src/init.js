@@ -9,6 +9,8 @@ import { isFurnitureProductPage, detectCartAndOrderPages, checkForOrderCompletio
 import { resumeQueueAfterNavigation } from './services/queueProcessor.js';
 import { initQueueProcessor } from './services/queueProcessor.js';
 import { injectStyles } from './ui/styles.js';
+import { applyWidgetTheme } from './ui/theme.js';
+import { getConfig } from './state.js';
 
 // Track if widget has been initialized - use sessionStorage to persist across script reloads
 function getWidgetInitKey() {
@@ -101,6 +103,7 @@ export function ensureWidgetRuntimeActive() {
     if (window.__AIFurnitureRuntimeReady) return;
     window.__AIFurnitureRuntimeReady = true;
     injectStyles();
+    applyWidgetTheme(getConfig() || window.__AIFurnitureConfig || window.FURNITURE_AI_CONFIG || {});
     initQueueProcessor();
     window.AIFurniture = {
         open: (options) => actions.openModal(options),
