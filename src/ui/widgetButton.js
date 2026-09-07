@@ -3,6 +3,7 @@ import { debugLog } from '../debug.js';
 import { actions, store, QUEUE_STATUS, VIEWS } from '../state/store.js';
 import { trackEvent } from '../tracking.js';
 import { syncMobileLayoutVars } from './safeArea.js';
+import { computeLauncherBottom, computeLauncherRight } from './launcherPosition.js';
 
 const TRIGGER_ICON_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l2-3h4l2 3h4v12H4V7z"/><circle cx="12" cy="13" r="3.25"/></svg>`;
 
@@ -200,8 +201,8 @@ function repositionWidgetButton() {
     const safeRight = parseFloat(root.style.getPropertyValue('--aif-safe-right')) ||
         parseFloat(getComputedStyle(root).getPropertyValue('--aif-safe-right')) || 0;
 
-    let bottomOffset = Math.max(isMobile ? 16 : 20, safeBottom + 12);
-    let rightOffset = Math.max(isMobile ? 16 : 20, safeRight + 12);
+    let bottomOffset = computeLauncherBottom(isMobile, safeBottom);
+    let rightOffset = computeLauncherRight(isMobile, safeRight);
 
     otherWidgets.forEach((selector) => {
         if (document.querySelector(selector)) {

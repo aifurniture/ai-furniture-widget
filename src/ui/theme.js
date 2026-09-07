@@ -37,6 +37,9 @@ export const DOMAIN_THEMES = {
         font: "Montserrat, ui-sans-serif, system-ui, sans-serif",
         fontDisplay: "Montserrat, ui-sans-serif, system-ui, sans-serif",
         radius: '18px',
+        /** Clear Porto sticky cart / footer widgets on product pages */
+        launcherBottomExtra: 80,
+        launcherBottomMobile: 104,
     },
 };
 

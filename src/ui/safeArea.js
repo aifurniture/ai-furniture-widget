@@ -1,6 +1,7 @@
 /**
  * Mobile safe-area + visual viewport sync for embedded storefronts (often lack viewport-fit=cover).
  */
+import { computeLauncherBottom, computeLauncherRight } from './launcherPosition.js';
 
 function probeInset(prop) {
     if (typeof document === 'undefined') return 0;
@@ -105,9 +106,8 @@ export function syncMobileLayoutVars() {
     const trigger = document.getElementById('ai-furniture-trigger-btn');
     if (trigger) {
         const isMobile = window.innerWidth <= 768;
-        const base = isMobile ? 16 : 20;
-        trigger.style.bottom = `${Math.max(base, safeBottom + 12)}px`;
-        trigger.style.right = `${Math.max(base, safeRight + 12)}px`;
+        trigger.style.bottom = `${computeLauncherBottom(isMobile, safeBottom)}px`;
+        trigger.style.right = `${computeLauncherRight(isMobile, safeRight)}px`;
     }
 }
 

@@ -15,9 +15,15 @@
   var params = new URLSearchParams(
     document.currentScript ? document.currentScript.src.split('?')[1] || '' : window.location.search
   );
-  var domainId = params.get('domainId');
+  var domainId =
+    params.get('domainId') ||
+    (typeof window.AIFURNITURE_DOMAIN_ID === 'string' && window.AIFURNITURE_DOMAIN_ID) ||
+    (window.FURNITURE_AI_CONFIG && window.FURNITURE_AI_CONFIG.domainId) ||
+    '';
   if (!domainId) {
-    console.warn('AI Furniture: Add ?domainId=YOUR_DOMAIN_ID to the WooCommerce loader URL');
+    console.warn(
+      'AI Furniture: Add ?domainId=YOUR_DOMAIN_ID to the loader URL, or set window.AIFURNITURE_DOMAIN_ID before loading.'
+    );
     return;
   }
 
@@ -146,7 +152,7 @@
     window.__AIFurnitureWidgetLoading = true;
     window.FURNITURE_AI_CONFIG = Object.assign({}, window.FURNITURE_AI_CONFIG || {}, buildConfig());
 
-    var WIDGET_CDN_VERSION = '49';
+    var WIDGET_CDN_VERSION = '50';
     var s = document.createElement('script');
     s.src =
       'https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?v=' +

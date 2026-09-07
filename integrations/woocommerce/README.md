@@ -22,7 +22,43 @@
 
 Backend scrape already understands WooCommerce galleries if images are missing from the page config.
 
-### Local test
+### Code Snippets (JavaScript)
+
+**Important:** Code Snippets often runs JS too early or without `domainId` on the script URL. Set the global first:
+
+```javascript
+window.AIFURNITURE_DOMAIN_ID = 'YOUR_DOMAIN_ID';
+
+(function () {
+  if (window.__AIFurnitureWooLoader) return;
+  window.__AIFurnitureWooLoader = true;
+
+  function inject() {
+    var s = document.createElement('script');
+    s.src =
+      'https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/integrations/woocommerce/loader.js?v=2';
+    s.async = true;
+    document.head.appendChild(s);
+  }
+
+  if (document.head) inject();
+  else document.addEventListener('DOMContentLoaded', inject);
+})();
+```
+
+**Recommended:** use a **PHP snippet** instead (more reliable on WordPress):
+
+```php
+add_action('wp_footer', function () {
+    if (is_admin()) return;
+    $domain_id = 'YOUR_DOMAIN_ID';
+    $url = add_query_arg(
+        array('v' => '2', 'domainId' => $domain_id),
+        'https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/integrations/woocommerce/loader.js'
+    );
+    echo '<script src="' . esc_url($url) . '" async></script>';
+}, 20);
+```
 ```bash
 cd ai-furniture-widget
 npm run build
