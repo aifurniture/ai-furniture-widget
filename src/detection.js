@@ -42,12 +42,19 @@ function isCatalogPath(pathname) {
     // Locale-only home paths, e.g. /en or /en-gb
     if (/^\/[a-z]{2}(-[a-z]{2})?\/?$/i.test(path)) return true;
 
+    // WooCommerce / WordPress category archives (before generic markers)
+    if (
+        /\/product-category(\/|$)/i.test(path) ||
+        /\/product-tag(\/|$)/i.test(path) ||
+        /\/shop\/?$/i.test(path)
+    ) {
+        return true;
+    }
+
     const catalogMarkers = [
         '/collections',
         '/catalog',
-        '/category',
         '/categories',
-        '/shop',
         '/search',
         '/cart',
         '/checkout',
@@ -60,7 +67,6 @@ function isCatalogPath(pathname) {
         '/home',
         '/index',
         '/brands',
-        '/sale',
         '/deals',
         '/tag/',
         '/tags/',
@@ -71,6 +77,13 @@ function isCatalogPath(pathname) {
         '/listing',
         '/all-products'
     ];
+
+    // `/category` but not `/product/` PDPs (Woo uses /product/slug)
+    if (/\/category(\/|$)/i.test(path) && !/\/product\//i.test(path)) return true;
+    // `/shop/...` archives, not product PDPs
+    if (/\/shop\//i.test(path) && !/\/product\//i.test(path)) return true;
+    // `/sale` nav/archive — avoid matching random product slugs containing "sale"
+    if (/\/sale(\/|$)/i.test(path) && !/\/product\//i.test(path)) return true;
 
     if (catalogMarkers.some((marker) => path.includes(marker))) return true;
     if (/^\/products\/?$/i.test(path)) return true;
@@ -86,6 +99,26 @@ function isProductDetailPath(pathname) {
         /\/p\/[^/?#]+/i.test(path) ||
         /\/item\/[^/?#]+/i.test(path)
     );
+}
+
+function isWooCommerceProductPage() {
+    try {
+        const body = document.body;
+        if (!body) return false;
+        const cls = body.className || '';
+        if (/\bsingle-product\b/.test(cls)) return true;
+        if (/\bproduct-template-default\b/.test(cls) && /\bwoocommerce\b/.test(cls)) return true;
+        if (
+            document.querySelector(
+                'form.cart button.single_add_to_cart_button, form.cart .single_add_to_cart_button, .woocommerce div.product form.cart'
+            )
+        ) {
+            return isProductDetailPath(window.location.pathname);
+        }
+    } catch {
+        /* ignore */
+    }
+    return false;
 }
 
 function hasShopifyProductMeta() {
@@ -125,21 +158,23 @@ function hasOpenGraphProduct() {
 function hasSingleProductDetailSignals() {
     const detailRoot =
         document.querySelector(
-            '[data-product-id], [data-product-handle], .product-single, .product-detail, #product-detail, .productView, .product-page'
+            '[data-product-id], [data-product-handle], .product-single, .product-detail, #product-detail, .productView, .product-page, .woocommerce div.product, div.product.type-product'
         ) || document.querySelector('main .product, #product');
 
     if (!detailRoot) return false;
 
     const addToCart =
         detailRoot.querySelector(
-            'form[action*="/cart/add"], form[action*="add-to-cart"], [data-add-to-cart], button[name="add"], input[name="add"]'
+            'form[action*="/cart/add"], form[action*="add-to-cart"], form.cart, [data-add-to-cart], button[name="add"], input[name="add"], button.single_add_to_cart_button'
         ) ||
-        document.querySelector('form[action*="/cart/add"], form[action*="add-to-cart"]');
+        document.querySelector(
+            'form[action*="/cart/add"], form[action*="add-to-cart"], form.cart .single_add_to_cart_button'
+        );
 
     if (!addToCart) return false;
 
     const inListing = addToCart.closest(
-        '[class*="collection"], [class*="grid"], [class*="carousel"], [class*="slider"], [class*="listing"], [class*="catalog"]'
+        '[class*="collection"], [class*="grid"], [class*="carousel"], [class*="slider"], [class*="listing"], [class*="catalog"], ul.products, .products .product'
     );
     return !inListing;
 }
@@ -153,8 +188,10 @@ export function isFurnitureProductPage() {
         return false;
     }
 
+    // Woo / Shopify-style PDPs first — unambiguous URL wins over catalog heuristics
+    if (isProductDetailPath(path) || isWooCommerceProductPage()) return true;
+
     if (isCatalogPath(path)) return false;
-    if (isProductDetailPath(path)) return true;
 
     if (hasOpenGraphProduct()) return true;
 

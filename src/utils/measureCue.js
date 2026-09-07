@@ -19,11 +19,21 @@ const CHIP_SETS = {
     desk: [100, 120, 140, 160, 180],
     tvStand: [100, 120, 140, 160, 180, 200],
     rug: [120, 160, 200, 240, 280, 300],
+    sink: [40, 50, 60, 70, 80, 90, 100, 120],
+    vanity: [60, 80, 100, 120, 140, 160, 180],
+    bathtub: [140, 150, 160, 170, 180],
     default: [80, 100, 120, 140, 160, 180, 200, 220],
 };
 
 /** Categories where a room-width cue is weak / confusing — soft-skip UX. */
-const ACCESSORY_KINDS = new Set(['lamp', 'plant', 'decor', 'accessory']);
+const ACCESSORY_KINDS = new Set([
+    'lamp',
+    'plant',
+    'decor',
+    'accessory',
+    'faucet',
+    'mirror',
+]);
 
 /**
  * Kinds where product type often collides with a different piece in the photo
@@ -41,6 +51,9 @@ const COLLISION_KINDS = new Set([
     'chest',
     'wardrobe',
     'tvStand',
+    'sink',
+    'vanity',
+    'bathtub',
 ]);
 
 export const PLACEMENT_INTENTS = ['replace', 'add', 'unsure'];
@@ -109,6 +122,15 @@ function matchFurnitureKind(text) {
     }
     if (/\b(sofa|couch|settee|sectional|loveseat)\b/.test(text)) return 'sofa';
     if (/\b(bed|mattress|headboard|bedstead)\b/.test(text)) return 'bed';
+    if (/\b(bathtub|bath\s*tub|soaking\s+tub|freestanding\s+tub|free-standing\s+tub)\b/.test(text)) {
+        return 'bathtub';
+    }
+    if (/\b(vanity|bathroom\s+vanity|vanity\s+unit|vanity\s+cabinet)\b/.test(text)) {
+        return 'vanity';
+    }
+    if (/\b(kitchen\s+sink|bathroom\s+sink|undermount(?:ed)?\s+sink|drop-?in\s+sink|apron\s+sink|sink|basin)\b/.test(text)) {
+        return 'sink';
+    }
     if (/\btable\b/.test(text)) return 'diningTable';
     if (/\bchair\b/.test(text)) return 'armchair';
     if (/\bdrawers?\b/.test(text)) return 'chest';
@@ -117,11 +139,13 @@ function matchFurnitureKind(text) {
 
 function matchAccessoryKind(text) {
     if (!text) return null;
-    if (/\b(floor\s+lamp|table\s+lamp|lamp|pendant|sconce|light\s+fitting)\b/.test(text)) {
+    if (/\b(faucet|tap|mixer|shower\s+head|floor\s+drain)\b/.test(text)) return 'faucet';
+    if (/\b(floor\s+lamp|table\s+lamp|lamp|pendant|sconce|light\s+fitting|ceiling\s+fan|bulb)\b/.test(text)) {
         return 'lamp';
     }
     if (/\b(plant|planter|pot\s+plant|vase)\b/.test(text)) return 'plant';
-    if (/\b(cushion|throw|pillow|artwork|mirror|clock|decor)\b/.test(text)) return 'decor';
+    if (/\b(mirror|lighted\s+mirror)\b/.test(text)) return 'mirror';
+    if (/\b(cushion|throw|pillow|artwork|clock|decor)\b/.test(text)) return 'decor';
     return null;
 }
 
@@ -222,11 +246,19 @@ function newProductNoun(kind) {
             return 'TV stand';
         case 'rug':
             return 'rug';
+        case 'sink':
+            return 'sink';
+        case 'vanity':
+            return 'vanity';
+        case 'bathtub':
+            return 'bathtub';
         case 'lamp':
             return 'lamp';
         case 'plant':
             return 'plant';
         case 'decor':
+        case 'mirror':
+        case 'faucet':
             return 'piece';
         default:
             return 'product';
@@ -248,6 +280,11 @@ function roomRulerNoun(kind) {
         case 'desk':
             return 'table nearby';
         case 'diningTable':
+            return 'largest piece';
+        case 'sink':
+        case 'vanity':
+            return 'cabinet or counter nearby';
+        case 'bathtub':
             return 'largest piece';
         default:
             return 'largest piece';
@@ -284,6 +321,12 @@ function oldPieceNoun(kind) {
             return 'TV stand or media unit';
         case 'rug':
             return 'rug';
+        case 'sink':
+            return 'sink';
+        case 'vanity':
+            return 'vanity';
+        case 'bathtub':
+            return 'bathtub';
         default:
             return 'piece';
     }

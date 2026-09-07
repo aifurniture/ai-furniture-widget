@@ -49,13 +49,13 @@
     var path = String(pathname || '').toLowerCase();
     if (!path || path === '/') return true;
     if (/^\/[a-z]{2}(-[a-z]{2})?\/?$/i.test(path)) return true;
+    if (/\/product-category(\/|$)/i.test(path) || /\/product-tag(\/|$)/i.test(path)) return true;
+    if (/\/shop\/?$/i.test(path)) return true;
 
     var markers = [
       '/collections',
       '/catalog',
-      '/category',
       '/categories',
-      '/shop',
       '/search',
       '/cart',
       '/checkout',
@@ -68,7 +68,6 @@
       '/home',
       '/index',
       '/brands',
-      '/sale',
       '/deals',
       '/tag/',
       '/tags/',
@@ -79,6 +78,10 @@
       '/listing',
       '/all-products'
     ];
+
+    if (/\/category(\/|$)/i.test(path) && path.indexOf('/product/') === -1) return true;
+    if (/\/shop\//i.test(path) && path.indexOf('/product/') === -1) return true;
+    if (/\/sale(\/|$)/i.test(path) && path.indexOf('/product/') === -1) return true;
 
     for (var i = 0; i < markers.length; i++) {
       if (path.indexOf(markers[i]) !== -1) return true;
@@ -95,6 +98,23 @@
       /\/p\/[^/?#]+/i.test(path) ||
       /\/item\/[^/?#]+/i.test(path)
     );
+  }
+
+  function isWooCommerceProductPage() {
+    try {
+      var body = document.body;
+      if (!body) return false;
+      var cls = body.className || '';
+      if (/\bsingle-product\b/.test(cls)) return true;
+      if (
+        document.querySelector(
+          'form.cart .single_add_to_cart_button, .woocommerce div.product form.cart'
+        )
+      ) {
+        return isProductDetailPath(window.location.pathname);
+      }
+    } catch (e) {}
+    return false;
   }
 
   function hasActiveGenerationInStorage() {
@@ -122,8 +142,8 @@
     if (shopifyType && NON_PRODUCT_SHOPIFY_TYPES[shopifyType]) return false;
 
     var path = window.location.pathname;
+    if (isProductDetailPath(path) || isWooCommerceProductPage()) return true;
     if (isCatalogPath(path)) return false;
-    if (isProductDetailPath(path)) return true;
 
     return false;
   }
