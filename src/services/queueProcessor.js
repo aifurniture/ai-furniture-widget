@@ -465,6 +465,17 @@ async function submitAsyncJob(id, item, apiEndpoint, domainForApi, domainIdForAp
     if (item.placementIntent === 'replace' || item.placementIntent === 'add' || item.placementIntent === 'unsure') {
         formData.append('placementIntent', item.placementIntent);
     }
+    if (item.addAnchor === 'surfaceHeight' || item.addAnchor === 'zoneWidth') {
+        formData.append('addAnchor', item.addAnchor);
+    }
+    if (
+        typeof item.placementCount === 'number' &&
+        Number.isInteger(item.placementCount) &&
+        item.placementCount >= 1 &&
+        item.placementCount <= 12
+    ) {
+        formData.append('placementCount', String(item.placementCount));
+    }
     appendPreScrapedData(formData, mergedConfig);
 
     debugLog(`POST /widget/generate for ${id.slice(0, 8)}`);
@@ -500,6 +511,17 @@ async function runSyncGenerate(id, item, apiEndpoint, domainForApi, domainIdForA
     }
     if (item.placementIntent === 'replace' || item.placementIntent === 'add' || item.placementIntent === 'unsure') {
         formData.append('placementIntent', item.placementIntent);
+    }
+    if (item.addAnchor === 'surfaceHeight' || item.addAnchor === 'zoneWidth') {
+        formData.append('addAnchor', item.addAnchor);
+    }
+    if (
+        typeof item.placementCount === 'number' &&
+        Number.isInteger(item.placementCount) &&
+        item.placementCount >= 1 &&
+        item.placementCount <= 12
+    ) {
+        formData.append('placementCount', String(item.placementCount));
     }
     appendPreScrapedData(formData, mergedConfig);
 

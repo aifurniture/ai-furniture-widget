@@ -16,6 +16,7 @@ const CHIP_SETS = {
     chest: [80, 100, 120, 140, 160, 180, 200],
     wardrobe: [80, 100, 120, 150, 180, 200],
     diningChair: [40, 45, 50, 55, 60],
+    barStool: [40, 45, 50, 55, 60],
     desk: [100, 120, 140, 160, 180],
     tvStand: [100, 120, 140, 160, 180, 200],
     rug: [120, 160, 200, 240, 280, 300],
@@ -46,7 +47,10 @@ const COLLISION_KINDS = new Set([
     'consoleTable',
     'desk',
     'diningChair',
+    'barStool',
     'armchair',
+    'sofa',
+    'bed',
     'sideboard',
     'chest',
     'wardrobe',
@@ -114,7 +118,10 @@ function matchFurnitureKind(text) {
     if (/\b(console\s+table|hall\s+table)\b/.test(text)) return 'consoleTable';
     if (/\b(dining\s+table|kitchen\s+table|dining\s+set)\b/.test(text)) return 'diningTable';
     if (/\b(desk|writing\s+desk|office\s+desk)\b/.test(text)) return 'desk';
-    if (/\b(dining\s+chair|kitchen\s+chair|bar\s+stool|counter\s+stool)\b/.test(text)) {
+    if (/\b(bar\s+stools?|counter\s+stools?|breakfast\s+bar\s+stools?|kitchen\s+stools?)\b/.test(text)) {
+        return 'barStool';
+    }
+    if (/\b(dining\s+chair|kitchen\s+chair)\b/.test(text)) {
         return 'diningChair';
     }
     if (/\b(armchair|accent\s+chair|lounge\s+chair|occasional\s+chair|tub\s+chair)\b/.test(text)) {
@@ -163,6 +170,7 @@ export function inferMeasureKind(config = {}) {
     if (type) {
         if (/sofa|couch/.test(type)) return 'sofa';
         if (/bed/.test(type)) return 'bed';
+        if (/stool/.test(type)) return 'barStool';
         if (/chair/.test(type)) return 'armchair';
         if (/table/.test(type)) return 'diningTable';
         if (/wardrobe/.test(type)) return 'wardrobe';
@@ -186,13 +194,191 @@ export function isAccessoryMeasureKind(kind) {
     return ACCESSORY_KINDS.has(kind);
 }
 
-export function getMeasureChips(kind, { asRoomRuler = false } = {}) {
+export function normalizeAddAnchor(raw) {
+    const v = String(raw || '').trim();
+    if (v === 'surfaceHeight' || v === 'zoneWidth') return v;
+    return null;
+}
+
+export function normalizePlacementCount(raw) {
+    const n = typeof raw === 'number' ? raw : parseInt(String(raw || '').trim(), 10);
+    if (!Number.isFinite(n) || n < 1 || n > 12) return null;
+    return n;
+}
+
+/**
+ * When the shopper says there is no matching piece, ask for a zone-specific
+ * measurement (counter height, sofa width, wall run) — not the old product width.
+ */
+export function getAddPlacementSpec(kind) {
+    const buying = newProductNoun(kind);
+
+    const zoneWidth = ({
+        title,
+        body,
+        noun,
+        chips,
+        zone,
+        examplePlaceholder = 'e.g. 180',
+    }) => ({
+        addAnchor: 'zoneWidth',
+        metric: 'width',
+        zone,
+        title,
+        body,
+        chipHeading: `${noun} width`,
+        noun,
+        chips,
+        examplePlaceholder,
+        customLabel: `Or type ${noun} width`,
+        spanIdle: 'left → right',
+        spanSelected: (cm) => `${cm} cm wide`,
+        ariaGroup: `Width of ${noun} in photo, centimetres`,
+        count: null,
+    });
+
+    switch (kind) {
+        case 'barStool':
+            return {
+                addAnchor: 'surfaceHeight',
+                metric: 'height',
+                zone: 'the empty seating side of a kitchen island, breakfast bar, or high counter',
+                title: 'How high is the counter?',
+                body: 'We already have this bar stool’s listed size. Measure floor to the worktop so the stools tuck under at the right height — we won’t swap other furniture.',
+                chipHeading: 'Counter height',
+                noun: 'counter',
+                chips: [86, 90, 92, 95, 100, 105, 110],
+                examplePlaceholder: 'e.g. 90',
+                customLabel: 'Or type counter height',
+                spanIdle: 'floor → worktop',
+                spanSelected: (cm) => `${cm} cm high`,
+                ariaGroup: 'Counter height in centimetres',
+                count: { heading: 'How many stools?', chips: [2, 3, 4, 5], noun: 'stools' },
+            };
+        case 'diningChair':
+            return {
+                addAnchor: 'surfaceHeight',
+                metric: 'height',
+                zone: 'around the dining table',
+                title: 'How high is the dining table?',
+                body: 'We already have this dining chair’s listed size. Measure floor to the tabletop so chairs sit at the right height around an empty table.',
+                chipHeading: 'Table height',
+                noun: 'dining table',
+                chips: [72, 75, 78, 80],
+                examplePlaceholder: 'e.g. 75',
+                customLabel: 'Or type table height',
+                spanIdle: 'floor → tabletop',
+                spanSelected: (cm) => `${cm} cm high`,
+                ariaGroup: 'Dining table height in centimetres',
+                count: { heading: 'How many chairs?', chips: [2, 4, 6, 8], noun: 'chairs' },
+            };
+        case 'coffeeTable':
+            return zoneWidth({
+                title: 'How wide is the sofa?',
+                body: `We already have this coffee table’s listed size. Measure the sofa so the new table sits on the empty floor in front of it — we won’t replace the sofa.`,
+                noun: 'sofa',
+                chips: CHIP_SETS.sofa,
+                zone: 'the empty floor in front of the sofa',
+            });
+        case 'sideTable':
+            return zoneWidth({
+                title: 'How wide is the sofa?',
+                body: `Measure the sofa so this ${buying} sits beside it at the right scale — we won’t swap other tables.`,
+                noun: 'sofa',
+                chips: CHIP_SETS.sofa,
+                zone: 'beside a sofa arm, bed, or armchair',
+            });
+        case 'armchair':
+            return zoneWidth({
+                title: 'How wide is the sofa?',
+                body: `Measure the sofa so this ${buying} sits beside it at the right scale.`,
+                noun: 'sofa',
+                chips: CHIP_SETS.sofa,
+                zone: 'beside the sofa or in an empty seating corner',
+            });
+        case 'consoleTable':
+        case 'sideboard':
+        case 'chest':
+        case 'wardrobe':
+        case 'tvStand':
+            return zoneWidth({
+                title: 'How wide is that wall run?',
+                body: `Measure a visible span along the empty wall (or the largest nearby piece) so this ${buying} sits at true size against it.`,
+                noun: 'wall run',
+                chips: CHIP_SETS.sideboard,
+                zone: 'against an empty wall',
+            });
+        case 'diningTable':
+            return zoneWidth({
+                title: 'How wide is the dining zone?',
+                body: `Measure the largest nearby piece so this dining table sits at true size — we won’t swap other furniture.`,
+                noun: 'largest piece',
+                chips: CHIP_SETS.diningTable,
+                zone: 'the empty dining area',
+            });
+        case 'desk':
+            return zoneWidth({
+                title: 'How wide is the work wall?',
+                body: `Measure a nearby piece or wall span so this desk sits at true size in an empty work zone.`,
+                noun: 'wall run',
+                chips: CHIP_SETS.desk,
+                zone: 'a natural empty work zone against a wall',
+            });
+        case 'sofa':
+            return zoneWidth({
+                title: 'How wide is the wall it should sit on?',
+                body: `Measure that wall run (or the largest nearby piece) so this sofa sits at true size — we won’t stretch it to fill the wall.`,
+                noun: 'wall run',
+                chips: CHIP_SETS.sofa,
+                zone: 'the empty living-room wall / seating zone',
+            });
+        case 'bed':
+            return zoneWidth({
+                title: 'How wide is the bedroom wall?',
+                body: `Measure that wall run so this bed sits at true size against it.`,
+                noun: 'wall run',
+                chips: CHIP_SETS.bed,
+                zone: 'the empty wall where a bed would go',
+            });
+        case 'sink':
+        case 'vanity':
+            return zoneWidth({
+                title: 'How wide is the bathroom run?',
+                body: `Measure a nearby cabinet or counter so this ${buying} sits at true size.`,
+                noun: 'cabinet nearby',
+                chips: CHIP_SETS.vanity,
+                zone: 'the empty vanity / basin zone',
+            });
+        case 'bathtub':
+            return zoneWidth({
+                title: 'How wide is the bath zone?',
+                body: 'Measure the largest nearby piece so this bathtub sits at true size in the empty alcove.',
+                noun: 'largest piece',
+                chips: CHIP_SETS.bathtub,
+                zone: 'the empty bath alcove or floor',
+            });
+        default:
+            return zoneWidth({
+                title: 'How wide is the largest piece in the photo?',
+                body: `Measure a visible object so this ${buying} is to scale in the empty spot — we won’t replace existing furniture.`,
+                noun: 'largest piece',
+                chips: CHIP_SETS.default,
+                zone: 'the most natural empty place for this product',
+            });
+    }
+}
+
+export function getMeasureChips(kind, { asRoomRuler = false, addSpec = null } = {}) {
+    if (addSpec?.chips?.length) return addSpec.chips;
     if (asRoomRuler) {
         if (kind === 'coffeeTable' || kind === 'sideTable' || kind === 'armchair') {
             return CHIP_SETS.sofa;
         }
         if (kind === 'diningChair' || kind === 'diningTable') {
             return CHIP_SETS.diningTable;
+        }
+        if (kind === 'barStool') {
+            return [86, 90, 92, 95, 100, 105, 110];
         }
         return CHIP_SETS.default;
     }
@@ -240,6 +426,8 @@ function newProductNoun(kind) {
             return 'wardrobe';
         case 'diningChair':
             return 'dining chair';
+        case 'barStool':
+            return 'bar stool';
         case 'desk':
             return 'desk';
         case 'tvStand':
@@ -275,6 +463,8 @@ function roomRulerNoun(kind) {
             return 'sofa';
         case 'diningChair':
             return 'dining table';
+        case 'barStool':
+            return 'kitchen counter';
         case 'consoleTable':
             return 'sofa';
         case 'desk':
@@ -315,6 +505,8 @@ function oldPieceNoun(kind) {
             return 'wardrobe';
         case 'diningChair':
             return 'dining chair';
+        case 'barStool':
+            return 'bar stool';
         case 'desk':
             return 'desk';
         case 'tvStand':
@@ -367,6 +559,45 @@ export function getPlacementIntentCopy(kind) {
         };
     }
 
+    if (kind === 'barStool') {
+        return {
+            heading: 'In your photo',
+            options: [
+                { id: 'replace', label: 'Replace', meta: 'existing stools' },
+                { id: 'add', label: 'Add it', meta: 'empty counter' },
+                { id: 'unsure', label: 'Not sure', meta: 'you pick' },
+            ],
+            buying,
+            oldNoun,
+        };
+    }
+
+    if (kind === 'diningChair') {
+        return {
+            heading: 'In your photo',
+            options: [
+                { id: 'replace', label: 'Replace', meta: 'chairs at table' },
+                { id: 'add', label: 'Add it', meta: 'empty table' },
+                { id: 'unsure', label: 'Not sure', meta: 'you pick' },
+            ],
+            buying,
+            oldNoun,
+        };
+    }
+
+    if (kind === 'coffeeTable') {
+        return {
+            heading: 'In your photo',
+            options: [
+                { id: 'replace', label: 'Replace', meta: 'coffee table' },
+                { id: 'add', label: 'Add it', meta: 'empty floor' },
+                { id: 'unsure', label: 'Not sure', meta: 'you pick' },
+            ],
+            buying,
+            oldNoun,
+        };
+    }
+
     return {
         heading: 'In your photo',
         options: [
@@ -382,7 +613,7 @@ export function getPlacementIntentCopy(kind) {
 /**
  * User-facing copy for the measure step — always ties question to this product type.
  */
-export function getMeasureCopy(kind, productTitle = '', { asRoomRuler = false, intent = null } = {}) {
+export function getMeasureCopy(kind, productTitle = '', { asRoomRuler = false, intent = null, addSpec = null } = {}) {
     const buying = newProductNoun(kind);
     const matchingNoun = oldPieceNoun(kind);
     const oldNoun = asRoomRuler ? roomRulerNoun(kind) : matchingNoun;
@@ -409,6 +640,28 @@ export function getMeasureCopy(kind, productTitle = '', { asRoomRuler = false, i
         };
     }
 
+    if (intent === 'add') {
+        const spec = addSpec || getAddPlacementSpec(kind);
+        return {
+            kind,
+            isAccessory: false,
+            eyebrow: productLabel ? `Sizing ·${productBit}` : `Sizing your ${buying}`,
+            title: spec.title,
+            body: spec.body,
+            chipHeading: spec.chipHeading,
+            spanIdle: spec.spanIdle,
+            spanSelected: spec.spanSelected,
+            customLabel: spec.customLabel,
+            tip: '',
+            continueWith,
+            skipLabel: 'Skip — guess for me',
+            ariaGroup: spec.ariaGroup,
+            examplePlaceholder: spec.examplePlaceholder,
+            addAnchor: spec.addAnchor,
+            metric: spec.metric,
+        };
+    }
+
     if (asRoomRuler) {
         return {
             kind,
@@ -432,6 +685,8 @@ export function getMeasureCopy(kind, productTitle = '', { asRoomRuler = false, i
     const measureHint =
         kind === 'diningChair'
             ? 'one chair’s seat, left to right'
+            : kind === 'barStool'
+              ? 'one stool’s seat, left to right'
             : kind === 'rug'
               ? 'the shorter side across the floor'
               : kind === 'bed'
@@ -471,7 +726,7 @@ export function getMeasureCopy(kind, productTitle = '', { asRoomRuler = false, i
         skipLabel: 'Skip — guess for me',
         ariaGroup: `Width of ${matchingNoun} in photo, centimetres`,
         examplePlaceholder:
-            kind === 'diningChair' || kind === 'sideTable' || kind === 'armchair'
+            kind === 'diningChair' || kind === 'barStool' || kind === 'sideTable' || kind === 'armchair'
                 ? 'e.g. 50'
                 : 'e.g. 180',
     };

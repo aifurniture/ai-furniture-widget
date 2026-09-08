@@ -10,6 +10,7 @@ import { trackEvent } from '../../tracking.js';
 import {
     assessSizeFit,
     assessChoseProductWidth,
+    getAddPlacementSpec,
     getMeasureChips,
     getMeasureCopy,
     getPlacementIntentCopy,
@@ -17,11 +18,13 @@ import {
     isAccessoryMeasureKind,
     isCollisionMeasureKind,
     defaultPlacementIntent,
+    normalizeAddAnchor,
+    normalizePlacementCount,
     normalizePlacementIntent,
     parseCatalogWidthCm,
 } from '../../utils/measureCue.js';
 
-function appendRoomThumb(stage, file, overlayHtml = null) {
+function appendRoomThumb(stage, file, overlayHtml = null, overlayClass = '') {
     if (!file) return;
     const thumbWrap = document.createElement('div');
     thumbWrap.className = 'aif-measure-thumb';
@@ -31,7 +34,9 @@ function appendRoomThumb(stage, file, overlayHtml = null) {
     thumbWrap.appendChild(img);
     if (overlayHtml) {
         const overlay = document.createElement('div');
-        overlay.className = 'aif-measure-span';
+        overlay.className = overlayClass
+            ? `aif-measure-span ${overlayClass}`
+            : 'aif-measure-span';
         overlay.innerHTML = overlayHtml;
         thumbWrap.appendChild(overlay);
     }
@@ -46,7 +51,13 @@ function parseCustomCm(raw) {
     return Math.round(n * 10) / 10;
 }
 
-async function startGeneration({ furnitureWidthCm, sizeFitMode = null, placementIntent = null }) {
+async function startGeneration({
+    furnitureWidthCm,
+    sizeFitMode = null,
+    placementIntent = null,
+    addAnchor = null,
+    placementCount = null,
+}) {
     const currentState = store.getState();
     const image = currentState.uploadedImage;
     if (!image) {
@@ -60,6 +71,8 @@ async function startGeneration({ furnitureWidthCm, sizeFitMode = null, placement
     const userImageDataUrl = await fileToDataURL(image);
     const intent = normalizePlacementIntent(placementIntent);
     const selectedModel = currentState.selectedModel === 'fast' ? 'fast' : 'slow';
+    const anchor = intent === 'add' ? normalizeAddAnchor(addAnchor) : null;
+    const count = intent === 'add' ? normalizePlacementCount(placementCount) : null;
 
     const payload = {
         id: queueId,
@@ -81,6 +94,12 @@ async function startGeneration({ furnitureWidthCm, sizeFitMode = null, placement
     if (intent) {
         payload.placementIntent = intent;
     }
+    if (anchor) {
+        payload.addAnchor = anchor;
+    }
+    if (count) {
+        payload.placementCount = count;
+    }
 
     actions.beginPreviewGeneration(payload);
     flushSessionSnapshot();
@@ -95,6 +114,8 @@ async function startGeneration({ furnitureWidthCm, sizeFitMode = null, placement
         hasScaleCue: Boolean(payload.furnitureWidthCm),
         sizeFitMode: payload.sizeFitMode || null,
         placementIntent: intent || null,
+        addAnchor: anchor || null,
+        placementCount: count || null,
         measureKind: inferMeasureKind(currentState.config || {}),
     });
 }
@@ -113,21 +134,27 @@ export const MeasureView = (state) => {
     const implicitIntent = defaultPlacementIntent(kind);
     const placementIntent = explicitIntent || implicitIntent;
     const visualIntent = explicitIntent || (implicitIntent === 'replace' ? 'replace' : null);
-    const asRoomRuler = collision && placementIntent === 'add';
+    const isAdd = collision && placementIntent === 'add';
+    const addSpec = isAdd ? getAddPlacementSpec(kind) : null;
+    const asSurfaceHeight = addSpec?.addAnchor === 'surfaceHeight';
+    const asRoomRuler = isAdd && !asSurfaceHeight;
     const copy = getMeasureCopy(kind, productTitle, {
         asRoomRuler,
         intent: placementIntent,
+        addSpec,
     });
-    const chips = getMeasureChips(kind, { asRoomRuler });
+    const chips = getMeasureChips(kind, { asRoomRuler, addSpec });
     const selected = state.furnitureWidthCm;
+    const selectedCount = normalizePlacementCount(state.placementCount);
     const catalogWidthCm = parseCatalogWidthCm(config);
-    // Don't compare sofa-ruler cm to catalog product width (false "won't fit" warnings).
+    // Don't compare sofa-ruler / counter-height cm to catalog product width.
+    const skipFitCheck = isAdd;
     const fit =
-        !asRoomRuler && selected != null && catalogWidthCm != null
+        !skipFitCheck && selected != null && catalogWidthCm != null
             ? assessSizeFit(selected, catalogWidthCm)
             : null;
     const choseProductWidth =
-        !asRoomRuler &&
+        !skipFitCheck &&
         (!fit || fit.severity === 'ok') &&
         selected != null &&
         catalogWidthCm != null
@@ -211,7 +238,8 @@ export const MeasureView = (state) => {
               <span class="aif-measure-span__label">${
                   selected != null ? copy.spanSelected(selected) : copy.spanIdle
               }</span>
-            `
+            `,
+        asSurfaceHeight ? 'aif-measure-span--height' : ''
     );
 
     if (intentCopy) {
@@ -268,7 +296,7 @@ export const MeasureView = (state) => {
         btn.type = 'button';
         btn.className = `aif-measure-chip${selected === cm ? ' is-selected' : ''}`;
         btn.textContent = `${cm}`;
-        btn.title = `${cm} cm wide`;
+        btn.title = asSurfaceHeight ? `${cm} cm high` : `${cm} cm wide`;
         btn.setAttribute('aria-pressed', selected === cm ? 'true' : 'false');
         btn.onclick = () => actions.setFurnitureWidthCm(cm);
         chipSection.appendChild(btn);
@@ -327,6 +355,30 @@ export const MeasureView = (state) => {
     customRow.appendChild(customField);
     stage.appendChild(customRow);
 
+    if (addSpec?.count?.chips?.length) {
+        const countHeading = document.createElement('p');
+        countHeading.className = 'aif-measure-chip-heading';
+        countHeading.textContent = addSpec.count.heading;
+        stage.appendChild(countHeading);
+
+        const countSection = document.createElement('div');
+        countSection.className = 'aif-measure-chips';
+        countSection.setAttribute('role', 'group');
+        countSection.setAttribute('aria-label', addSpec.count.heading);
+
+        addSpec.count.chips.forEach((n) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = `aif-measure-chip${selectedCount === n ? ' is-selected' : ''}`;
+            btn.textContent = String(n);
+            btn.title = `${n} ${addSpec.count.noun}`;
+            btn.setAttribute('aria-pressed', selectedCount === n ? 'true' : 'false');
+            btn.onclick = () => actions.setPlacementCount(n);
+            countSection.appendChild(btn);
+        });
+        stage.appendChild(countSection);
+    }
+
     if (fit && fit.severity !== 'ok') {
         const banner = document.createElement('div');
         banner.className = `aif-measure-fit aif-measure-fit--${fit.severity}`;
@@ -360,7 +412,7 @@ export const MeasureView = (state) => {
             return;
         }
         const nextFit =
-            !asRoomRuler && widthCm != null && catalogWidthCm != null
+            !skipFitCheck && widthCm != null && catalogWidthCm != null
                 ? assessSizeFit(widthCm, catalogWidthCm)
                 : null;
         busy = true;
@@ -372,6 +424,8 @@ export const MeasureView = (state) => {
                 furnitureWidthCm: widthCm,
                 sizeFitMode: nextFit?.mode === 'room_adapt' ? 'room_adapt' : null,
                 placementIntent,
+                addAnchor: addSpec?.addAnchor || null,
+                placementCount: selectedCount,
             });
         } catch (err) {
             console.error('Failed to start generation:', err);
@@ -393,7 +447,7 @@ export const MeasureView = (state) => {
         onClick: () => run(selected),
     });
 
-    const skipBtn = asRoomRuler
+    const skipBtn = isAdd
         ? null
         : Button({
               text: copy.skipLabel,

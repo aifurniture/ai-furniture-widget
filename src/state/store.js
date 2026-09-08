@@ -347,6 +347,8 @@ export const initialState = {
      * 'replace' | 'add' | 'unsure' | null
      */
     placementIntent: null,
+    /** ADD-mode set size (stools/chairs). Optional. */
+    placementCount: null,
     generatedImages: [],
     queue: [], // Array of { id, productId, status, result, timestamp }
     error: null,
@@ -439,6 +441,7 @@ export const actions = {
         } else {
             updates.furnitureWidthCm = null;
             updates.placementIntent = null;
+            updates.placementCount = null;
             updates.view = VIEWS.UPLOAD;
         }
         store.setState(updates);
@@ -458,10 +461,26 @@ export const actions = {
     setPlacementIntent: (intent) => {
         const v = String(intent || '').trim().toLowerCase();
         if (v === 'replace' || v === 'add' || v === 'unsure') {
-            store.setState({ placementIntent: v });
+            store.setState({
+                placementIntent: v,
+                furnitureWidthCm: null,
+                placementCount: null,
+            });
             return;
         }
-        store.setState({ placementIntent: null });
+        store.setState({ placementIntent: null, placementCount: null });
+    },
+    setPlacementCount: (n) => {
+        if (n == null || n === '') {
+            store.setState({ placementCount: null });
+            return;
+        }
+        const parsed = typeof n === 'number' ? n : parseInt(String(n).trim(), 10);
+        if (!Number.isFinite(parsed) || parsed < 1 || parsed > 12) {
+            store.setState({ placementCount: null });
+            return;
+        }
+        store.setState({ placementCount: parsed });
     },
     goToMeasure: () => {
         const { uploadedImage } = store.getState();
@@ -469,7 +488,12 @@ export const actions = {
             store.setState({ view: VIEWS.UPLOAD });
             return;
         }
-        store.setState({ view: VIEWS.MEASURE, error: null, placementIntent: null });
+        store.setState({
+            view: VIEWS.MEASURE,
+            error: null,
+            placementIntent: null,
+            placementCount: null,
+        });
     },
     beginPreviewGeneration: (item) => {
         const queue = store.getState().queue;
@@ -498,6 +522,7 @@ export const actions = {
             uploadedImage: null,
             furnitureWidthCm: null,
             placementIntent: null,
+            placementCount: null,
             view: VIEWS.QUEUE,
             error: null
         });
@@ -523,6 +548,7 @@ export const actions = {
             uploadedImage: null,
             furnitureWidthCm: null,
             placementIntent: null,
+            placementCount: null,
             generatedImages: [],
             error: null
         });
