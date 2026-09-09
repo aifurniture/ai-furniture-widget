@@ -1,5 +1,7 @@
 /** Build preScrapedData for Shopify storefronts (theme-provided images, no HTTP scrape). */
 
+import { isSleepStyleStorefront, readSleepStyleFabricSelection } from './sleepstyleFabric.js';
+
 function normalizeProductImageUrl(url) {
   const s = String(url || '').trim();
   if (!s) return '';
@@ -74,5 +76,31 @@ export function buildShopifyPreScrapedPayload(config) {
     images,
     productData,
     source: 'shopify-theme',
+  };
+}
+
+/** SleepStyle APO fabric + optional Shopify gallery. Safe no-op on other domains. */
+export function buildSleepStylePreScrapedPayload(config) {
+  if (!isSleepStyleStorefront(config)) return null;
+  const fabric = readSleepStyleFabricSelection(config);
+  if (!fabric) return null;
+
+  const shopify = buildShopifyPreScrapedPayload(config);
+  const productData = {
+    ...(shopify?.productData && typeof shopify.productData === 'object' ? shopify.productData : {}),
+    color: fabric.color,
+    ...(fabric.material ? { material: fabric.material } : {}),
+  };
+  const cfg = mergeShopifyThemeConfig(config);
+  if (!productData.title && cfg?.productTitle) {
+    productData.title = cfg.productTitle;
+  }
+
+  return {
+    images: Array.isArray(shopify?.images) ? shopify.images : [],
+    productData,
+    fabricImages: fabric.images,
+    selectedColor: fabric.color,
+    source: shopify ? 'shopify-theme+sleepstyle-apo' : 'sleepstyle-apo',
   };
 }

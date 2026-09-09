@@ -9,7 +9,7 @@ import {
 } from '../utils/widgetShopperApi.js';
 import { getWidgetAnonymousClientId } from '../utils/persistStorage.js';
 import { compressRoomImage } from '../utils/compressRoomImage.js';
-import { buildShopifyPreScrapedPayload } from '../utils/shopifyProductImages.js';
+import { buildShopifyPreScrapedPayload, buildSleepStylePreScrapedPayload } from '../utils/shopifyProductImages.js';
 import { scheduleTrainingPairExport, isTrainingReviewEnabled } from '../utils/trainingExport.js';
 import { debugLog } from '../debug.js';
 
@@ -429,13 +429,24 @@ async function fetchAsyncJobStatusOnce(id, apiEndpoint, domainForApi, domainIdFo
 }
 
 function appendPreScrapedData(formData, mergedConfig) {
-    const preScraped = buildShopifyPreScrapedPayload(mergedConfig);
-    if (preScraped) {
-        formData.append('preScrapedData', JSON.stringify(preScraped));
-        debugLog('Using Shopify theme product images (skip scrape)', {
-            count: preScraped.images.length,
-        });
+    const sleepStyle = buildSleepStylePreScrapedPayload(mergedConfig);
+    const preScraped = sleepStyle || buildShopifyPreScrapedPayload(mergedConfig);
+    if (!preScraped) return;
+
+    if (preScraped.selectedColor) {
+        formData.append('selectedColor', preScraped.selectedColor);
     }
+    formData.append('preScrapedData', JSON.stringify(preScraped));
+    debugLog(
+        sleepStyle
+            ? 'SleepStyle fabric + product refs'
+            : 'Using Shopify theme product images (skip scrape)',
+        {
+            count: preScraped.images?.length || 0,
+            fabric: preScraped.fabricImages?.length || 0,
+            color: preScraped.selectedColor || null,
+        }
+    );
 }
 
 async function submitAsyncJob(id, item, apiEndpoint, domainForApi, domainIdForApi, sessionIdForApi, uploaded, mergedConfig) {
