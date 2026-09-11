@@ -41,6 +41,12 @@ export const DOMAIN_THEMES = {
         launcherBottomExtra: 80,
         launcherBottomMobile: 104,
     },
+    'bombayfurniture.com.pk': {
+        measureUnit: 'in',
+    },
+    'bombayfurniture.com': {
+        measureUnit: 'in',
+    },
 };
 
 function normalizeHost(raw) {
@@ -70,6 +76,16 @@ export function resolveWidgetTheme(config = {}) {
     const fromDomain = DOMAIN_THEMES[pickDomain(config)] || null;
     if (!fromConfig && !fromDomain) return null;
     return { ...(fromDomain || {}), ...(fromConfig || {}) };
+}
+
+export function widgetUsesInches(config = {}) {
+    const explicit = String(config?.measureUnit || config?.units || '').toLowerCase();
+    if (explicit === 'in' || explicit === 'inch' || explicit === 'inches' || explicit === 'imperial') {
+        return true;
+    }
+    if (explicit === 'cm' || explicit === 'metric') return false;
+    const theme = resolveWidgetTheme(config);
+    return theme?.measureUnit === 'in';
 }
 
 export function applyWidgetTheme(config = {}) {

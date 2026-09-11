@@ -1,9 +1,11 @@
 /**
  * Queue View Component - Enhanced with tabs and better UI
  */
-import { actions, QUEUE_STATUS, VIEWS } from '../../state/store.js';
+import { actions, QUEUE_STATUS, VIEWS, store } from '../../state/store.js';
 import { Button } from './Button.js';
 import { trackEvent } from '../../tracking.js';
+import { widgetUsesInches } from '../theme.js';
+import { formatLength } from '../../utils/widgetUnits.js';
 
 function toTimestampMs(value) {
     if (value == null) return 0;
@@ -165,7 +167,7 @@ const ANALYZE_STEPS = [
         atMs: 8000,
         label: 'Calibrating product size',
         detailText: 'Matching catalog dimensions to the scene',
-        detailWithCue: (cm) => `Using your ${cm} cm scale cue`,
+        detailWithCue: (cm) => `Using your ${formatLength(cm, widgetUsesInches(store.getState().config))} scale cue`,
     },
     { atMs: 14000, label: 'Aligning lighting & shadows', detail: 'Colour temperature, contact & cast shadows' },
     { atMs: 21000, label: 'Compositing into your photo', detail: 'Placing the piece with correct occlusion' },

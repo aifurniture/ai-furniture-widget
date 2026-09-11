@@ -182,7 +182,7 @@
     window.__AIFurnitureWidgetLoading = true;
     window.FURNITURE_AI_CONFIG = Object.assign({}, window.FURNITURE_AI_CONFIG || {}, buildConfig());
 
-    var WIDGET_CDN_VERSION = '51';
+    var WIDGET_CDN_VERSION = '52';
     var s = document.createElement('script');
     s.src =
       'https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?v=' +

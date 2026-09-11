@@ -4,6 +4,12 @@
  * (left→right). That is the most reliable scale cue for placement.
  */
 
+import { formatLength } from './widgetUnits.js';
+
+function formatFitLength(cm, imperial) {
+    return formatLength(cm, imperial);
+}
+
 const CHIP_SETS = {
     sofa: [140, 160, 180, 200, 220, 240, 280, 300, 320, 340, 360, 380, 400],
     armchair: [70, 80, 90, 100, 110],
@@ -785,14 +791,14 @@ export function parseCatalogWidthCm(config = {}) {
  * Compare measured piece in photo vs catalog product width.
  * @returns {null | { severity: 'ok'|'notice'|'warn', mode: null|'room_adapt', ratio: number, oldWidthCm: number, catalogWidthCm: number, title: string, body: string, cta: string }}
  */
-export function assessSizeFit(oldWidthCm, catalogWidthCm) {
+export function assessSizeFit(oldWidthCm, catalogWidthCm, { imperial = false } = {}) {
     const oldW = Number(oldWidthCm);
     const newW = Number(catalogWidthCm);
     if (!Number.isFinite(oldW) || oldW <= 0 || !Number.isFinite(newW) || newW <= 0) return null;
 
     const ratio = newW / oldW;
-    const oldLabel = Math.round(oldW);
-    const newLabel = Math.round(newW);
+    const oldLabel = formatFitLength(oldW, imperial);
+    const newLabel = formatFitLength(newW, imperial);
     const times = ratio >= 1 ? ratio.toFixed(1) : (1 / ratio).toFixed(1);
 
     if (ratio >= 2.0 || ratio <= 0.5) {
@@ -804,11 +810,11 @@ export function assessSizeFit(oldWidthCm, catalogWidthCm) {
             oldWidthCm: oldW,
             catalogWidthCm: newW,
             title: wider
-                ? `This product won’t fit that ${oldLabel} cm spot as-is`
+                ? `This product won’t fit that ${oldLabel} spot as-is`
                 : `This product is much narrower than what you measured`,
             body: wider
-                ? `You measured ~${oldLabel} cm in the photo, but this product is about ${newLabel} cm wide (~${times}× larger). We’ll rearrange that area of the room so it can sit at real size — not squeezed into the small piece.`
-                : `You measured ~${oldLabel} cm, but this product is about ${newLabel} cm (~${times}× smaller). We’ll place it at true size and leave empty space — not stretch it to fill the old span.`,
+                ? `You measured ~${oldLabel} in the photo, but this product is about ${newLabel} wide (~${times}× larger). We’ll rearrange that area of the room so it can sit at real size — not squeezed into the small piece.`
+                : `You measured ~${oldLabel}, but this product is about ${newLabel} (~${times}× smaller). We’ll place it at true size and leave empty space — not stretch it to fill the old span.`,
             cta: wider ? 'Continue — adapt my room' : 'Continue — place at true size',
         };
     }
@@ -823,8 +829,8 @@ export function assessSizeFit(oldWidthCm, catalogWidthCm) {
             catalogWidthCm: newW,
             title: wider ? 'New piece is noticeably wider' : 'New piece is noticeably narrower',
             body: wider
-                ? `Photo piece ~${oldLabel} cm → product ~${newLabel} cm. We’ll clear a bit of space so it fits at real size.`
-                : `Photo piece ~${oldLabel} cm → product ~${newLabel} cm. We’ll keep true size and leave empty floor.`,
+                ? `Photo piece ~${oldLabel} → product ~${newLabel}. We’ll clear a bit of space so it fits at real size.`
+                : `Photo piece ~${oldLabel} → product ~${newLabel}. We’ll keep true size and leave empty floor.`,
             cta: 'Continue',
         };
     }
@@ -845,7 +851,7 @@ export function assessSizeFit(oldWidthCm, catalogWidthCm) {
  * Shopper tapped a width that matches the PRODUCT, not the piece in the photo.
  * That makes the model treat old≈new and stretch into the real (larger) sofa.
  */
-export function assessChoseProductWidth(selectedCm, catalogWidthCm, kind) {
+export function assessChoseProductWidth(selectedCm, catalogWidthCm, kind, { imperial = false } = {}) {
     const selected = Number(selectedCm);
     const catalog = Number(catalogWidthCm);
     if (!Number.isFinite(selected) || selected <= 0 || !Number.isFinite(catalog) || catalog <= 0) {
@@ -854,9 +860,9 @@ export function assessChoseProductWidth(selectedCm, catalogWidthCm, kind) {
     const ratio = selected / catalog;
     if (ratio < 0.88 || ratio > 1.12) return null;
     const noun = kind === 'sofa' ? 'sofa' : 'piece';
-    const cat = Math.round(catalog);
+    const cat = formatFitLength(catalog, imperial);
     return {
         title: 'That matches this product’s listed size',
-        body: `This item is about ${cat} cm wide. Measure the ${noun} already in your photo instead — if that’s bigger (e.g. a corner sofa), type that width. Using ${cat} cm here makes the new one stretch to fill the old one.`,
+        body: `This item is about ${cat} wide. Measure the ${noun} already in your photo instead — if that’s bigger (e.g. a corner sofa), type that width. Using ${cat} here makes the new one stretch to fill the old one.`,
     };
 }

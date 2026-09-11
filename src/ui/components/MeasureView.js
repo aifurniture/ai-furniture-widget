@@ -23,6 +23,14 @@ import {
     normalizePlacementIntent,
     parseCatalogWidthCm,
 } from '../../utils/measureCue.js';
+import { widgetUsesInches } from '../theme.js';
+import {
+    chipDisplayValue,
+    cmToInches,
+    formatLength,
+    parseCustomLengthToCm,
+    selectedMatchesChip,
+} from '../../utils/widgetUnits.js';
 
 function appendRoomThumb(stage, file, overlayHtml = null, overlayClass = '') {
     if (!file) return;
@@ -41,14 +49,6 @@ function appendRoomThumb(stage, file, overlayHtml = null, overlayClass = '') {
         thumbWrap.appendChild(overlay);
     }
     stage.appendChild(thumbWrap);
-}
-
-function parseCustomCm(raw) {
-    if (raw == null || raw === '') return null;
-    const n = parseFloat(String(raw).replace(/[^\d.,]/g, '').replace(',', '.'));
-    // Allow small side tables / stools (~20cm); reject tiny/noise and huge outliers
-    if (!Number.isFinite(n) || n < 15 || n > 600) return null;
-    return Math.round(n * 10) / 10;
 }
 
 async function startGeneration({
@@ -125,6 +125,8 @@ export const MeasureView = (state) => {
     container.className = 'aif-measure-view';
 
     const config = state.config || {};
+    const imperial = widgetUsesInches(config);
+    const unit = imperial ? 'in' : 'cm';
     const productTitle = config.productTitle || document.title || '';
     const kind = inferMeasureKind(config);
     const accessory = isAccessoryMeasureKind(kind);
@@ -143,22 +145,32 @@ export const MeasureView = (state) => {
         intent: placementIntent,
         addSpec,
     });
+    if (imperial) {
+        const dim = asSurfaceHeight ? 'high' : 'wide';
+        copy.spanSelected = (cm) => `${formatLength(cm, true)} ${dim}`;
+        copy.continueWith = (cm) => (cm ? `Use ${formatLength(cm, true)}` : 'Place in my room');
+        copy.ariaGroup = String(copy.ariaGroup || '').replace(/centimetres/gi, 'inches');
+        copy.examplePlaceholder = String(copy.examplePlaceholder || '').replace(/\d+/, (n) =>
+            String(cmToInches(Number(n)) || n)
+        );
+    }
     const chips = getMeasureChips(kind, { asRoomRuler, addSpec });
     const selected = state.furnitureWidthCm;
     const selectedCount = normalizePlacementCount(state.placementCount);
     const catalogWidthCm = parseCatalogWidthCm(config);
     // Don't compare sofa-ruler / counter-height cm to catalog product width.
     const skipFitCheck = isAdd;
+    const fitOpts = { imperial };
     const fit =
         !skipFitCheck && selected != null && catalogWidthCm != null
-            ? assessSizeFit(selected, catalogWidthCm)
+            ? assessSizeFit(selected, catalogWidthCm, fitOpts)
             : null;
     const choseProductWidth =
         !skipFitCheck &&
         (!fit || fit.severity === 'ok') &&
         selected != null &&
         catalogWidthCm != null
-            ? assessChoseProductWidth(selected, catalogWidthCm, kind)
+            ? assessChoseProductWidth(selected, catalogWidthCm, kind, fitOpts)
             : null;
 
     const header = document.createElement('div');
@@ -293,18 +305,19 @@ export const MeasureView = (state) => {
 
     chips.forEach((cm) => {
         const btn = document.createElement('button');
+        const isOn = selectedMatchesChip(selected, cm, imperial);
         btn.type = 'button';
-        btn.className = `aif-measure-chip${selected === cm ? ' is-selected' : ''}`;
-        btn.textContent = `${cm}`;
-        btn.title = asSurfaceHeight ? `${cm} cm high` : `${cm} cm wide`;
-        btn.setAttribute('aria-pressed', selected === cm ? 'true' : 'false');
+        btn.className = `aif-measure-chip${isOn ? ' is-selected' : ''}`;
+        btn.textContent = chipDisplayValue(cm, imperial);
+        btn.title = asSurfaceHeight ? `${formatLength(cm, imperial)} high` : `${formatLength(cm, imperial)} wide`;
+        btn.setAttribute('aria-pressed', isOn ? 'true' : 'false');
         btn.onclick = () => actions.setFurnitureWidthCm(cm);
         chipSection.appendChild(btn);
     });
 
     const unitHint = document.createElement('span');
     unitHint.className = 'aif-measure-unit';
-    unitHint.textContent = 'cm';
+    unitHint.textContent = unit;
     chipSection.appendChild(unitHint);
 
     stage.appendChild(chipSection);
@@ -324,21 +337,21 @@ export const MeasureView = (state) => {
     customInput.id = 'aif-measure-custom-input';
     customInput.type = 'number';
     customInput.inputMode = 'decimal';
-    customInput.min = '15';
-    customInput.max = '600';
+    customInput.min = imperial ? '6' : '15';
+    customInput.max = imperial ? '240' : '600';
     customInput.step = '1';
     customInput.placeholder = copy.examplePlaceholder;
     customInput.className = 'aif-measure-custom__input';
-    if (selected != null && !chips.includes(selected)) {
-        customInput.value = String(selected);
+    if (selected != null && !chips.some((cm) => selectedMatchesChip(selected, cm, imperial))) {
+        customInput.value = imperial ? String(cmToInches(selected)) : String(selected);
     }
 
     const customSuffix = document.createElement('span');
     customSuffix.className = 'aif-measure-custom__suffix';
-    customSuffix.textContent = 'cm';
+    customSuffix.textContent = unit;
 
     const commitCustom = () => {
-        const parsed = parseCustomCm(customInput.value);
+        const parsed = parseCustomLengthToCm(customInput.value, imperial);
         actions.setFurnitureWidthCm(parsed);
     };
     customInput.addEventListener('change', commitCustom);
@@ -413,7 +426,7 @@ export const MeasureView = (state) => {
         }
         const nextFit =
             !skipFitCheck && widthCm != null && catalogWidthCm != null
-                ? assessSizeFit(widthCm, catalogWidthCm)
+                ? assessSizeFit(widthCm, catalogWidthCm, fitOpts)
                 : null;
         busy = true;
         continueBtn.disabled = true;
