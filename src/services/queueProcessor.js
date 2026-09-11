@@ -263,6 +263,14 @@ function applyCompletedResult(id, item, resultPayload, uploaded, mergedConfig) {
         generatedImageUrl
     });
 
+    if (generatedImageUrl) {
+        try {
+            sessionStorage.setItem('ai_furniture_preview_completed', 'true');
+        } catch {
+            /* ignore */
+        }
+    }
+
     const anonKey = getWidgetAnonymousClientId();
     const apiEndpoint = mergedConfig?.apiEndpoint || getApiEndpoint(mergedConfig);
     const { productUrl } = item;

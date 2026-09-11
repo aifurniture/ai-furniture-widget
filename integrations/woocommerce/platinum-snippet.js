@@ -11,7 +11,7 @@ window.AIFURNITURE_DOMAIN_ID = 'cmtrefkym0004k304apqz553m';
   function inject() {
     var s = document.createElement('script');
     s.src =
-      'https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/integrations/woocommerce/loader.js?v=2';
+      'https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/integrations/woocommerce/loader.js?v=3';
     s.async = true;
     document.head.appendChild(s);
   }

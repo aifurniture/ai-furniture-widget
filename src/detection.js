@@ -1,6 +1,6 @@
 // src/detection.js
 import { debugLog } from './debug.js';
-import { trackEvent, trackOrderCompletion, disconnectAllTracking } from './tracking.js';
+import { trackEvent, trackOrderCompletion, disconnectAllTracking, hasCompletedPreviewThisSession } from './tracking.js';
 
 const NON_PRODUCT_SHOPIFY_PAGE_TYPES = new Set([
     'index',
@@ -177,6 +177,116 @@ function hasSingleProductDetailSignals() {
         '[class*="collection"], [class*="grid"], [class*="carousel"], [class*="slider"], [class*="listing"], [class*="catalog"], ul.products, .products .product'
     );
     return !inListing;
+}
+
+export function isStoreCheckoutFlowPage() {
+    const path = (window.location.pathname || '').toLowerCase();
+    const cls = document.body?.className || '';
+    if (/\bwoocommerce-(cart|checkout|order-received)\b/.test(cls)) return true;
+    if (/(^|\/)cart(\/|$)/.test(path)) return true;
+    if (/(^|\/)checkout(\/|$)/.test(path)) return true;
+    if (/order-received/i.test(path)) return true;
+    if (/\/thank-you(\/|$)/i.test(path) || /\/order-confirmation(\/|$)/i.test(path)) return true;
+    return false;
+}
+
+export function isThankYouPage() {
+    const path = (window.location.pathname || '').toLowerCase();
+    const href = (window.location.href || '').toLowerCase();
+    const cls = document.body?.className || '';
+    if (/\bwoocommerce-order-received\b/.test(cls)) return true;
+    if (/order-received/i.test(path)) return true;
+    if (/\/thank-you(\/|$)/i.test(path) || /thank-you/.test(href)) return true;
+    if (/\/order-confirmation(\/|$)/i.test(path)) return true;
+    try {
+        if (document.querySelector('.woocommerce-thankyou-order-received, .woocommerce-order-overview')) {
+            return true;
+        }
+    } catch {
+        /* ignore */
+    }
+    return false;
+}
+
+function parseMoneyAmount(text) {
+    if (!text) return 0;
+    const m = String(text)
+        .replace(/\s/g, '')
+        .match(/(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)/);
+    if (!m) return 0;
+    const n = parseFloat(m[1].replace(/,/g, ''));
+    return Number.isFinite(n) ? n : 0;
+}
+
+function detectCurrencyFromText(text) {
+    const t = String(text || '');
+    if (/₨|Rs\.?|PKR/i.test(t)) return 'PKR';
+    if (/£|GBP/.test(t)) return 'GBP';
+    if (/€|EUR/.test(t)) return 'EUR';
+    if (/BBD/i.test(t)) return 'BBD';
+    if (/\$|USD/.test(t)) return 'USD';
+    return '';
+}
+
+function extractThankYouOrder() {
+    const path = window.location.pathname || '';
+    const pathMatch = path.match(/order-received\/([^/?#]+)/i);
+    let orderId = pathMatch ? decodeURIComponent(pathMatch[1]).replace(/\/+$/, '') : '';
+
+    const orderEl = document.querySelector(
+        '.woocommerce-order-overview__order strong, .woocommerce-order-overview__order .order, li.order strong, .order-number, [data-order-id]'
+    );
+    if (orderEl) {
+        const fromAttr = orderEl.getAttribute('data-order-id');
+        const raw = (fromAttr || orderEl.textContent || '').trim();
+        const idMatch = raw.match(/[A-Z0-9-]{1,40}/i);
+        if (idMatch) orderId = idMatch[0];
+    }
+
+    const totalEl = document.querySelector(
+        '.woocommerce-order-overview__total .woocommerce-Price-amount, .woocommerce-order-overview__total strong, .woocommerce-order-overview__total .amount, .order-total .amount'
+    );
+    const totalText = totalEl ? totalEl.textContent : '';
+    const amount = parseMoneyAmount(totalText);
+    const currency =
+        detectCurrencyFromText(totalText) ||
+        detectCurrencyFromText(document.body ? document.body.innerText.slice(0, 2000) : '') ||
+        'USD';
+
+    return { orderId: orderId || '', amount, currency };
+}
+
+export function tryTrackThankYouOrder() {
+    if (!isThankYouPage()) return false;
+    try {
+        if (!hasCompletedPreviewThisSession()) return false;
+    } catch {
+        return false;
+    }
+    const { orderId, amount, currency } = extractThankYouOrder();
+    if (!orderId) {
+        debugLog('Thank-you page found but no order id yet');
+        return false;
+    }
+
+    try {
+        const dupKey = 'ai_furniture_tracked_order_' + orderId;
+        if (sessionStorage.getItem(dupKey) === 'true') {
+            debugLog('Thank-you order already tracked', { orderId });
+            return true;
+        }
+        sessionStorage.setItem(dupKey, 'true');
+    } catch {
+        /* ignore */
+    }
+
+    trackOrderCompletion({
+        amount,
+        orderId,
+        currency,
+        productUrl: document.referrer || window.location.href
+    });
+    return true;
 }
 
 export function isFurnitureProductPage() {
@@ -364,11 +474,13 @@ export function detectCartAndOrderPages() {
             (currentUrl.includes('success') ||
                 currentUrl.includes('thank') ||
                 currentUrl.includes('confirmation') ||
-                currentUrl.includes('complete'))
+                currentUrl.includes('complete') ||
+                currentUrl.includes('order-received'))
         ) {
             debugLog(
                 'Order confirmation page detected - continuing to track until order confirmed in database'
             );
+            tryTrackThankYouOrder();
         }
     }
 
@@ -439,6 +551,10 @@ export function checkForOrderCompletion() {
 export function trackOrderConfirmationPage() {
     const currentPage = window.location.pathname + window.location.search;
     const fullUrl = window.location.href;
+
+    if (tryTrackThankYouOrder()) {
+        return true;
+    }
 
     const orderConfirmationPatterns = [
         /\/confirmation\?order=[A-Z0-9-]+/i,

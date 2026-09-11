@@ -40,6 +40,35 @@
     );
   }
 
+  function hasCompletedPreviewThisSession() {
+    try {
+      if (sessionStorage.getItem('ai_furniture_preview_completed') === 'true') return true;
+      var raw = sessionStorage.getItem('ai_furniture_widget_state');
+      if (!raw) return false;
+      var data = JSON.parse(raw);
+      var queue = (data && data.queue) || [];
+      for (var i = 0; i < queue.length; i++) {
+        var item = queue[i];
+        if (!item || item.status !== 'COMPLETED') continue;
+        if (item.result && item.result.generatedImageUrl) return true;
+      }
+    } catch (e) {
+      /* ignore */
+    }
+    return false;
+  }
+
+  function isCheckoutFlowPage() {
+    var path = (location.pathname || '').toLowerCase();
+    var body = document.body;
+    var cls = body ? body.className || '' : '';
+    if (/\bwoocommerce-(cart|checkout|order-received)\b/.test(cls)) return true;
+    if (/(^|\/)cart(\/|$)/.test(path)) return true;
+    if (/(^|\/)checkout(\/|$)/.test(path)) return true;
+    if (/order-received/i.test(path)) return true;
+    return false;
+  }
+
   function collectProductImages() {
     var urls = [];
     var seen = {};
@@ -142,6 +171,7 @@
     } catch (e) {
       /* ignore */
     }
+    if (isCheckoutFlowPage() && hasCompletedPreviewThisSession()) return true;
     return isProductPage();
   }
 
@@ -152,7 +182,7 @@
     window.__AIFurnitureWidgetLoading = true;
     window.FURNITURE_AI_CONFIG = Object.assign({}, window.FURNITURE_AI_CONFIG || {}, buildConfig());
 
-    var WIDGET_CDN_VERSION = '50';
+    var WIDGET_CDN_VERSION = '51';
     var s = document.createElement('script');
     s.src =
       'https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?v=' +

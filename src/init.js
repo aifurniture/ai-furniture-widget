@@ -2,10 +2,10 @@
 import { actions, store, QUEUE_STATUS, flushSessionSnapshot } from './state/store.js';
 import { verifyDomain } from './domainVerification.js';
 import { debugLog } from './debug.js';
-import { initSession, trackEvent, onOrderAddedToDatabase, resetWidget, disconnectAllTracking, setRecreateWidgetButton } from './tracking.js';
+import { initSession, trackEvent, onOrderAddedToDatabase, resetWidget, disconnectAllTracking, setRecreateWidgetButton, hasCompletedPreviewThisSession } from './tracking.js';
 import { createWidgetButton, removeWidgetButton, removeWidgetModal, showWidgetModalShell } from './ui/widgetButton.js';
 import { Modal } from './ui/components/Modal.js';
-import { isFurnitureProductPage, detectCartAndOrderPages, checkForOrderCompletion, trackOrderConfirmationPage } from './detection.js';
+import { isFurnitureProductPage, isStoreCheckoutFlowPage, detectCartAndOrderPages, checkForOrderCompletion, trackOrderConfirmationPage, tryTrackThankYouOrder } from './detection.js';
 import { resumeQueueAfterNavigation } from './services/queueProcessor.js';
 import { initQueueProcessor } from './services/queueProcessor.js';
 import { injectStyles } from './ui/styles.js';
@@ -79,17 +79,45 @@ function hasEngagedSession() {
 }
 
 export function isProductPageContext() {
+    if (isStoreCheckoutFlowPage()) return false;
     return isFurnitureProductPage() || hasActiveGeneration() || hasEngagedSession();
 }
 
 export function shouldShowWidgetUi() {
+    if (isStoreCheckoutFlowPage()) return false;
     return isProductPageContext();
 }
 
-/** Floating button: always on PDP; elsewhere only after they’ve used the widget. */
+/** Floating button: always on PDP; elsewhere only after they’ve used the widget. Never on cart/checkout/thank-you. */
 export function shouldShowWidgetButton() {
+    if (isStoreCheckoutFlowPage()) return false;
     if (isFurnitureProductPage()) return true;
     return hasActiveGeneration() || hasEngagedSession();
+}
+
+function runCheckoutConversionTracking() {
+    initSession();
+    removeWidgetButton();
+    removeWidgetModal();
+
+    if (!hasCompletedPreviewThisSession()) {
+        debugLog('Checkout flow — no completed preview, skipping conversion tracking');
+        return;
+    }
+
+    debugLog('Checkout flow — tracking only, widget hidden', {
+        url: window.location.href
+    });
+
+    checkForOrderCompletion();
+    detectCartAndOrderPages();
+    trackOrderConfirmationPage();
+
+    [0, 400, 1200, 2500].forEach((ms) => {
+        setTimeout(() => {
+            tryTrackThankYouOrder();
+        }, ms);
+    });
 }
 
 export function ensureWidgetUiMounted() {
@@ -170,6 +198,11 @@ function scheduleWidgetVisibilityRecheck() {
 
 export async function initializeWidget(isInitialLoad = false) {
     syncWidgetUiForPage();
+
+    if (isStoreCheckoutFlowPage()) {
+        runCheckoutConversionTracking();
+        return;
+    }
 
     if (!shouldShowWidgetUi()) {
         debugLog('Not a product page — widget runtime skipped');

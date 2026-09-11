@@ -42,6 +42,20 @@ export function setRecreateWidgetButton(fn) {
     recreateWidgetButtonFn = fn;
 }
 
+export function hasCompletedPreviewThisSession() {
+    try {
+        if (sessionStorage.getItem('ai_furniture_preview_completed') === 'true') return true;
+        const raw = sessionStorage.getItem('ai_furniture_widget_state');
+        if (!raw) return false;
+        const queue = JSON.parse(raw).queue || [];
+        return queue.some(
+            (item) => item && item.status === 'COMPLETED' && item.result?.generatedImageUrl
+        );
+    } catch {
+        return false;
+    }
+}
+
 export function generateSessionId() {
     return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
@@ -83,12 +97,15 @@ export function trackEvent(eventType, data = {}) {
         url: truncateString(window.location.href, 800)
     });
 
+    const topLevelOrderKeys = new Set(['orderId', 'orderAmount', 'currency', 'productUrl']);
     for (const [key, value] of Object.entries(data)) {
         if (value !== null && value !== undefined) {
-            params.append(
-                `data_${truncateString(key, 60)}`,
-                typeof value === 'object' ? safeJsonStringify(value, 800) : truncateString(value, 800)
-            );
+            const serialized =
+                typeof value === 'object' ? safeJsonStringify(value, 800) : truncateString(value, 800);
+            if (topLevelOrderKeys.has(key) && typeof value !== 'object') {
+                params.set(key, truncateString(value, 200));
+            }
+            params.append(`data_${truncateString(key, 60)}`, serialized);
         }
     }
 
@@ -145,9 +162,8 @@ export function trackOrderCompletion(orderData) {
     debugLog('Order completion tracked', orderData);
 
     const sessionId = getSessionId();
-    const isAIFurnitureUser = sessionStorage.getItem('ai_furniture_user') === 'true';
-    if (!isAIFurnitureUser) {
-        debugLog('Skipping order completion tracking - user has not used AI Furniture');
+    if (!hasCompletedPreviewThisSession()) {
+        debugLog('Skipping order completion tracking - no completed room preview this session');
         return;
     }
 
@@ -184,6 +200,7 @@ export function resetWidget() {
     debugLog('Resetting widget - clearing all tracking state');
 
     sessionStorage.removeItem('ai_furniture_user');
+    sessionStorage.removeItem('ai_furniture_preview_completed');
     sessionStorage.removeItem('ai_furniture_session_id');
     sessionStorage.removeItem('aifurniture_session_id');
     sessionStorage.removeItem('tracking_disconnected');
