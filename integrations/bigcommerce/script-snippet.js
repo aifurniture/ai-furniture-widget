@@ -11,8 +11,7 @@
   var h1=document.querySelector('.productView-title,.productView-product h1,h1.productTitle');
   if(h1)window.FURNITURE_AI_CONFIG.productTitle=h1.textContent.trim();
   var s=document.createElement('script');
-  var WIDGET_CDN_VERSION='31';
-  s.src='https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?v='+WIDGET_CDN_VERSION;
+  s.src='https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?t='+Math.floor(Date.now()/36e5);
   s.async=1;
   s.onload=function(){
     if(window.AIFurnitureWidget&&window.AIFurnitureWidget.initAIFurnitureWidget)window.AIFurnitureWidget.initAIFurnitureWidget(window.FURNITURE_AI_CONFIG);

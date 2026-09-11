@@ -102,6 +102,10 @@ export const styles = `
     .aif-container[data-aif-view="RESULTS"] {
       width: var(--aif-drawer-width, min(96vw, 640px));
     }
+
+    .aif-container[data-aif-view="MEASURE"] {
+      width: var(--aif-drawer-width, clamp(400px, 38vw, 560px));
+    }
     
     #ai-furniture-modal.open .aif-container {
       transform: translateX(0);
@@ -286,14 +290,25 @@ export const styles = `
     box-sizing: border-box;
   }
 
-  /* Fill the panel: one view root per screen, no outer scroll */
-  .aif-content > :first-child:not(.aif-results-view) {
+  /* Fill the panel: one view root per screen, no outer scroll.
+     Measure is exempt — many chip rows must keep natural height and scroll. */
+  .aif-content > :first-child:not(.aif-results-view):not(.aif-measure-view) {
     flex: 1 1 0;
     min-height: 0;
     min-width: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
+  }
+
+  .aif-content > .aif-measure-view {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
   .aif-content > .aif-results-view {
@@ -1693,37 +1708,42 @@ export const styles = `
       padding: 20px 14px;
     }
 
-    /* Measure / analyse: fit one screen — no outer scroll */
-    .aif-measure-view,
+    /* Measure: keep natural chip height and scroll the panel — do not crush options */
     .aif-analyze-view,
     .aif-upload-view {
       overflow: hidden;
     }
 
-    .aif-measure-stage {
-      overflow: auto;
+    .aif-measure-view {
+      overflow-x: hidden;
+      overflow-y: auto;
       gap: 10px;
     }
 
+    .aif-measure-stage {
+      overflow: visible;
+      gap: 8px;
+    }
+
     .aif-measure-thumb {
-      max-height: 110px;
+      max-height: 96px;
       aspect-ratio: 16 / 9;
       flex-shrink: 0;
     }
 
     .aif-measure-chips {
-      gap: 6px;
+      gap: 8px;
     }
 
     .aif-measure-chip {
-      padding: 8px 10px;
+      padding: 8px 12px;
       font-size: 13px;
       min-height: 40px;
     }
 
     .aif-measure-chip--intent {
-      min-height: 52px;
-      padding: 8px 9px;
+      min-height: 44px;
+      padding: 8px 6px;
     }
 
     .aif-measure-choice__label {
@@ -1905,29 +1925,40 @@ export const styles = `
     gap: 12px;
     height: 100%;
     min-height: 0;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
     animation: aif-fade-in 0.35s ease;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .aif-measure-view .aif-header {
+    flex-shrink: 0;
+    padding-top: 0;
+  }
+
+  .aif-measure-view .aif-header h2 {
+    font-size: 20px;
   }
 
   .aif-measure-stage {
-    flex: 1;
+    flex: 0 0 auto;
     min-height: 0;
-    overflow: auto;
+    overflow: visible;
     display: flex;
     flex-direction: column;
     gap: 12px;
     padding-bottom: 4px;
-    -webkit-overflow-scrolling: touch;
   }
 
   .aif-measure-thumb {
     position: relative;
+    flex-shrink: 0;
     border-radius: var(--aif-radius-sm);
     overflow: hidden;
     background: #efe8dc;
     border: 1px solid var(--aif-border);
     aspect-ratio: 16 / 10;
-    max-height: 160px;
+    max-height: 128px;
   }
 
   .aif-measure-thumb img {
@@ -2015,27 +2046,29 @@ export const styles = `
     flex-wrap: wrap;
     gap: 8px;
     align-items: center;
+    flex-shrink: 0;
   }
 
   .aif-measure-chips--intent {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
     align-items: stretch;
+    width: 100%;
   }
 
   .aif-measure-chip--intent {
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
     gap: 2px;
     border-radius: 14px;
-    padding: 10px 11px;
-    min-height: 58px;
+    padding: 10px 8px;
+    min-height: 48px;
     font-size: 13px;
     line-height: 1.2;
-    text-align: left;
+    text-align: center;
     white-space: normal;
     max-width: none;
     width: 100%;
@@ -2045,13 +2078,24 @@ export const styles = `
     font-weight: 700;
     font-size: 13px;
     letter-spacing: -0.01em;
+    width: 100%;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .aif-measure-choice__meta {
     font-weight: 500;
-    font-size: 12px;
-    line-height: 1.3;
+    font-size: 11px;
+    line-height: 1.25;
     color: #4a4038;
+    width: 100%;
+    text-align: center;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .aif-measure-chip--intent.is-selected .aif-measure-choice__meta {
@@ -2063,7 +2107,13 @@ export const styles = `
     color: var(--aif-text-main);
   }
 
-  .aif-measure-chip {
+  .aif-container .aif-measure-chip {
+    box-sizing: border-box;
+    width: auto !important;
+    max-width: 100%;
+    height: auto !important;
+    min-height: 40px;
+    margin: 0;
     border: 1px solid var(--aif-border);
     background: var(--aif-bg-elevated);
     color: var(--aif-text-main);
@@ -2072,8 +2122,19 @@ export const styles = `
     font-size: 14px;
     font-weight: 600;
     font-family: var(--aif-font);
+    line-height: 1.2;
     cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    white-space: nowrap;
+    flex: 0 0 auto;
     transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.15s ease;
+  }
+
+  .aif-container .aif-measure-chip--intent {
+    width: 100% !important;
+    white-space: normal;
+    flex: none;
   }
 
   .aif-measure-chip:hover {
@@ -2208,12 +2269,17 @@ export const styles = `
   }
 
   .aif-measure-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
     margin-top: auto;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     gap: 6px;
-    padding-top: 4px;
+    padding-top: 10px;
+    padding-bottom: 2px;
+    background: linear-gradient(180deg, rgba(250, 248, 245, 0) 0%, var(--aif-bg-panel) 12px, var(--aif-bg-panel) 100%);
   }
 
   .aif-model-picker {
@@ -2236,11 +2302,15 @@ export const styles = `
     gap: 8px;
   }
 
-  .aif-model-picker__option {
+  .aif-container .aif-model-picker__option {
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 3px;
+    width: 100% !important;
+    height: auto !important;
+    margin: 0;
     border: 1px solid var(--aif-border);
     background: var(--aif-bg-elevated);
     color: var(--aif-text-main);
@@ -2248,8 +2318,11 @@ export const styles = `
     padding: 10px 12px;
     min-height: 52px;
     font-family: var(--aif-font);
+    line-height: 1.2;
     cursor: pointer;
     text-align: left;
+    -webkit-appearance: none;
+    appearance: none;
     transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.15s ease;
   }
 

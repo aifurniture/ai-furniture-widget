@@ -5,7 +5,7 @@
  * Code Snippets plugin / wp_footer hook):
  *
  *   <script
- *     src="https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/integrations/woocommerce/loader.js?v=1&domainId=YOUR_DOMAIN_ID"
+ *     src="https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/integrations/woocommerce/loader.js?domainId=YOUR_DOMAIN_ID"
  *     async
  *   ></script>
  *
@@ -182,11 +182,12 @@
     window.__AIFurnitureWidgetLoading = true;
     window.FURNITURE_AI_CONFIG = Object.assign({}, window.FURNITURE_AI_CONFIG || {}, buildConfig());
 
-    var WIDGET_CDN_VERSION = '52';
     var s = document.createElement('script');
+    // Hourly query busts the browser cache only. jsDelivr ignores it and
+    // serves @main — purge the CDN after pushing a new dist/widget.js.
     s.src =
-      'https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?v=' +
-      WIDGET_CDN_VERSION;
+      'https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?t=' +
+      Math.floor(Date.now() / 36e5);
     s.async = true;
     s.onload = function () {
       window.__AIFurnitureWidgetLoading = false;

@@ -8,7 +8,13 @@
  *   node scripts/purge-jsdelivr.mjs embed.js dist/widget.js
  */
 
-const DEFAULT_PATHS = ['embed.js', 'dist/widget.js', 'loader.js'];
+const DEFAULT_PATHS = [
+    'embed.js',
+    'dist/widget.js',
+    'loader.js',
+    'integrations/woocommerce/loader.js',
+    'integrations/bigcommerce/loader.js',
+];
 const REPO = 'aifurniture/ai-furniture-widget';
 const BRANCH = 'main';
 

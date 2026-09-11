@@ -12,10 +12,12 @@
 
   window.FURNITURE_AI_CONFIG = { domain: domain, domainId: domainId };
 
-  var WIDGET_CDN_VERSION = '31';
-  var WIDGET_SRC =
-    'https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?v=' +
-    WIDGET_CDN_VERSION;
+  function widgetSrc() {
+    return (
+      'https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/dist/widget.js?t=' +
+      Math.floor(Date.now() / 36e5)
+    );
+  }
 
   var NON_PRODUCT_SHOPIFY_TYPES = {
     index: 1,
@@ -153,7 +155,7 @@
     window.__AIFurnitureWidgetLoading = true;
 
     var script = document.createElement('script');
-    script.src = WIDGET_SRC;
+    script.src = widgetSrc();
     script.async = true;
     script.onload = function () {
       window.__AIFurnitureWidgetLoading = false;
