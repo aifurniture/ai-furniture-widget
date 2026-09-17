@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tower Art Deco Bed Frame — SleepStyle demo</title>
+  <meta property="og:type" content="product" />
+  <meta property="og:title" content="Tower Art Deco Bed Frame" />
+  <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"Product","name":"Tower Art Deco Bed Frame","brand":"SleepStyle"}
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #1c2430;
+      --navy: #243044;
+      --paper: #f4efe6;
+      --card: #fffdf8;
+      --line: #d9d0c3;
+      --mustard: #c4a15a;
+      --muted: #6d6458;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--paper); color: var(--ink); }
+    body {
+      font-family: Outfit, ui-sans-serif, sans-serif;
+      min-height: 100vh;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 32px;
+      border-bottom: 1px solid var(--line);
+      background: #fffdf8cc;
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+    .brand {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 28px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+    .topbar nav { color: var(--muted); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+    .demo-flag {
+      background: var(--navy);
+      color: #f4efe6;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 6px 10px;
+    }
+    .page {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 36px 24px 120px;
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 48px;
+    }
+    .gallery img {
+      width: 100%;
+      display: block;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+    .thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+    .thumbs img { width: 100%; height: 78px; object-fit: cover; cursor: pointer; border: 1px solid transparent; }
+    .thumbs img.is-on { border-color: var(--navy); }
+    h1 {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: clamp(36px, 5vw, 52px);
+      font-weight: 600;
+      line-height: 0.95;
+      margin: 0 0 8px;
+    }
+    .sub { color: var(--muted); font-size: 14px; margin-bottom: 18px; }
+    .price { display: flex; align-items: baseline; gap: 12px; margin-bottom: 22px; }
+    .price b { font-size: 28px; }
+    .price s { color: #9a9084; }
+    .opt-label { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; margin: 18px 0 8px; color: var(--muted); }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip, .block-swatch {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 9px 12px;
+      font: inherit;
+      cursor: pointer;
+      color: var(--ink);
+    }
+    .chip.is-on, .block-swatch.is-on { border-color: var(--navy); background: var(--navy); color: #fffdf8; }
+    .mw-option { margin-top: 18px; }
+    .mw-text--style-strong {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .swatch-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .mw-option__value {
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 6px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .mw-option__value img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+    .mws_option-name { font-size: 11px; margin-top: 6px; line-height: 1.25; color: var(--muted); }
+    .mw-option__value--selected {
+      outline: 2px solid var(--navy);
+      outline-offset: 1px;
+    }
+    .cart {
+      margin-top: 22px;
+      width: 100%;
+      background: var(--navy);
+      color: #f4efe6;
+      border: 0;
+      padding: 16px;
+      font: inherit;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    .note { font-size: 13px; color: var(--muted); line-height: 1.5; margin-top: 16px; }
+    .capture {
+      margin-top: 28px;
+      padding: 18px;
+      background: var(--navy);
+      color: #f4efe6;
+    }
+    .capture h2 {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 22px;
+      margin: 0 0 8px;
+      font-weight: 600;
+    }
+    .capture p { margin: 0 0 10px; font-size: 13px; opacity: 0.85; }
+    .capture .picked { font-size: 16px; font-weight: 600; }
+    .capture img { width: 84px; height: 84px; object-fit: cover; border: 1px solid #5a6578; margin: 8px 8px 0 0; }
+    .capture.empty { opacity: 0.7; }
+    @media (max-width: 860px) {
+      .page { grid-template-columns: 1fr; padding-bottom: 160px; }
+      .swatch-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">SleepStyle</div>
+    <nav>Beds · Swatches · Demo</nav>
+    <span class="demo-flag">Local fabric demo</span>
+  </header>
+
+  <main class="page">
+    <section class="gallery">
+      <img id="hero" alt="Tower Art Deco Bed Frame" src="https://cdn.shopify.com/s/files/1/0083/4974/5231/files/eZy_Watermark_02-06-2025_02-33-08-3820pm.png?v=1748871370" />
+      <div class="thumbs" id="thumbs"></div>
+    </section>
+
+    <section class="buy" data-product-handle="tower-art-deco-upholstered-bed-frame">
+      <p class="sub">Handmade in the UK · Made to order</p>
+      <h1>Tower Art Deco Bed Frame</h1>
+      <div class="price"><b>£349.99</b> <s>£649.99</s></div>
+      <p class="note">Gallery photos stay the same for every fabric — same as the live site. Colour is chosen with the swatches below.</p>
+
+      <div class="opt-label">Size</div>
+      <div class="chips" id="sizes"></div>
+
+      <div class="opt-label">Add storage</div>
+      <div class="chips" id="storage"></div>
+
+      <div class="mw-option">
+        <div class="mw-text mw-text--style-strong">Select Fabric Choice</div>
+        <p class="note" style="margin-top:0">Premium Velvet</p>
+      </div>
+
+      <div class="mw-option" id="main-fabric">
+        <div class="mw-text mw-text--style-strong">Premium Velvet</div>
+        <div class="swatch-grid" id="main-swatches"></div>
+      </div>
+
+      <div class="mw-option">
+        <div class="mw-text mw-text--style-strong">Select Piping Fabric</div>
+        <p class="note" style="margin-top:0">Optional contrast trim around the headboard.</p>
+      </div>
+
+      <div class="mw-option" id="piping-fabric">
+        <div class="mw-text mw-text--style-strong">Premium Velvet</div>
+        <div class="swatch-grid" id="piping-swatches"></div>
+      </div>
+
+      <button class="cart" type="button">Add to cart</button>
+
+      <aside class="capture empty" id="capture">
+        <h2>What View in room sends</h2>
+        <p>Pick a fabric, then the widget reads this selection — not the gallery colour.</p>
+        <div class="picked" id="capture-label">No fabric selected yet</div>
+        <div id="capture-imgs"></div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const IMG = (hash) =>
+      `https://apo-admin.mageworx.com/front/img/sleepstyle-kbx.myshopify.com/${hash}`;
+
+    const FABRICS = [
+      { id: 'v_2950967', title: 'Argent Silver', hash: 'd9c43705eda94823b065c33a8393bf9abb7a3d0b30ef66cff6fe6058a78756c9' },
+      { id: 'v_2950968', title: 'Blush Pink', hash: 'baa6f5dd54fe44e4feb222c601238f715beef116470f7f79676d2cf86c62766c' },
+      { id: 'v_2950969', title: 'Burnt Orange', hash: '863280cb4bfc58aa37d038d29c23d560660c7621d1a0ededa3ff7c0f4b1f2c69' },
+      { id: 'v_2950970', title: 'Colbalt Blue', hash: '928a44588cfc08ea428f4d45b83931f995e474494805d74da51033987c6243b5' },
+      { id: 'v_2950973', title: 'Forrest Green', hash: 'e01af2026f6bc9c2b4a32bd7e189d2f8e9ad41e69f9e6810638b7a533cae11b2' },
+      { id: 'v_2950977', title: 'Mustard', hash: '500988b7cbab3be314a3eb05e2b323744fb80f750b1a9e0695bac1eebce83478' },
+      { id: 'v_2950975', title: 'Premium Ivory', hash: 'd714924274e30b572e4665fd3e7f1b5991c39140938de1927c35bdbad4ee3754' },
+      { id: 'v_2950979', title: 'Raven Black', hash: 'dfcd95f1556f41c175cb178f87ab0ad509dd73674a4b8ef85e8baccb85225262' }
+    ];
+
+    const GALLERY = [
+      'https://cdn.shopify.com/s/files/1/0083/4974/5231/files/eZy_Watermark_02-06-2025_02-33-08-3820pm.png?v=1748871370',
+      'https://cdn.shopify.com/s/files/1/0083/4974/5231/products/C69CC763-12FA-4F06-BDF5-E05C0704079B.jpeg?v=1748871370',
+      'https://cdn.shopify.com/s/files/1/0083/4974/5231/products/741F70A3-722B-43D8-8521-98B51787117A.jpg?v=1748871370',
+      'https://cdn.shopify.com/s/files/1/0083/4974/5231/products/4D9AC1B2-5E42-432A-8392-088BE7612E82.png?v=1748871370'
+    ];
+
+    const values = {};
+    FABRICS.forEach((f, i) => {
+      const url = IMG(f.hash);
+      values[f.id] = { value: { id: f.id, title: f.title, images: [{ url }] } };
+      const pid = 'v_piping_' + i;
+      values[pid] = { value: { id: pid, title: f.title, images: [{ url }] } };
+    });
+    window.mwApoInit = { response: { values } };
+
+    const hero = document.getElementById('hero');
+    const thumbs = document.getElementById('thumbs');
+    GALLERY.forEach((src, i) => {
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = 'Product photo ' + (i + 1);
+      if (i === 0) img.classList.add('is-on');
+      img.onclick = () => {
+        hero.src = src;
+        thumbs.querySelectorAll('img').forEach((el) => el.classList.toggle('is-on', el === img));
+      };
+      thumbs.appendChild(img);
+    });
+
+    function chips(rootId, items, initial) {
+      const root = document.getElementById(rootId);
+      items.forEach((label) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'chip' + (label === initial ? ' is-on' : '');
+        b.textContent = label;
+        b.onclick = () => {
+          root.querySelectorAll('.chip').forEach((el) => el.classList.toggle('is-on', el === b));
+        };
+        root.appendChild(b);
+      });
+    }
+    chips('sizes', ['3FT Single', '4FT Small Double', '4FT6 Double', '5FT Kingsize', '6FT Superking'], '3FT Single');
+    chips('storage', ['Storage Not Required', 'Ottoman Divan Storage Base'], 'Storage Not Required');
+
+    function renderSwatches(rootId, idPrefix, isPiping) {
+      const root = document.getElementById(rootId);
+      FABRICS.forEach((f, i) => {
+        const id = isPiping ? 'v_piping_' + i : f.id;
+        const el = document.createElement('div');
+        el.className = 'mw-option__value';
+        el.setAttribute('data-value-id', id);
+        el.innerHTML = `<img alt="${f.title}" src="${IMG(f.hash)}"><div class="mws_option-name">${f.title}</div>`;
+        el.onclick = () => {
+          root.querySelectorAll('.mw-option__value').forEach((n) => n.classList.remove('mw-option__value--selected'));
+          el.classList.add('mw-option__value--selected');
+          if (window.refreshCapture) window.refreshCapture();
+        };
+        root.appendChild(el);
+      });
+    }
+    renderSwatches('main-swatches', 'v_', false);
+    renderSwatches('piping-swatches', 'v_piping_', true);
+
+    window.refreshCapture = function refreshCapture() {
+      const box = document.getElementById('capture');
+      const label = document.getElementById('capture-label');
+      const imgs = document.getElementById('capture-imgs');
+      const read = window.AIFurniture && window.AIFurniture.readSleepStyleFabric;
+      const data = read ? read() : null;
+      imgs.innerHTML = '';
+      if (!data) {
+        box.classList.add('empty');
+        label.textContent = 'No fabric selected yet';
+        return;
+      }
+      box.classList.remove('empty');
+      label.textContent = data.color;
+      data.images.forEach((img) => {
+        const el = document.createElement('img');
+        el.src = img.url;
+        el.alt = img.role;
+        el.title = img.role;
+        imgs.appendChild(el);
+      });
+    };
+
+    const cobalt = document.querySelector('#main-swatches .mw-option__value[data-value-id="v_2950970"]');
+    if (cobalt) {
+      cobalt.classList.add('mw-option__value--selected');
+    }
+  </script>
+
+  <script>
+    try {
+      sessionStorage.removeItem('ai_furniture_widget_state');
+    } catch (e) { /* ignore */ }
+
+    // Auth against the live API as SleepStyle (page can stay on localhost).
+    window.FURNITURE_AI_CONFIG = {
+      domain: 'sleepstyle.co.uk',
+      domainId: 'cmtudqy5k0005dghdci85d9sl',
+      useLocalBackend: false,
+      position: 'bottom-right',
+      shopifyStore: true,
+      productTitle: 'Tower Art Deco Bed Frame',
+      productUrl: 'https://sleepstyle.co.uk/products/tower-art-deco-upholstered-bed-frame',
+      productImages: [
+        'https://cdn.shopify.com/s/files/1/0083/4974/5231/files/eZy_Watermark_02-06-2025_02-33-08-3820pm.png?v=1748871370',
+        'https://cdn.shopify.com/s/files/1/0083/4974/5231/products/C69CC763-12FA-4F06-BDF5-E05C0704079B.jpeg?v=1748871370'
+      ]
+    };
+  </script>
+  <script src="../../../dist/widget.js?v=sleepstyle-live-2"></script>
+  <script>
+    (function boot() {
+      const w = window.AIFurnitureWidget;
+      if (w && w.initAIFurnitureWidget) {
+        w.initAIFurnitureWidget(window.FURNITURE_AI_CONFIG);
+        setTimeout(function () {
+          if (window.refreshCapture) window.refreshCapture();
+        }, 400);
+        return;
+      }
+      setTimeout(boot, 50);
+    })();
+  </script>
+</body>
+</html>
