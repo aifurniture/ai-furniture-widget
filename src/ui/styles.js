@@ -498,6 +498,7 @@ export const styles = `
     flex: 1 1 0;
     min-height: 0;
     padding: 28px 18px;
+    justify-content: flex-start;
   }
 
   .aif-upload-view .aif-upload-stage {
@@ -602,12 +603,14 @@ export const styles = `
     flex-direction: column;
     gap: 10px;
     width: 100%;
-    margin-top: 20px;
+    margin-top: auto;
+    flex-shrink: 0;
     position: relative;
     z-index: 2;
   }
 
   .aif-upload-cta {
+    position: relative;
     width: 100%;
     padding: 16px 20px;
     border: none;
@@ -625,6 +628,20 @@ export const styles = `
     min-height: 52px;
     box-sizing: border-box;
     transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  }
+
+  /* Keep file inputs tappable on Samsung Internet — display:none + label is ignored. */
+  .aif-upload-file {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+    font-size: 0;
+    z-index: 3;
   }
 
   .aif-upload-cta--primary {
@@ -1709,9 +1726,15 @@ export const styles = `
     }
 
     /* Measure: keep natural chip height and scroll the panel — do not crush options */
-    .aif-analyze-view,
     .aif-upload-view {
-      overflow: hidden;
+      overflow-x: hidden;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .aif-content > .aif-upload-view {
+      overflow-x: hidden;
+      overflow-y: auto;
     }
 
     .aif-measure-view {
@@ -1768,6 +1791,23 @@ export const styles = `
 
     .aif-upload-view .aif-dropzone {
       padding: 18px 12px;
+      gap: 10px;
+    }
+
+    .aif-upload-view .aif-header p,
+    .aif-upload-view .aif-dropzone-icon,
+    .aif-upload-view .aif-dropzone-note {
+      display: none;
+    }
+
+    .aif-upload-view .aif-dropzone-title {
+      margin: 0 0 4px;
+    }
+
+    .aif-upload-cta {
+      min-height: 48px;
+      padding: 12px 14px;
+      font-size: 14px;
     }
 
     .aif-upload-view .aif-upload-stage img {
@@ -1796,6 +1836,17 @@ export const styles = `
 
     .aif-upload-privacy {
       display: none;
+    }
+
+    .aif-upload-view .aif-header p,
+    .aif-upload-view .aif-dropzone-icon,
+    .aif-upload-view .aif-dropzone-note {
+      display: none;
+    }
+
+    .aif-upload-view .aif-dropzone {
+      padding: 12px 10px;
+      gap: 8px;
     }
   }
 

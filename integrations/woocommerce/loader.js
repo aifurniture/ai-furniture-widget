@@ -5,7 +5,7 @@
  * Code Snippets plugin / wp_footer hook):
  *
  *   <script
- *     src="https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/integrations/woocommerce/loader.js?domainId=YOUR_DOMAIN_ID"
+ *     src="https://cdn.jsdelivr.net/gh/aifurniture/ai-furniture-widget@main/integrations/woocommerce/loader.js?v=2&domainId=YOUR_DOMAIN_ID"
  *     async
  *   ></script>
  *

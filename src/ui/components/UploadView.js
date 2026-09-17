@@ -7,6 +7,10 @@ import { createModelPicker } from './ModelPicker.js';
 import { trackEvent } from '../../tracking.js';
 import { compressRoomImage } from '../../utils/compressRoomImage.js';
 
+function isMobileViewport() {
+    return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
+}
+
 async function handleRoomPhotoSelected(file, source) {
     const compressed = await compressRoomImage(file);
     actions.setUploadedImage(compressed);
@@ -25,12 +29,43 @@ async function handleRoomPhotoSelected(file, source) {
         originalSize: file.size
     });
 
-    // Fluid next step: scale cue before generation
     trackEvent('measure_step_opened', { productUrl, source });
     actions.goToMeasure();
 }
 
+function createPhotoCta({ capture, source, className, label, ariaLabel }) {
+    const wrap = document.createElement('label');
+    wrap.className = className;
+    wrap.setAttribute('aria-label', ariaLabel || label);
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.className = 'aif-upload-file';
+    input.setAttribute('tabindex', '-1');
+    if (capture) input.setAttribute('capture', 'environment');
+    input.onchange = async (e) => {
+        const file = e.target.files && e.target.files[0];
+        e.target.value = '';
+        if (!file) return;
+        try {
+            await handleRoomPhotoSelected(file, source);
+        } catch (err) {
+            console.error('Failed to process image:', err);
+            actions.setError(err.message || 'Could not process image');
+        }
+    };
+
+    const text = document.createElement('span');
+    text.textContent = label;
+
+    wrap.appendChild(input);
+    wrap.appendChild(text);
+    return wrap;
+}
+
 export const UploadView = (state) => {
+    const mobile = isMobileViewport();
     const container = document.createElement('div');
     container.className = 'aif-upload-view';
     container.style.display = 'flex';
@@ -49,7 +84,7 @@ export const UploadView = (state) => {
   `;
     container.appendChild(header);
 
-    container.appendChild(createModelPicker(state.selectedModel));
+    container.appendChild(createModelPicker(state.selectedModel, { compact: mobile }));
 
     if (state.error) {
         const errorBox = document.createElement('div');
@@ -58,6 +93,7 @@ export const UploadView = (state) => {
         errorBox.style.color = '#b91c1c';
         errorBox.style.borderRadius = '8px';
         errorBox.style.fontSize = '13px';
+        errorBox.style.flexShrink = '0';
         errorBox.textContent = state.error;
         container.appendChild(errorBox);
     }
@@ -112,72 +148,38 @@ export const UploadView = (state) => {
         title.textContent = 'Add a room photo';
         dropzoneContainer.appendChild(title);
 
-        const isMobile =
-            /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.innerWidth <= 768;
-
         const note = document.createElement('p');
         note.className = 'aif-dropzone-note';
-        note.textContent = isMobile
+        note.textContent = mobile
             ? 'Tip: a fresh camera photo usually beats an old gallery shot (lighting + sharpness).'
             : 'Natural light and a straight-on angle work best.';
         dropzoneContainer.appendChild(note);
 
-        const fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.accept = 'image/*';
-        fileInput.id = 'aif-file-input-' + Date.now();
-        fileInput.style.display = 'none';
-        fileInput.onchange = async (e) => {
-            if (e.target.files[0]) {
-                try {
-                    await handleRoomPhotoSelected(e.target.files[0], 'gallery');
-                } catch (err) {
-                    console.error('Failed to process image:', err);
-                    actions.setError(err.message || 'Could not process image');
-                }
-            }
-        };
-
-        const cameraInput = document.createElement('input');
-        cameraInput.type = 'file';
-        cameraInput.accept = 'image/*';
-        cameraInput.setAttribute('capture', 'environment');
-        cameraInput.id = 'aif-camera-input-' + Date.now();
-        cameraInput.style.display = 'none';
-        cameraInput.onchange = async (e) => {
-            if (e.target.files[0]) {
-                try {
-                    await handleRoomPhotoSelected(e.target.files[0], 'camera');
-                } catch (err) {
-                    console.error('Failed to process image:', err);
-                    actions.setError(err.message || 'Could not process image');
-                }
-            }
-        };
-
         const buttonContainer = document.createElement('div');
         buttonContainer.className = 'aif-upload-actions';
 
-        if (isMobile) {
-            const cameraLabel = document.createElement('label');
-            cameraLabel.htmlFor = cameraInput.id;
-            cameraLabel.className = 'aif-upload-cta aif-upload-cta--primary';
-            cameraLabel.innerHTML = '<span aria-hidden="true">📷</span><span>Take a photo</span>';
-            buttonContainer.appendChild(cameraLabel);
+        if (mobile) {
+            buttonContainer.appendChild(
+                createPhotoCta({
+                    capture: true,
+                    source: 'camera',
+                    className: 'aif-upload-cta aif-upload-cta--primary',
+                    label: 'Take a photo',
+                })
+            );
         }
 
-        const uploadLabel = document.createElement('label');
-        uploadLabel.htmlFor = fileInput.id;
-        uploadLabel.className = isMobile
-            ? 'aif-upload-cta aif-upload-cta--secondary'
-            : 'aif-upload-cta aif-upload-cta--primary';
-        uploadLabel.innerHTML = isMobile
-            ? '<span aria-hidden="true">🖼️</span><span>Choose from gallery</span>'
-            : '<span aria-hidden="true">🖼️</span><span>Choose a photo</span>';
-        buttonContainer.appendChild(uploadLabel);
+        buttonContainer.appendChild(
+            createPhotoCta({
+                capture: false,
+                source: 'gallery',
+                className: mobile
+                    ? 'aif-upload-cta aif-upload-cta--secondary'
+                    : 'aif-upload-cta aif-upload-cta--primary',
+                label: mobile ? 'Choose from gallery' : 'Choose a photo',
+            })
+        );
 
-        dropzoneContainer.appendChild(fileInput);
-        dropzoneContainer.appendChild(cameraInput);
         dropzoneContainer.appendChild(buttonContainer);
         uploadArea.appendChild(dropzoneContainer);
     }
@@ -185,28 +187,28 @@ export const UploadView = (state) => {
     container.appendChild(uploadArea);
 
     const footer = document.createElement('div');
+    footer.className = 'aif-upload-footer';
     footer.style.marginTop = 'auto';
 
-    const continueBtn = Button({
-        text: 'Continue',
-        disabled: !state.uploadedImage,
-        onClick: () => {
-            if (!state.uploadedImage) return;
-            trackEvent('measure_step_opened', {
-                productUrl: store.getState().config?.productUrl || window.location.href,
-            });
-            actions.goToMeasure();
-        },
-    });
+    if (state.uploadedImage) {
+        const continueBtn = Button({
+            text: 'Continue',
+            onClick: () => {
+                trackEvent('measure_step_opened', {
+                    productUrl: store.getState().config?.productUrl || window.location.href,
+                });
+                actions.goToMeasure();
+            },
+        });
+        footer.appendChild(continueBtn);
+    }
 
-    footer.appendChild(continueBtn);
-
-    const note = document.createElement('p');
-    note.className = 'aif-upload-privacy';
-    note.textContent = state.uploadedImage
+    const privacy = document.createElement('p');
+    privacy.className = 'aif-upload-privacy';
+    privacy.textContent = state.uploadedImage
         ? 'Next: a quick size check so placement matches your room.'
         : 'Your photo is only used to generate this preview.';
-    footer.appendChild(note);
+    footer.appendChild(privacy);
 
     container.appendChild(footer);
 
